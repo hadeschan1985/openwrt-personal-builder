@@ -23,7 +23,7 @@
 
 ### 尚未完成 / 下一步
 
-- 两个远端仓库已创建并接入；Pages 未发布，真实 Actions 构建未运行，固件与硬件启动均未验证。
+- 两个远端仓库已创建并接入，Pages 已发布，首次真实 x86/64 Actions 构建成功；固件尚未进行开机或硬件验证。
 - Kwrt 专属 feed/builder、电视盒/内核/DTB/EMMC、7Z、包内 IPK/APK 安装尚未接入，界面和构建器明确标识限制。
 - 采用公开网页仓库 openwrt-personal-builder，以及私有构建仓库 openwrt-personal-builds；不需要用户再次创建仓库。
 
@@ -52,3 +52,18 @@
 - 当前自动测试：11 项 JavaScript、15 项 Python 通过，三个工作流 actionlint 通过。
 - 内部浏览器复查：无密码热点被阻止，启用密码引用后通过；文件包路径可清除，未删除任何仓库文件。
 - 接下来上传源码并实际运行 Pages 与默认 x86/64 构建；完成前不标记已上线或构建成功。
+
+### 首次部署与构建实测
+
+- 两个仓库完整源码上传成功，树 SHA 8052daadc7e3b6587da87bdd38d8ab976da655ac 与本地提交内容完全一致。
+- 两个仓库的代码/配置检查均在 GitHub 成功执行；私有仓库的 Pages 工作流按规则跳过。
+- 首次网页发布因仓库尚未启用 Pages 而失败。通过内部浏览器将 Source 设置为 GitHub Actions 后，重跑成功；未变更付费套餐或自定义域名。
+- 网页地址：https://hadeschan1985.github.io/openwrt-personal-builder/ 。部署记录：https://github.com/hadeschan1985/openwrt-personal-builder/actions/runs/40127485218 （attempt 2 成功）。
+- 线上检查：设备/软件索引载入，DDNS 点选与导出、无令牌手动构建入口、Wi-Fi 安全提示均通过；浏览器无 error/warn。
+- 首次真实构建：https://github.com/hadeschan1985/openwrt-personal-builds/actions/runs/40127788108 ，成功，用时 3m 15s。
+- 产物 firmware-1（25,017,842 bytes），GitHub archive SHA256 d827458bc4a5b90871ce56a981d6265f900924cdf246d835459d48f8ff51fb7c；已下载并核对一致。
+- 离线检查通过：包内所有 SHA256、产物大小、所需包清单、Gzip 完整性与磁盘分区边界；EFI 为 GPT、Legacy 为 MBR，两个映像的根分区均为要求的 256 MiB。没有挂载、启动或刷写映像。
+- 扩展输出测试成功：https://github.com/hadeschan1985/openwrt-personal-builds/actions/runs/40128376512 。生成两种 Ext4 磁盘、两份 streamOptimized VMDK、ROOTFS TAR.GZ、清单、日志与 SHA256。
+- firmware-2（63,690,007 bytes）SHA256 f5f1dceeeae5a4b6e9352c5d7e63c06c0f3a8f850371cbe98721b5e3d697dd75；下载后核对一致，所有包内校验值、所需包清单、Gzip 完整性与 512 MiB 根分区均通过。
+- 从实际 ROOTFS 内只读检查初始化脚本：可执行标记、旁路由网关、关闭 DHCP、关闭 LAN RA、openwrt-2020 主题路径和自定义 Shell 均按测试配置嵌入。未执行脚本，尚未验证启动后实际网络行为或 ESXi 兼容性。
+- 本地最终检查为 11 项 JavaScript、18 项 Python 测试通过；新增离线产物校验工具 scripts/verify_artifact.py，生成校验记录供复查。

@@ -127,7 +127,7 @@ async function selectDevice(device,config=null){
     $('official-images').replaceChildren();
     for(const image of images){const row=node('div',undefined,'download-item');const link=node('a',`${image.type} · ${image.filesystem} · ${(image.size/1048576).toFixed(1)} MiB ↗`);link.href=`https://downloads.openwrt.org/releases/${device.version}/targets/${device.target}/${encodeURIComponent(image.name)}`;link.target='_blank';link.rel='noreferrer';row.append(link,node('code',`SHA256 ${image.sha256}`));$('official-images').append(row);}
     renderPackages();applyForm(state.config);update();
-    notice(data.package_metadata_errors.length?'设备资料已载入，但部分包索引不可用；请刷新后再构建。':'官方资料已载入。构建与下载尚未连接 GitHub 仓库，当前可以配置、保存和导出。',data.package_metadata_errors.length?'warning':'');
+    notice(data.package_metadata_errors.length?'设备资料已载入，但部分包索引不可用；请刷新后再构建。':state.git?`官方资料已载入。已连接构建仓库 ${state.git.repo}。`:'官方资料已载入。可导出配置，在 GitHub 手动构建；连接仓库授权后也可直接提交。',data.package_metadata_errors.length?'warning':'');
   }catch(error){notice(`设备资料载入失败：${error.message}。可重新选择或刷新。`,'error');}
 }
 function showDevices(){
