@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "builder": "official",
+  "version": "25.12.6",
+  "target": "x86/64",
+  "profile": "generic",
+  "packages": ["luci-app-ddns", "luci-app-upnp"],
+  "remove_packages": [],
+  "themes": ["luci-theme-bootstrap"],
+  "proxies": [],
+  "firewall": "nftables",
+  "system": {"hostname": "OpenWrt", "ip": "192.168.1.1", "webserver": "uhttpd", "https": true, "ipv6": true, "signature": "", "default_theme": "bootstrap", "password_secret": false},
+  "network": {"mode": "router", "gateway": "", "dhcp": true, "wan_port": "", "lan_ports": "", "wifi_ssid": "", "pppoe_secret": false, "wifi_password_secret": false},
+  "features": {"docker": false, "usb_net": false, "usb_wireless": false, "wwan": false},
+  "output": {"filesystem": "squashfs", "rootfs_size_mb": 256, "efi": true, "legacy": true, "vmdk": false, "rootfs": false},
+  "defaults": "",
+  "overlay": ""
+}

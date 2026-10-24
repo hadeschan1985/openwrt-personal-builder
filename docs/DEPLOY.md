@@ -1,0 +1,56 @@
+# GitHub 接入与部署
+
+本项目的本地代码目录为 E:\OpenWrt-Personal-Builder。不需要切换聊天或再安装 Codex。
+
+## 推荐的两个仓库
+
+1. `hadeschan1985/openwrt-personal-builder`：公开网页与源码。仅发布 site/，不包含自己的文件包、密码或固件。
+2. `hadeschan1985/openwrt-personal-builds`：私有构建仓库。放同一套构建脚本和 configs/，运行 build.yml，保存私人文件包与产物。
+
+上述两个仓库已于 2026-10-25 创建。双仓库方式适用于 GitHub Free：公开 Pages 展示无敏感内容的界面，私有 Actions 保存自己的构建内容。私有仓库的 Actions 有套餐配额；不是无限免费。
+
+GitHub 连接已识别用户。2026-10-25 经用户确认，已通过 GPT 内部浏览器安装 ChatGPT Codex Connector，仅授权这两个仓库。连接现可读取私有仓库；首次写入、Pages 发布与真实构建进度见 WORKLOG.md。不要在聊天中发送密码或访问令牌。
+
+## 发布网页
+
+将本项目推送至网页仓库 main 分支。进入 Settings → Pages，将 Source 设为 GitHub Actions，运行 `Deploy configuration workbench`。
+
+工作流会同步官方设备目录和 x86/64 包索引，再发布 site/。默认 github.io 域名即可，不需要另买域名。
+
+## 构建仓库
+
+将代码推送至私有构建仓库 main 分支。
+
+在 Settings → Secrets and variables → Actions 中按需设置：
+
+- `ROUTER_PASSWORD`：路由器 root 密码。
+- `PPPOE_USERNAME`、`PPPOE_PASSWORD`：拨号账号及密码。
+- `WIFI_PASSWORD`：Wi-Fi 密码。
+
+这些 Secrets 不是 GitHub 账号密码。页面通过开关引用；不会读出其值。需要相应 Secret 时，缺失会导致构建明确失败。
+
+填写 Wi-Fi SSID 时必须同时启用 WIFI_PASSWORD；本项目不生成无密码的开放热点。固件本身会包含首次启动所需的私人配置，不能因为使用 Secrets 就将产物公开分享。
+
+第一次可直接在 Actions 选择 `Build personal firmware` → Run workflow。config_json 留空，使用 configs/x86-default.json。
+
+以后在网页配置并导出 JSON，粘贴到 config_json 即可运行。无需向网页提供访问令牌，也无需运行服务器。
+
+## 网页一键提交（可选）
+
+如需网页直接提交，使用只授权构建仓库的 GitHub fine-grained token：Actions 读写；上传文件包另需 Contents 读写。令牌由你在网页当前会话输入，不保存、不进入导出文件或 URL。关闭或刷新后需重新输入。
+
+ChatGPT 已连接 GitHub 不代表 Pages 网页自动获得该连接。不要把 ChatGPT 连接凭据、GitHub token 或任何私人配置写进公开 Pages 文件。
+
+## 自定义文件包
+
+目前支持普通文件的 ZIP/TAR.GZ/TGZ 覆盖，最大压缩体积 12 MiB、解包体积 128 MiB，文件按固件根目录布局。网页直接提交模式仅上传到私有构建仓库 overlays/。
+
+无令牌模式：自己通过 GitHub 上传文件包至私有仓库 overlays/，在网页填写对应路径后导出配置。
+
+7Z、压缩包内 IPK/APK 自动安装、Kwrt 专属包、电视盒内核/DTB 打包尚未接入。界面会标明不可用，构建端拒绝未配置能力；不以成功状态掩盖缺失功能。
+
+## 验证范围
+
+本地完成配置逻辑、API 请求和文件路径边界测试。Windows 本地不执行 Linux ImageBuilder；真实构建需要仓库接通后的首次 Actions 运行。
+
+构建通过不代表硬件启动验证通过。请先在虚拟机验证 x86 EFI/Legacy、LuCI、网络和包清单，再用于实机。

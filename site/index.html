@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="个人 OpenWrt 固件定制工作台，使用 GitHub Pages 与 Actions，无会员。">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' https://api.github.com https://downloads.openwrt.org https://sysupgrade.openwrt.org; style-src 'self'; script-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'self'">
+  <title>Personal Builder · 固件定制工作台</title>
+  <link rel="stylesheet" href="styles.css">
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <a class="skip" href="#main">跳到主要内容</a>
+  <aside class="sidebar">
+    <a class="brand" href="#"><span class="brand-mark">pb</span><span>Personal<br><strong>Builder</strong></span></a>
+    <div class="nav-label">你的固件工作台</div>
+    <nav aria-label="配置导航"><a href="#device" class="active">01 <span>选择设备</span></a><a href="#packages">02 <span>软件与插件</span></a><a href="#system">03 <span>系统与网络</span></a><a href="#output">04 <span>映像与文件</span></a><a href="#history">05 <span>构建记录</span></a></nav>
+    <div class="sidebar-foot"><span class="status-dot"></span> Pages + Actions<p>为自己构建。<br>不需要会员，也不需要 VPS。</p><a href="https://github.com/openwrt/openwrt" target="_blank" rel="noreferrer">基于 OpenWrt ↗</a></div>
+  </aside>
+  <div class="shell">
+    <header class="topbar"><span>工作台 <span class="separator">/</span> 新建固件</span><button class="button subtle" id="connect-button"><span class="status-dot" id="connection-dot"></span><span id="connection-label">连接 GitHub</span></button></header>
+    <main id="main">
+      <div class="heading-row"><div><div class="eyebrow">YOUR DEVICE. YOUR FIRMWARE.</div><h1>让固件，刚好适合你。</h1><p class="lede">选择设备，装入需要的软件。其余交给 GitHub Actions。</p></div><span class="pill">个人版 · 无会员限制</span></div>
+      <div id="notice" class="notice" role="status">正在载入官方设备目录…</div>
+      <div class="workspace">
+        <form id="builder-form" class="configuration" novalidate>
+          <section class="card" id="device">
+            <div class="section-head"><span class="step">01</span><div><h2>选择你的设备</h2><p>使用官方设备资料，按目标平台匹配构建环境。</p></div><span class="counter" id="device-count">— 台设备</span></div>
+            <div class="device-fields"><div class="field search-field"><label for="device-search">设备名称或型号</label><input id="device-search" type="search" placeholder="搜索，例如 x86、NanoPi、Redmi…" autocomplete="off" role="combobox" aria-controls="device-results" aria-expanded="false"><div id="device-results" class="search-results" role="listbox" hidden></div></div><div class="field"><label for="version">固件版本</label><select id="version" required><option>正在载入…</option></select></div></div>
+            <div class="device-tile"><span class="device-icon" aria-hidden="true">▦</span><div><h3 id="device-name">载入设备中</h3><p id="device-platform">从上方搜索选择一个设备</p></div><span class="pill green" id="builder-label">官方 ImageBuilder</span></div>
+            <div class="facts"><div><span>目标平台</span><strong id="target-label">—</strong></div><div><span>软件包架构</span><strong id="arch-label">—</strong></div><div><span>内核</span><strong id="kernel-label">—</strong></div></div>
+            <details class="downloads"><summary>查看官方预编译映像与 SHA256 <span>↗</span></summary><div id="official-images"></div></details>
+          </section>
+
+          <section class="card" id="packages">
+            <div class="section-head"><span class="step">02</span><div><h2>软件与插件</h2><p>只选择当前版本和架构的软件源里实际存在的包。</p></div></div>
+            <details class="subsection"><summary>出厂软件包 <span id="factory-count">—</span></summary><p class="help">选中表示移除。基础联网、系统和驱动包请谨慎精简。</p><div id="factory-packages" class="chips"></div></details>
+            <div class="subsection"><div class="label-row"><h3>常用软件</h3><span class="muted">点选添加，再次点击移除</span></div><div id="common-packages"></div></div>
+            <div class="field"><div class="label-row"><label for="custom-packages">自订软件包</label><span class="muted" id="package-count">正在载入索引</span></div><textarea id="custom-packages" rows="3" placeholder="输入包名，使用空格分隔，例如 luci-app-ddns curl"></textarea><div class="autocomplete-row"><input id="package-search" type="search" placeholder="搜索可用软件包…" aria-label="搜索可用软件包" autocomplete="off"><div id="package-results" class="chips compact"></div></div></div>
+            <div class="subsection"><div class="field"><label for="firewall">防火墙</label><select id="firewall"><option value="nftables">Firewall4 / nftables（推荐）</option><option value="iptables">Firewall / iptables</option></select></div><h3 class="spaced">代理插件</h3><p class="help">原站同名选项保留为功能清单；未在当前源中找到的插件不可选，后续可接入相容的 Kwrt 构建环境。</p><div id="proxy-packages" class="chips"></div></div>
+          </section>
+
+          <section class="card" id="system">
+            <div class="section-head"><span class="step">03</span><div><h2>系统与网络</h2><p>配置将写入固件，在设备首次启动时应用。</p></div></div>
+            <div class="grid2"><div class="field"><label for="ip">后台 IPv4 地址</label><input id="ip" value="192.168.1.1" required placeholder="192.168.1.253/24"></div><div class="field"><label for="hostname">主机名</label><input id="hostname" value="OpenWrt" required maxlength="63"></div></div>
+            <label class="switch-row"><input type="checkbox" id="password-secret"><span><strong>设置后台密码</strong><small>使用私有构建仓库的 ROUTER_PASSWORD Secret，不写入网页。</small></span></label>
+            <div class="subsection"><h3>主题</h3><div id="theme-packages" class="chips"></div><div class="grid2 spaced"><div class="field"><label for="default-theme">默认主题</label><select id="default-theme"><option value="bootstrap">bootstrap</option></select></div><div class="field"><label for="theme-mode">默认主题模式</label><select id="theme-mode" disabled><option>自动（其他模式需 Kwrt 环境）</option></select></div></div></div>
+            <div class="grid2"><div class="field"><label for="webserver">Web 服务器</label><select id="webserver"><option value="uhttpd">Uhttpd</option><option value="nginx">Nginx</option><option value="lighttpd">Lighttpd</option></select></div><div class="field"><label for="signature">自订签名</label><input id="signature" placeholder="添加到启动横幅" maxlength="120"></div></div>
+            <div class="toggle-grid" id="feature-options"></div>
+            <div class="grid2 spaced"><label class="check"><input id="https" type="checkbox" checked> 使用 HTTPS 访问后台</label><label class="check"><input id="ipv6" type="checkbox" checked> 启用 IPv6</label></div>
+            <details class="subsection" open><summary>网络模式与网口</summary><div class="grid2 spaced"><div class="field"><label for="network-mode">网络模式</label><select id="network-mode"><option value="router">主路由</option><option value="side">旁路由</option></select></div><div class="field" id="gateway-field" hidden><label for="gateway">主路由 IPv4 网关</label><input id="gateway" placeholder="192.168.1.1"></div></div><label class="check"><input id="dhcp" type="checkbox" checked> 开启 DHCP 服务器</label><p class="help" id="dhcp-help">主路由模式下通常开启 DHCP。</p><div class="grid2 spaced"><div class="field"><label for="wan-port">WAN 网口（仅 x86）</label><select id="wan-port"><option value="">保持设备默认</option><option value="eth0">eth0</option><option value="eth1">eth1</option><option value="eth2">eth2</option><option value="eth3">eth3</option></select></div><div class="field"><label for="lan-ports">LAN 网口（仅 x86）</label><input id="lan-ports" placeholder="保持默认，或 eth1 eth2"></div></div><div class="grid2"><label class="check"><input id="pppoe-secret" type="checkbox"> PPPoE（使用仓库 Secrets）</label><label class="check"><input id="wifi-secret" type="checkbox"> Wi-Fi 密码（WIFI_PASSWORD）</label></div><div class="field spaced"><label for="wifi-ssid">Wi-Fi SSID（有无线硬件时应用）</label><input id="wifi-ssid" maxlength="32" placeholder="留空保持默认"></div></details>
+          </section>
+
+          <section class="card" id="output">
+            <div class="section-head"><span class="step">04</span><div><h2>映像与自定义文件</h2><p>根据设备支持的格式输出固件与校验值。</p></div></div>
+            <div class="grid2"><div class="field"><label for="filesystem">文件系统</label><select id="filesystem"><option value="squashfs">SquashFS</option><option value="ext4">Ext4</option></select></div><div class="field"><label for="rootfs-size">根分区容量 / MB（仅 x86）</label><input id="rootfs-size" type="number" min="64" max="6144" step="1" value="256"></div></div>
+            <div class="toggle-grid"><label class="check"><input id="efi" type="checkbox" checked> EFI 镜像</label><label class="check"><input id="legacy" type="checkbox" checked> Legacy 镜像</label><label class="check"><input id="vmdk" type="checkbox"> VMDK / ESXi</label><label class="check"><input id="rootfs" type="checkbox"> ROOTFS.TAR.GZ</label></div>
+            <p class="help">根分区用于系统和软件，升级后的数据保留行为依设备与升级方式而定。电视盒、任意内核切换和 EMMC 专用打包尚未接入。</p>
+            <details class="subsection"><summary>初始化 Shell</summary><p class="help">脚本嵌入 /etc/uci-defaults，仅在路由器首次启动时执行。需使用私有构建仓库。</p><label class="sr-only" for="defaults">初始化 Shell</label><textarea id="defaults" class="code" rows="7" placeholder="# 可选：首次开机执行的脚本"></textarea></details>
+            <div class="subsection"><h3>自订文件包</h3><p class="help">ZIP / TAR.GZ / TGZ，最大 12 MiB，普通文件按根目录结构覆盖。7Z 与包内 IPK/APK 安装暂未接入。</p><label class="upload" for="overlay-file"><span>＋</span><strong id="upload-label">选择文件包</strong><small>仅在你启动构建时上传至私有仓库</small><input id="overlay-file" type="file" accept=".zip,.tar.gz,.tgz"></label><button id="clear-overlay" class="button subtle" type="button">清除文件包选择</button><div class="field spaced"><label for="overlay-path">或使用仓库内已有文件包</label><input id="overlay-path" placeholder="overlays/my-files.zip"></div></div>
+          </section>
+
+          <section class="card" id="history"><div class="section-head"><span class="step">05</span><div><h2>构建记录</h2><p>读取 GitHub Actions 的真实状态、日志与产物。</p></div><button id="refresh-runs" type="button" class="button subtle">刷新 ↻</button></div><div id="run-list" class="empty">连接构建仓库后，查看你的构建记录。这里不会显示演示任务。</div></section>
+        </form>
+
+        <aside class="summary-column"><section class="card build-summary"><div class="eyebrow">BUILD SUMMARY</div><h2>本次构建</h2><div class="summary-device" id="summary-device">Generic x86/64</div><dl><div><dt>固件版本</dt><dd id="summary-version">—</dd></div><div><dt>添加软件</dt><dd id="summary-packages">0 个</dd></div><div><dt>移除出厂包</dt><dd id="summary-removed">0 个</dd></div><div><dt>输出格式</dt><dd id="summary-output">—</dd></div></dl><div class="validation" id="validation" role="status">正在准备配置…</div><button id="build-button" class="button primary full" type="button">构建新固件 <span>↗</span></button><button id="preview-button" class="button secondary full" type="button">查看 / 导出配置</button><p class="fine">构建在 GitHub 上执行，可关闭页面。生成成功后仍需验证设备启动与网络。</p></section><section class="card presets"><h3>我的配置模板</h3><label class="sr-only" for="preset-name">模板名称</label><input id="preset-name" placeholder="例如：家用旁路由" maxlength="60"><button id="save-preset" class="button secondary full" type="button">保存当前模板</button><label class="sr-only" for="preset-list">已保存模板</label><select id="preset-list"><option value="">选择已保存模板…</option></select><label class="import-label" for="import-config">导入 JSON 配置 <input id="import-config" type="file" accept=".json,application/json"></label><label class="check small"><input id="autofill" type="checkbox" checked> 下次自动填写</label></section><p class="side-note">源代码与构建脚本归你管理。<br>没有作者会员，也没有插件数量付费墙。</p></aside>
+      </div>
+      <footer><span>Personal Builder · 基于 OpenWrt 开源能力</span><span id="metadata-date">设备资料载入中</span></footer>
+    </main>
+  </div>
+  <dialog id="connect-dialog"><form method="dialog"><div class="dialog-head"><h2>连接你的构建仓库</h2><button value="cancel" class="icon-button" aria-label="关闭">×</button></div><p class="help">ChatGPT 的 GitHub 连接不会自动传给网页。可使用临时授权令牌直接操作，也可不填令牌，导出配置后在 GitHub 手动运行。</p><div class="field"><label for="repository">构建仓库</label><input id="repository" placeholder="hadeschan1985/openwrt-personal-builds" autocomplete="off"></div><div class="field"><label for="branch">分支</label><input id="branch" value="main"></div><div class="field"><label for="github-token">GitHub 访问令牌（可选）</label><input id="github-token" type="password" placeholder="仅保存在当前页面内存中" autocomplete="off"></div><p class="fine">直接构建需要 Actions 读写权限；上传文件另需 Contents 读写权限。令牌不进入模板、配置文件、网址或浏览器储存。</p><div id="connect-error" class="error" role="alert"></div><button class="button primary full" id="confirm-connect" type="button">连接仓库</button></form></dialog>
+  <dialog id="config-dialog" class="wide-dialog"><form method="dialog"><div class="dialog-head"><h2>构建配置</h2><button value="cancel" class="icon-button" aria-label="关闭">×</button></div><p class="help">密码通过仓库 Secrets 引用，不包含在下方 JSON。自定义脚本和文件路径可能包含私人内容。</p><label class="sr-only" for="config-json">构建配置 JSON</label><textarea id="config-json" class="code" rows="18" readonly></textarea><div class="dialog-actions"><button id="copy-config" class="button secondary" type="button">复制 JSON</button><button id="download-config" class="button primary" type="button">下载配置文件</button><a id="manual-run" class="button secondary" target="_blank" rel="noreferrer">打开 GitHub 手动构建 ↗</a></div><p class="fine">在 Run workflow 中，将 JSON 粘贴到 config_json；留空时使用 configs/x86-default.json。</p></form></dialog>
+  <div id="toast" class="toast" role="status" hidden></div>
+</body>
+</html>
