@@ -1,5 +1,5 @@
-import {COMMON,CORE,PROXIES,THEMES,defaultConfig,tokenize,validate,privateContent,safePreset} from './lib/model.js';
-import {GitHub,repositoryName} from './lib/github.js';
+import {COMMON,CORE,PROXIES,THEMES,defaultConfig,tokenize,validate,privateContent,safePreset} from './lib/model.js?v=20261025-3';
+import {GitHub,repositoryName} from './lib/github.js?v=20261025-3';
 
 const $=id=>document.getElementById(id);
 const state={catalog:null,device:null,target:null,available:new Set(),config:defaultConfig(),git:null,file:null,loadId:0,loading:false,metadataReady:false,busy:false};
