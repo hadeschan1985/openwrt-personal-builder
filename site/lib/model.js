@@ -34,11 +34,13 @@ export function defaultConfig(version='25.12.6',target='x86/64',profile='generic
 }
 export function tokenize(value) { return [...new Set(value.trim().split(/\s+/).filter(Boolean))]; }
 export function privateContent(c) { return Boolean(c.overlay||c.defaults||c.system.password_secret||c.network.pppoe_secret||c.network.wifi_password_secret); }
-export function validate(c,available=null) {
+export function validate(c,available=null,versions=null) {
   const errors=[];
   if(c?.schema_version!==1) return ['配置版本不受支持。'];
   if(!['official','kwrt'].includes(c.builder)) errors.push('构建环境无效。');
-  if(c.builder==='kwrt'?(c.version!=='kwrt-25.12-20261012'||c.target!=='x86/64'):!/^\d{2}\.\d{2}\.\d+(?:-rc\d+)?$/.test(c.version||'')) errors.push('请选择已校验的固定构建版本。');
+  const pinnedKwrt=/^kwrt-25\.12-\d{8}(?:-[a-f0-9]{8})?$/.test(c.version||'')&&(versions||['kwrt-25.12-20261012']).includes(c.version);
+  if(c.builder==='kwrt'?(!pinnedKwrt||c.target!=='x86/64'):!/^\d{2}\.\d{2}\.\d+(?:-rc\d+)?$/.test(c.version||'')) errors.push('请选择已校验的固定构建版本。');
+  if(versions&&!versions.includes(c.version))errors.push('此版本尚未通过上游更新校验。');
   if(!/^[a-z0-9_-]+\/[a-z0-9_-]+$/.test(c.target||'')||!/^[A-Za-z0-9_,.+-]+$/.test(c.profile||'')) errors.push('请选择有效设备。');
   for(const key of ['packages','remove_packages','themes','proxies']) {
     if(!Array.isArray(c[key])||c[key].length>512||c[key].some(x=>typeof x!=='string'||!PACKAGE_PATTERN.test(x))) errors.push(`${key} 中有非法包名或数量超过限制。`);

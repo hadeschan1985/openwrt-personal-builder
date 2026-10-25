@@ -1,0 +1,118 @@
+name: Automatically follow tested upstream
+on:
+  schedule:
+    # 04:23 Asia/Singapore (UTC+8); GitHub schedules may be delayed.
+    - cron: '23 20 * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['configs/upstream-trigger.txt']
+permissions:
+  contents: read
+concurrency:
+  group: upstream-${{ github.repository }}
+  cancel-in-progress: false
+jobs:
+  detect:
+    if: github.event.repository.private
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      changed: ${{ steps.detect.outputs.changed }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - id: detect
+        name: Detect final releases, builder checksums and package indexes
+        run: python -m scripts.upstream detect
+      - if: steps.detect.outputs.changed == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: upstream-candidate
+          path: work/upstream/candidate.json
+          retention-days: 7
+  validate:
+    needs: detect
+    if: needs.detect.outputs.changed == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        source: [official, kwrt]
+    env:
+      REPOSITORY_PRIVATE: 'true'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0
+        with:
+          name: upstream-candidate
+          path: work/upstream
+      - name: Run code regression before testing upstream
+        run: node --test tests/*.test.mjs
+      - name: Install build and isolated VM tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends build-essential libncurses-dev libssl-dev \
+            zlib1g-dev gawk gettext unzip zip file rsync wget curl zstd qemu-utils qemu-system-x86 ovmf openssh-client 7zip
+      - run: python -m unittest discover -s tests -p 'test_*.py'
+      - name: Prepare candidate with ephemeral QA credentials (no user secrets)
+        run: python -m scripts.upstream prepare --source "$QA_SOURCE"
+        env:
+          QA_SOURCE: ${{ matrix.source }}
+      - name: Build disposable candidate firmware
+        run: python scripts/build.py --config configs/qa-generated.json
+        env:
+          CONFIG_JSON: ''
+      - name: Boot EFI, Legacy, VMDK and authenticate to LuCI
+        run: python -m scripts.smoke run
+      - name: Recheck rolling upstream and attest complete tests
+        run: python -m scripts.upstream attest --source "$QA_SOURCE"
+        env:
+          QA_SOURCE: ${{ matrix.source }}
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: upstream-passed-${{ matrix.source }}
+          path: work/upstream/reports/*.json
+          if-no-files-found: error
+          retention-days: 7
+      - name: Keep diagnostics only, never firmware, keys or passwords
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: upstream-failure-${{ matrix.source }}
+          path: |
+            work/qa/boot-report.json
+            work/qa/serial-*.log
+            work/qa/guest-*.log
+            outputs/build.log
+          retention-days: 3
+  approve:
+    needs: [detect, validate]
+    if: needs.detect.outputs.changed == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    # Only this fresh job can write. It never executes upstream binaries.
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0
+        with:
+          name: upstream-candidate
+          path: work/upstream
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0
+        with:
+          pattern: upstream-passed-*
+          path: work/upstream/reports
+          merge-multiple: true
+      - name: Atomically approve registry and web metadata, preserve other files
+        run: python -m scripts.upstream publish
+        env:
+          GH_TOKEN: ${{ github.token }}

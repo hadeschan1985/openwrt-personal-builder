@@ -1,13 +1,15 @@
-import {COMMON,CORE,NFT_ONLY,PROXIES,THEMES,defaultConfig,tokenize,validate,privateContent,safePreset} from './lib/model.js?v=20261026-1';
-import {GitHub,repositoryName} from './lib/github.js?v=20261026-1';
-import {SOFTWARE_PROFILES,applySoftwareProfile,softwareAdvice} from './lib/software.js?v=20261026-1';
-import {runStatus,stepStatus,active,latestBuildResults,requestRun,stageName,failureHelp,artifactInfo,verifyDownload} from './lib/progress.js?v=20261026-1';
+import {COMMON,CORE,NFT_ONLY,PROXIES,THEMES,defaultConfig,tokenize,validate,privateContent,safePreset} from './lib/model.js?v=20261026-2';
+import {GitHub,repositoryName} from './lib/github.js?v=20261026-2';
+import {SOFTWARE_PROFILES,applySoftwareProfile,softwareAdvice} from './lib/software.js?v=20261026-2';
+import {runStatus,stepStatus,active,latestBuildResults,requestRun,stageName,failureHelp,artifactInfo,verifyDownload} from './lib/progress.js?v=20261026-2';
+import {mergeApproved} from './lib/upstream.js?v=20261026-2';
 
 const $=id=>document.getElementById(id);
 const state={catalog:null,device:null,target:null,available:new Set(),config:defaultConfig(),git:null,file:null,loadId:0,loading:false,metadataReady:false,busy:false,pending:null,runs:[],expanded:null,details:new Map(),refreshing:false,resultsLoaded:false,result:null,runError:''};
 const targetCache=new Map();
 const verifiedFiles=new Map();
 let toastTimer,pollTimer;
+let upstreamBusy=false,upstreamAt=0,approvedFingerprint='';
 function toast(message){$('toast').textContent=message;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,4500);}
 function notice(message,kind=''){const n=$('notice');n.textContent=message;n.className='notice '+kind;}
 async function json(url){const r=await fetch(url);if(!r.ok)throw new Error(`资料读取失败（${r.status}）`);return r.json();}
@@ -44,7 +46,7 @@ function persist(){
 function update(){
   if(!state.device)return;
   state.config=readForm();
-  const c=state.config,errors=validate(c,state.available);
+  const c=state.config,errors=validate(c,state.available,state.catalog?.versions);
   $('summary-device').textContent=state.device.name;$('summary-version').textContent=c.version;
   $('summary-packages').textContent=`${new Set([...c.packages,...c.themes,...c.proxies]).size} 个`;
   $('summary-removed').textContent=`${c.remove_packages.length} 个`;
@@ -272,7 +274,39 @@ async function refreshRuns(manual=true){
     const opened=runs.find(run=>run.id===state.expanded);if(opened)await loadRunDetails(opened);
     if(git!==state.git)return;renderRuns();pendingPanel();buildAvailability();$('poll-status').textContent=`自动更新中 · 最近更新 ${new Date().toLocaleTimeString()}（切换到后台时暂停）`;
   }catch(error){if(git===state.git){state.runError=error.message;$('poll-status').textContent=`刷新失败：${error.message} 原记录保留；不会自动重提交构建。`;}}
-  finally{state.refreshing=false;$('refresh-runs').disabled=false;renderLatestResults();schedulePoll();}
+  finally{state.refreshing=false;$('refresh-runs').disabled=false;renderLatestResults();schedulePoll();if(Date.now()-upstreamAt>300000)refreshUpstream();}
+}
+async function refreshUpstream(){
+  const git=state.git;if(!git||upstreamBusy||!state.catalog)return;
+  upstreamBusy=true;upstreamAt=Date.now();$('refresh-upstream').disabled=true;
+  const body=$('upstream-body');
+  try{
+    const [data,runs]=await Promise.allSettled([git.approvedUpstream(),git.upstreamRuns()]);
+    if(git!==state.git)return;
+    const parts=[];
+    if(runs.status==='fulfilled'){
+      const run=runs.value.workflow_runs?.[0];
+      if(run){parts.push(node('p',`最近检查：${new Date(run.updated_at).toLocaleString()} · ${runStatus(run)}`));
+        if(['failure','timed_out','cancelled'].includes(run.conclusion))parts.push(node('p','本次检查或测试未通过，不会提升新版本；已批准的版本保持不变。','error'));}
+    }else if(runs.reason.status!==404)parts.push(node('p',`检查状态读取失败：${runs.reason.message}`,'error'));
+    if(data.status==='fulfilled'){
+      const approved=data.value,merged=mergeApproved(state.catalog,approved);
+      if(approvedFingerprint!==approved.fingerprint){
+        // Preserve the entire current form, selected file and current metadata.
+        // New package metadata applies only when the user chooses a version.
+        const selected=val('version');state.catalog=merged.catalog;
+        for(const [key,value]of merged.targets)targetCache.set(key,value);
+        $('version').replaceChildren(...state.catalog.versions.map(v=>new Option(state.catalog.version_labels?.[v]||`OpenWrt ${v}`,v)));$('version').value=selected;
+        approvedFingerprint=approved.fingerprint;
+      }
+      parts.push(node('p',`已批准：${new Date(approved.approved_at).toLocaleString()} · ${approved.sources.map(s=>s.version).join(' / ')}`));
+      parts.push(node('p','两种来源均已通过 EFI、Legacy、VMDK 启动与 LuCI 登录测试。新版本已加入固件版本列表；当前配置没有改动。','help'));
+    }else if(data.reason.status===404)parts.push(node('p','自动跟进已接入，尚无通过本流程的版本；首次校验完成后会自动加入版本列表。','help'));
+    else parts.push(node('p',`更新资料读取失败：${data.reason.message} 已加载的版本仍保留。`,'error'));
+    parts.push(externalLink('查看上游检查与测试记录 ↗',`https://github.com/${git.repo}/actions/workflows/upstream.yml`));
+    body.replaceChildren(...parts);
+  }catch(error){body.replaceChildren(node('p',error.message,'error'));}
+  finally{upstreamBusy=false;$('refresh-upstream').disabled=false;}
 }
 async function connect(){
   $('connect-error').textContent='';$('confirm-connect').disabled=true;
@@ -280,14 +314,14 @@ async function connect(){
     // Store only the repository and branch. GitHub credentials remain in RAM.
     localStorage.setItem('pb-repository',git.repo);localStorage.setItem('pb-branch',git.ref);
     $('connection-label').textContent=`${git.repo.split('/')[1]} · ${data.private?'私有':'公开'}`;
-    $('connection-dot').classList.add('connected');$('connect-dialog').close();toast('仓库已连接。令牌仅保存在本页内存中。');notice(`已连接${data.private?'私有':'公开'}构建仓库 ${git.repo}。`);await refreshRuns();
+    $('connection-dot').classList.add('connected');$('connect-dialog').close();toast('仓库已连接。令牌仅保存在本页内存中。');notice(`已连接${data.private?'私有':'公开'}构建仓库 ${git.repo}。`);await Promise.all([refreshRuns(),refreshUpstream()]);
     $('history-link').href=`https://github.com/${git.repo}/actions/workflows/build.yml`;
   }catch(error){$('connect-error').textContent=error.message;}finally{$('confirm-connect').disabled=false;}
 }
 async function startBuild(){
   if(state.pending&&state.pending.repo===state.git?.repo){toast('上次请求仍在登记或执行，请先查看构建记录。');return;}
   if(state.loading||!state.metadataReady){toast('请等设备资料载入完成后再构建。');return;}
-  state.config=readForm();const errors=validate(state.config,state.available);if(errors.length){update();toast(errors[0]);return;}
+  state.config=readForm();const errors=validate(state.config,state.available,state.catalog?.versions);if(errors.length){update();toast(errors[0]);return;}
   if(!state.git?.token){showConfig();toast('可导出配置并手动运行，或连接仓库授权后直接构建。');return;}
   if((privateContent(state.config)||state.file)&&!state.git.private){toast('初始化脚本、密码引用和文件包须使用私有构建仓库。');return;}
   const config=structuredClone(state.config),file=state.file,git=state.git;
@@ -297,7 +331,7 @@ async function startBuild(){
   }catch(error){if(error.status>=400&&error.status<500){state.pending=null;savePending();pendingPanel();}notice(error.message,'error');schedulePoll();}finally{state.busy=false;buildAvailability();button.replaceChildren(document.createTextNode('构建新固件 '),node('span','↗'));}
 }
 async function restore(config){
-  const clean=safePreset(config),errors=validate(clean);if(errors.length)throw new Error(errors[0]);
+  const clean=safePreset(config),errors=validate(clean,null,state.catalog?.versions);if(errors.length)throw new Error(errors[0]);
   const device=state.catalog.devices.find(d=>d.version===clean.version&&d.target===clean.target&&d.id===clean.profile);if(!device)throw new Error('此配置的版本/设备不在当前目录中。');
   if(!await selectDevice(device,clean))throw new Error('此设备资料未载入，配置尚未导入。');
 }
@@ -316,6 +350,7 @@ async function init(){
   $('preview-button').addEventListener('click',showConfig);$('build-button').addEventListener('click',startBuild);
   $('connect-button').addEventListener('click',()=>$('connect-dialog').showModal());$('confirm-connect').addEventListener('click',connect);
   $('refresh-runs').addEventListener('click',()=>refreshRuns());
+  $('refresh-upstream').addEventListener('click',()=>state.git?refreshUpstream():$('connect-dialog').showModal());
   $('refresh-results').addEventListener('click',()=>state.git?refreshRuns():$('connect-dialog').showModal());
   document.addEventListener('visibilitychange',()=>{clearTimeout(pollTimer);if(!document.hidden&&state.git)refreshRuns(false);});
   $('release-pending').addEventListener('click',()=>{state.pending=null;savePending();pendingPanel();buildAvailability();toast('已解除本页等待。不会取消 GitHub 任务，重新提交前请确认没有重复任务。');});

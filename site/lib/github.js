@@ -25,6 +25,16 @@ export class GitHub {
     await this.request('/actions/workflows/build.yml/dispatches',{method:'POST',body:JSON.stringify({ref:this.ref,inputs:{config_json:serialized,request_id:requestId}})});
   }
   runs(){return this.request('/actions/workflows/build.yml/runs?per_page=12');}
+  upstreamRuns(){return this.request('/actions/workflows/upstream.yml/runs?per_page=1');}
+  async approvedUpstream(){
+    let file=await this.request(`/contents/updates/approved.json?ref=${encodeURIComponent(this.ref)}`);
+    if(!Number.isInteger(file.size)||file.size<1||file.size>4*1024*1024)throw new Error('上游版本资料大小无效。');
+    // Large Contents responses omit base64. Stay on the same GitHub API host;
+    // never follow a download_url with the session credential.
+    if(file.encoding==='none'&&/^[a-f0-9]{40}$/.test(file.sha))file=await this.request(`/git/blobs/${file.sha}`);
+    if(file.encoding!=='base64'||typeof file.content!=='string'||file.content.length>6*1024*1024)throw new Error('上游版本资料格式无效。');
+    return JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(Uint8Array.from(atob(file.content.replace(/\s/g,'')),c=>c.charCodeAt(0))));
+  }
   artifacts(runId){if(!/^\d+$/.test(String(runId)))throw new Error('任务 ID 无效');return this.request(`/actions/runs/${runId}/artifacts`);}
   jobs(runId){if(!/^\d+$/.test(String(runId)))throw new Error('任务 ID 无效');return this.request(`/actions/runs/${runId}/jobs?per_page=100`);}
   async upload(file) {

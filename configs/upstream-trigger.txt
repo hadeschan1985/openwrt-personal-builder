@@ -1,0 +1,1 @@
+2026-10-26: initialize upstream approval; use consistent metadata request headers.

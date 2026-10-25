@@ -5,6 +5,7 @@ import argparse
 import concurrent.futures
 import datetime as dt
 import json
+import hashlib
 from pathlib import Path
 import re
 import urllib.request
@@ -29,16 +30,19 @@ def target_data(version, target):
     branch = ".".join(version.split(".")[:2])
     packages = {}
     errors = []
+    digests = []
     for url, nested in (
         (f"{ASU}/json/v1/releases/{version}/targets/{target}/index.json", True),
         (f"{ASU}/json/v1/releases/packages-{branch}/{data['arch_packages']}-index.json", False),
     ):
         try:
             index = get_json(url)
+            digests.append(hashlib.sha256(json.dumps(index, sort_keys=True, separators=(",", ":")).encode()).hexdigest())
             packages.update(index.get("packages", {}) if nested else index)
         except Exception as error:
             errors.append(f"Package metadata unavailable: {type(error).__name__}")
-    return {"profiles": data, "packages": sorted(packages), "package_metadata_errors": errors}
+    return {"profiles": data, "packages": sorted(packages), "package_metadata_errors": errors,
+            "package_index_sha256": digests}
 
 
 def kwrt_data(spec):
@@ -49,13 +53,16 @@ def kwrt_data(spec):
     def names(url):
         request = urllib.request.Request(url, headers={"User-Agent": "OpenWrt-Personal-Builder/0.1"})
         with urllib.request.urlopen(request, timeout=90) as response:
-            return re.findall(r"^Package: (\S+)$", response.read().decode(), re.MULTILINE)
+            raw = response.read()
+            return re.findall(r"^Package: (\S+)$", raw.decode(), re.MULTILINE), hashlib.sha256(raw).hexdigest()
     packages = set()
+    digests = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
-        for result in pool.map(names, urls):
-            packages.update(result)
+        for names_found, digest in pool.map(names, urls):
+            packages.update(names_found)
+            digests.append(digest)
     return {"profiles": profiles, "packages": sorted(packages), "package_metadata_errors": [],
-            "image_base": spec["base"], "builder_sha256": spec["sha256"],
+            "image_base": spec["base"], "builder_sha256": spec["sha256"], "package_index_sha256": digests,
             "compatibility_adjustments": {"excluded_defaults": spec["exclude_defaults"], "replacements": spec["replacement_packages"]}}
 
 
