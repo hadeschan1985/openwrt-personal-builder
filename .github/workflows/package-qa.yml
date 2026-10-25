@@ -10,6 +10,32 @@ concurrency:
   group: package-qa-${{ github.repository }}
   cancel-in-progress: false
 jobs:
+  negative-preflight:
+    if: github.event.repository.private
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Install solver test tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends build-essential libncurses-dev libssl-dev zlib1g-dev gawk gettext unzip zip file rsync wget curl zstd
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: work/downloads
+          key: package-qa-v1-${{ runner.os }}-official
+      - name: Confirm invalid package fails before generating an image
+        run: python -m scripts.preflight_qa
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: dependency-negative-report
+          path: |
+            work/preflight-negative.json
+            outputs/build.log
+          retention-days: 7
   boot:
     if: github.event.repository.private
     runs-on: ubuntu-24.04

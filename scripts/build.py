@@ -522,6 +522,40 @@ def prepare_kwrt(workspace):
     translation_alias(workspace, "luci-i18n-ttyd-zh-cn", "luci-app-ttyd")
 
 
+def manifest_packages(text):
+    """Only accept package-manager manifest rows, not make command echo."""
+    return {m.group(1) for line in text.splitlines()
+            if (m := re.fullmatch(r"([A-Za-z0-9][A-Za-z0-9+_.-]*)\s+-\s+\S+", line.strip()))}
+
+
+def run_logged(command, workspace, log, secrets):
+    process = subprocess.Popen(command, cwd=workspace, stdout=subprocess.PIPE,
+                               stderr=subprocess.STDOUT, text=True, errors="replace")
+    lines = []
+    for line in process.stdout:
+        for value in secrets:
+            line = line.replace(value, "***")
+        print(line, end="", flush=True)
+        log.write(line)
+        lines.append(line)
+    return process.wait(), "".join(lines)
+
+
+def dependency_preflight(workspace, profile, packages, log, secrets):
+    print("依赖预检：使用所选 ImageBuilder 的包管理器解析实际依赖。", flush=True)
+    code, text = run_logged(["make", "manifest", "PROFILE=" + profile,
+                            "PACKAGES=" + " ".join(packages), "STRIP_ABI=1"], workspace, log, secrets)
+    require(code == 0, "依赖预检失败：软件包缺失、依赖冲突或软件源下载失败；请查看 build.log，尚未生成映像")
+    installed = manifest_packages(text)
+    requested = {p for p in packages if not p.startswith("-")}
+    missing = requested - installed
+    require(not missing, "依赖预检未找到请求的软件包：" + ", ".join(sorted(missing)))
+    restored = {p[1:] for p in packages if p.startswith("-")} & installed
+    require(not restored, "依赖预检：已移除的软件包被依赖重新加入：" + ", ".join(sorted(restored)))
+    print(f"依赖预检通过：解析出 {len(installed)} 个软件包。", flush=True)
+    return installed
+
+
 def build(config, root=Path(".")):
     require(sys.platform.startswith("linux"), "Real ImageBuilder builds require Linux / GitHub Actions")
     root = root.resolve()
@@ -596,13 +630,10 @@ def build(config, root=Path(".")):
     log_path = outputs / "build.log"
     secrets = [v for k, v in os.environ.items() if k in {"ROUTER_PASSWORD", "PPPOE_USERNAME", "PPPOE_PASSWORD", "WIFI_PASSWORD"} and v]
     with log_path.open("w", encoding="utf-8") as log:
-        process = subprocess.Popen(command, cwd=workspace, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")
-        for line in process.stdout:
-            for value in secrets:
-                line = line.replace(value, "***")
-            print(line, end="", flush=True)
-            log.write(line)
-        require(process.wait() == 0, "ImageBuilder failed; inspect build.log")
+        resolved = dependency_preflight(workspace, config["profile"], build_packages, log, secrets)
+        log.write("\n=== Dependency preflight passed; generating images ===\n")
+        code, _ = run_logged(command, workspace, log, secrets)
+        require(code == 0, "映像生成失败：依赖预检已通过，请检查 build.log 中的空间、下载或映像错误")
     manifests = list((workspace / "bin" / "targets").glob("*/*/profiles.json"))
     require(len(manifests) == 1, "Build produced no unique profiles.json")
     produced = json.loads(manifests[0].read_text())
@@ -663,7 +694,10 @@ def build(config, root=Path(".")):
     (outputs / "SHA256SUMS").write_text("".join(f"{f['sha256']}  {f['name']}\n" for f in files), encoding="utf-8")
     summary = {"schema_version": 1, "status": "built-not-boot-tested", "version": config["version"],
         "target": config["target"], "profile": config["profile"], "builder": config["builder"], "builder_sha256": expected[archive.name],
-        "packages": requested, "files": files, "private_content": has_private_content(config)}
+        "packages": requested, "files": files, "private_content": has_private_content(config),
+        "dependency_preflight": {"status": "passed", "resolved_package_count": len(resolved)},
+        "provenance": {"source_commit": os.environ.get("GITHUB_SHA", ""), "run_id": os.environ.get("GITHUB_RUN_ID", ""),
+                       "configuration_sha256": hashlib.sha256(json.dumps(config, sort_keys=True, separators=(",", ":")).encode()).hexdigest()}}
     if kwrt:
         summary["compatibility_adjustments"] = {"excluded_broken_defaults": kwrt["exclude_defaults"],
             "replacement_packages": kwrt["replacement_packages"], "translation_aliases": "zh-cn data verified inside rootfs"}

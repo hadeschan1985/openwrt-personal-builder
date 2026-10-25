@@ -47,6 +47,10 @@ class PipelineTests(unittest.TestCase):
                     def wait():
                         return 0
                 def popen(command, cwd, **kwargs):
+                    if command[:2] == ["make", "manifest"]:
+                        result = Process()
+                        result.stdout = [p + " - fixture\n" for p in package_plan(config) if not p.startswith("-")]
+                        return result
                     self.assertEqual(command[:2], ["make", "image"])
                     target = cwd / "bin/targets/x86/64"
                     target.mkdir(parents=True)
@@ -69,6 +73,8 @@ class PipelineTests(unittest.TestCase):
                 summary = json.loads((root / "outputs/build-summary.json").read_text())
                 self.assertEqual(summary["builder_sha256"], digest)
                 self.assertEqual(summary["builder"], builder)
+                self.assertEqual(summary["dependency_preflight"]["status"], "passed")
+                self.assertEqual(len(summary["provenance"]["configuration_sha256"]), 64)
                 self.assertEqual(len(list((root / "outputs").glob("*.img.gz"))), 2)
                 for line in (root / "outputs/SHA256SUMS").read_text().splitlines():
                     expected, name = line.split("  ")

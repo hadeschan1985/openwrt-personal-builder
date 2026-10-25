@@ -14,7 +14,7 @@ export class GitHub {
     let r;
     try{r=await this.fetcher(`${API}/repos/${this.repo}${path}`,{...options,headers,cache:'no-store',signal:options.signal??AbortSignal.timeout(90000)});}
     catch(error){if(['AbortError','TimeoutError'].includes(error.name))throw new Error('GitHub 响应超时。先查看构建记录，确认是否已提交，再决定重试。');throw error;}
-    if(!r.ok){let message='';try{message=(await r.json()).message||'';}catch{}throw new Error(`GitHub ${r.status}：${message||'请求失败，请检查仓库与授权。'}`);}
+    if(!r.ok){const explanations={401:'授权令牌无效或已到期，请重新连接。',403:'权限不足、请求限额或 GitHub 策略限制，请检查授权与 GitHub 提示。',404:'仓库或任务不存在，或当前授权没有访问权限。',410:'构建产物已到期，请重新构建。',422:'配置、分支或工作流输入不符合 GitHub 要求。'};const error=new Error(`GitHub ${r.status}：${explanations[r.status]||'请求失败，请稍后检查 GitHub 状态。'}`);error.status=r.status;throw error;}
     return r.status===204?null:r.json();
   }
   async connect(){const data=await this.request('');this.private=data.private;this.defaultBranch=data.default_branch;return data;}
@@ -26,6 +26,7 @@ export class GitHub {
   }
   runs(){return this.request('/actions/workflows/build.yml/runs?per_page=12');}
   artifacts(runId){if(!/^\d+$/.test(String(runId)))throw new Error('任务 ID 无效');return this.request(`/actions/runs/${runId}/artifacts`);}
+  jobs(runId){if(!/^\d+$/.test(String(runId)))throw new Error('任务 ID 无效');return this.request(`/actions/runs/${runId}/jobs?per_page=100`);}
   async upload(file) {
     if(!this.private)throw new Error('文件包只能上传到已连接的私有构建仓库。');
     if(file.size>12*1024*1024)throw new Error('文件包不能超过 12 MiB。');

@@ -1,10 +1,13 @@
-import {COMMON,CORE,NFT_ONLY,PROXIES,THEMES,defaultConfig,tokenize,validate,privateContent,safePreset} from './lib/model.js?v=20261025-5';
-import {GitHub,repositoryName} from './lib/github.js?v=20261025-5';
+import {COMMON,CORE,NFT_ONLY,PROXIES,THEMES,defaultConfig,tokenize,validate,privateContent,safePreset} from './lib/model.js?v=20261025-6';
+import {GitHub,repositoryName} from './lib/github.js?v=20261025-6';
+import {SOFTWARE_PROFILES,applySoftwareProfile,softwareAdvice} from './lib/software.js?v=20261025-6';
+import {runStatus,stepStatus,active,requestRun,stageName,failureHelp,artifactInfo,verifyDownload} from './lib/progress.js?v=20261025-6';
 
 const $=id=>document.getElementById(id);
-const state={catalog:null,device:null,target:null,available:new Set(),config:defaultConfig(),git:null,file:null,loadId:0,loading:false,metadataReady:false,busy:false};
+const state={catalog:null,device:null,target:null,available:new Set(),config:defaultConfig(),git:null,file:null,loadId:0,loading:false,metadataReady:false,busy:false,pending:null,runs:[],expanded:null,details:new Map(),refreshing:false};
 const targetCache=new Map();
-let toastTimer;
+const verifiedFiles=new Map();
+let toastTimer,pollTimer;
 function toast(message){$('toast').textContent=message;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,4500);}
 function notice(message,kind=''){const n=$('notice');n.textContent=message;n.className='notice '+kind;}
 async function json(url){const r=await fetch(url);if(!r.ok)throw new Error(`资料读取失败（${r.status}）`);return r.json();}
@@ -49,6 +52,7 @@ function update(){
   const panel=$('validation');panel.replaceChildren();panel.classList.toggle('invalid',errors.length>0);
   if(errors.length){const list=node('ul');errors.forEach(e=>list.append(node('li',e)));panel.append(list);}else panel.textContent=privateContent(c)||state.file?'配置已通过基础检查。含私人内容，须在私有仓库构建。':'配置已通过基础检查。构建时会再次检查依赖和映像支持。';
   if(!errors.length&&!c.system.password_secret)panel.textContent+=' 尚未设置后台密码：仅建议用于实验，实际使用前请启用密码设置。';
+  $('software-advice').replaceChildren(...softwareAdvice(c).map(note=>node('p',note,'help')));
   for(const e of document.querySelectorAll('[data-package]')){
     const group=e.dataset.group,pkg=e.dataset.package;
     e.classList.toggle('selected',c[group]?.includes(pkg));
@@ -56,6 +60,17 @@ function update(){
     e.setAttribute('aria-pressed',String(c[group]?.includes(pkg)));
   }
   persist();
+}
+function renderSoftwareProfiles(){
+  $('software-profiles').replaceChildren();
+  for(const profile of SOFTWARE_PROFILES){
+    const card=node('div',undefined,'software-profile');card.append(node('h3',profile.name),node('p',profile.note,'help'));
+    const button=node('button','加入此组合','button secondary');button.type='button';
+    button.disabled=profile.source!==state.config.builder;
+    if(button.disabled)button.textContent=`需${profile.source==='kwrt'?' Kwrt':'官方'}版本`;
+    button.addEventListener('click',()=>{try{state.config=applySoftwareProfile(readForm(),profile.id,state.available);applyForm(state.config);update();toast('软件组合已加入；原有网络、密码引用与文件设置保持不变。');}catch(error){toast(error.message);}});
+    card.append(button);$('software-profiles').append(card);
+  }
 }
 function conditionalFields(){
   const side=val('network-mode')==='side',x86=state.config.target.startsWith('x86/');
@@ -136,12 +151,12 @@ async function selectDevice(device,config=null){
     $('official-images').replaceChildren();
     const imageBase=data.image_base||`https://downloads.openwrt.org/releases/${device.version}/targets/${device.target}`;
     for(const image of images){const row=node('div',undefined,'download-item');const link=node('a',`${image.type} · ${image.filesystem} · ${(image.size/1048576).toFixed(1)} MiB ↗`);link.href=`${imageBase}/${encodeURIComponent(image.name)}`;link.target='_blank';link.rel='noreferrer';row.append(link,node('code',`SHA256 ${image.sha256}`));$('official-images').append(row);}
-    renderPackages();applyForm(state.config);update();
+    renderPackages();renderSoftwareProfiles();applyForm(state.config);update();
     const source=device.builder==='kwrt'?'Kwrt 固定构建包':'OpenWrt 官方';
     notice(data.package_metadata_errors.length?'设备资料已载入，但部分包索引不可用；请刷新后再构建。':`${source}资料已载入。`+(state.git?`已连接构建仓库 ${state.git.repo}。`:'可导出配置，在 GitHub 手动构建；连接仓库授权后也可直接提交。'),data.package_metadata_errors.length?'warning':'');
-    state.metadataReady=true;return true;
+    state.metadataReady=!data.package_metadata_errors.length;return true;
   }catch(error){if(requestId===state.loadId)notice(`设备资料载入失败：${error.message}。可重新选择或刷新。`,'error');return false;
-  }finally{if(requestId===state.loadId){state.loading=false;$('build-button').disabled=state.busy||!state.metadataReady;$('preview-button').disabled=!state.metadataReady;}}
+  }finally{if(requestId===state.loadId){state.loading=false;buildAvailability();$('preview-button').disabled=!state.metadataReady;}}
 }
 function showDevices(){
   const value=val('device-search').toLowerCase().trim(),version=val('version');
@@ -166,17 +181,78 @@ function showConfig(){
   try{$('manual-run').href=`https://github.com/${repositoryName(val('repository'))}/actions/workflows/build.yml`;$('manual-run').hidden=false;}catch{$('manual-run').hidden=true;}
   $('config-dialog').showModal();
 }
-async function refreshRuns(){
-  if(!state.git){toast('先连接你的 GitHub 构建仓库。');return;}
-  $('run-list').textContent='正在读取真实构建记录…';
-  try{const {workflow_runs:runs}=await state.git.runs();$('run-list').replaceChildren();$('run-list').classList.toggle('empty',!runs.length);
-    if(!runs.length){$('run-list').textContent='这个仓库还没有构建记录。';return;}
-    for(const run of runs){const row=node('div',undefined,'run');const main=node('div');const a=node('a',run.display_title||`构建 #${run.run_number}`);a.href=run.html_url;a.target='_blank';a.rel='noreferrer';main.append(a,node('small',new Date(run.created_at).toLocaleString()));const status=node('div');status.append(node('span',run.conclusion||run.status,'pill'));const link=node('a','日志与下载 ↗');link.href=run.html_url;link.target='_blank';link.rel='noreferrer';status.append(node('br'),link);row.append(main,status);$('run-list').append(row);}
-  }catch(error){$('run-list').textContent=error.message;}
+function externalLink(label,url){const a=node('a',label);a.href=url;a.target='_blank';a.rel='noreferrer';return a;}
+function savePending(){try{if(state.pending)sessionStorage.setItem('pb-pending',JSON.stringify(state.pending));else sessionStorage.removeItem('pb-pending');}catch{}}
+function buildAvailability(){$('build-button').disabled=state.busy||state.loading||!state.metadataReady||Boolean(state.pending&&state.git?.repo===state.pending.repo);}
+function pendingPanel(){
+  const p=state.pending,box=$('pending-build');box.hidden=!p||p.repo!==state.git?.repo;
+  if(box.hidden)return;
+  const run=requestRun(state.runs,p.id);
+  $('pending-status').textContent=run?`本次请求：${runStatus(run)}（#${run.run_number}）`:'本次请求已发送，正在等待 GitHub 登记。暂不重复提交。';
+  $('pending-id').textContent=`请求编号 ${p.id}`;
+  $('release-pending').hidden=Date.now()-p.at<120000||Boolean(run&&active(run));
+}
+function renderRunDetails(run,container){
+  container.replaceChildren();const data=state.details.get(run.id);
+  if(!data){container.append(node('p','正在读取步骤与产物…','help'));return;}
+  if(data.error){container.append(node('p',data.error,'error'));return;}
+  const steps=data.jobs.flatMap(job=>job.steps||[]),failed=steps.find(step=>step.conclusion==='failure');
+  const list=node('ol',undefined,'run-steps');
+  for(const step of steps.filter(s=>!s.name.startsWith('Post '))){const li=node('li',`${stageName(step.name)} · ${stepStatus(step)}`);li.className=step.conclusion==='failure'?'error':'';list.append(li);}
+  container.append(list);
+  if(run.conclusion==='failure'||run.conclusion==='timed_out')container.append(node('p',failureHelp(failed),'notice warning'));
+  if(!data.artifacts.length)container.append(node('p',active(run)?'完成后会在这里显示固件、校验值与到期时间。':'没有可下载的产物，或已被 GitHub 清理。','help'));
+  for(const artifact of data.artifacts){
+    const info=artifactInfo(artifact),card=node('div',undefined,'artifact');
+    card.append(node('strong',`${artifact.name} · ${(artifact.size_in_bytes/1048576).toFixed(1)} MiB`));
+    card.append(node('p',info.expired?'已到期，无法下载':`到期：${new Date(artifact.expires_at).toLocaleString()}${info.days!==null?`（约 ${info.days} 天）`:''}`,'help'));
+    if(info.digest)card.append(node('code',`ZIP 下载包 SHA256：${info.digest}`));
+    if(!info.expired){
+      card.append(externalLink('在 GitHub 下载 ZIP ↗',`https://github.com/${state.git.repo}/actions/runs/${run.id}/artifacts/${artifact.id}`));
+      if(info.digest){
+        const label=node('label','校验已下载的 ZIP（仅在本机读取，不上传）','verify-label'),input=node('input');input.type='file';input.accept='.zip';
+        const remembered=verifiedFiles.get(info.digest),result=node('p',remembered?.text||'',remembered?.className||'help');result.setAttribute('role','status');
+        input.addEventListener('change',async()=>{const file=input.files[0];if(!file)return;input.disabled=true;result.textContent='正在本机计算 SHA256…';try{const check=await verifyDownload(file,info.digest);result.textContent=check.ok?'校验通过：ZIP 与 GitHub 保存的下载包一致。':'校验不一致：请勿使用。确认选中了本次任务的原始 ZIP，必要时重新下载。';result.className=check.ok?'help':'error';}catch(error){result.textContent=error.message;result.className='error';}finally{verifiedFiles.set(info.digest,{text:result.textContent,className:result.className});input.disabled=false;}});
+        label.append(input);card.append(label,result);
+      }
+    }
+    container.append(card);
+  }
+  container.append(node('p','ZIP 校验不等于固件已通过实机测试。解压后请用包内 SHA256SUMS 校验具体映像；固件含私人设置时勿转发。','fine'));
+}
+function renderRuns(){
+  $('run-list').replaceChildren();$('run-list').classList.toggle('empty',!state.runs.length);
+  if(!state.runs.length){$('run-list').textContent='这个仓库还没有构建记录。';return;}
+  for(const run of state.runs){
+    const detail=node('details',undefined,'run-card'),summary=node('summary',undefined,'run');detail.open=state.expanded===run.id;
+    const main=node('div',`构建 #${run.run_number}`);main.append(node('small',new Date(run.created_at).toLocaleString()));summary.append(main,node('span',runStatus(run),'pill'));detail.append(summary);
+    const body=node('div',undefined,'run-detail');body.append(externalLink('完整日志与 GitHub 结果 ↗',run.html_url));const content=node('div');body.append(content);detail.append(body);
+    if(detail.open)renderRunDetails(run,content);
+    detail.addEventListener('toggle',()=>{if(detail.open){state.expanded=run.id;renderRunDetails(run,content);if(!state.details.has(run.id)||active(run))loadRunDetails(run,content);}else if(state.expanded===run.id)state.expanded=null;});
+    $('run-list').append(detail);
+  }
+}
+async function loadRunDetails(run,container){
+  const git=state.git;
+  try{const [jobs,artifacts]=await Promise.all([git.jobs(run.id),git.artifacts(run.id)]);if(git!==state.git)return;state.details.set(run.id,{jobs:jobs.jobs||[],artifacts:artifacts.artifacts||[]});}
+  catch(error){if(git!==state.git)return;state.details.set(run.id,{error:error.message});}
+  if(container?.isConnected)renderRunDetails(run,container);
+}
+function schedulePoll(){clearTimeout(pollTimer);if(state.git&&!document.hidden)pollTimer=setTimeout(()=>refreshRuns(false),state.pending||state.runs.some(active)?20000:60000);}
+async function refreshRuns(manual=true){
+  if(!state.git){if(manual)toast('先连接你的 GitHub 构建仓库。');return;}
+  if(state.refreshing)return;state.refreshing=true;const git=state.git;$('refresh-runs').disabled=true;
+  try{const {workflow_runs:runs}=await git.runs();if(git!==state.git)return;
+    state.runs=runs;const tracked=state.pending?.repo===git.repo?requestRun(runs,state.pending.id):null;
+    if(tracked){state.expanded=tracked.id;if(!active(tracked)){state.pending=null;savePending();}}
+    const opened=runs.find(run=>run.id===state.expanded);if(opened)await loadRunDetails(opened);
+    if(git!==state.git)return;renderRuns();pendingPanel();buildAvailability();$('poll-status').textContent=`自动更新中 · 最近更新 ${new Date().toLocaleTimeString()}（切换到后台时暂停）`;
+  }catch(error){if(git===state.git)$('poll-status').textContent=`刷新失败：${error.message} 原记录保留；不会自动重提交构建。`;}
+  finally{state.refreshing=false;$('refresh-runs').disabled=false;schedulePoll();}
 }
 async function connect(){
   $('connect-error').textContent='';$('confirm-connect').disabled=true;
-  try{const git=new GitHub(val('repository').trim(),val('github-token').trim(),val('branch').trim());const data=await git.connect();state.git=git;$('github-token').value='';
+  try{const git=new GitHub(val('repository').trim(),val('github-token').trim(),val('branch').trim());const data=await git.connect();state.git=git;state.runs=[];state.details.clear();state.expanded=null;$('github-token').value='';
     // Store only the repository and branch. GitHub credentials remain in RAM.
     localStorage.setItem('pb-repository',git.repo);localStorage.setItem('pb-branch',git.ref);
     $('connection-label').textContent=`${git.repo.split('/')[1]} · ${data.private?'私有':'公开'}`;
@@ -185,6 +261,7 @@ async function connect(){
   }catch(error){$('connect-error').textContent=error.message;}finally{$('confirm-connect').disabled=false;}
 }
 async function startBuild(){
+  if(state.pending&&state.pending.repo===state.git?.repo){toast('上次请求仍在登记或执行，请先查看构建记录。');return;}
   if(state.loading||!state.metadataReady){toast('请等设备资料载入完成后再构建。');return;}
   state.config=readForm();const errors=validate(state.config,state.available);if(errors.length){update();toast(errors[0]);return;}
   if(!state.git?.token){showConfig();toast('可导出配置并手动运行，或连接仓库授权后直接构建。');return;}
@@ -192,8 +269,8 @@ async function startBuild(){
   const config=structuredClone(state.config),file=state.file,git=state.git;
   const button=$('build-button');state.busy=true;button.disabled=true;button.textContent='正在提交…';
   try{if(file){config.overlay=await git.upload(file);if(state.file===file){state.config.overlay=config.overlay;$('overlay-path').value=config.overlay;}}
-    const requestId=crypto.randomUUID();await git.dispatch(config,requestId);toast('GitHub 已接受构建请求。请刷新记录查看排队状态。');notice(`构建请求已提交：${config.version} / ${config.profile}。GitHub 执行期间可关闭页面，日志和产物在构建记录中。`);await refreshRuns();
-  }catch(error){notice(error.message,'error');}finally{state.busy=false;button.disabled=!state.metadataReady;button.replaceChildren(document.createTextNode('构建新固件 '),node('span','↗'));}
+    const requestId=crypto.randomUUID();state.pending={id:requestId,at:Date.now(),repo:git.repo};savePending();pendingPanel();await git.dispatch(config,requestId);toast('GitHub 已接受构建请求，进度会自动更新。');notice(`构建请求已提交：${config.version} / ${config.profile}。可关闭页面，构建仍会继续；返回时需重新连接授权。`);await refreshRuns(false);
+  }catch(error){if(error.status>=400&&error.status<500){state.pending=null;savePending();pendingPanel();}notice(error.message,'error');schedulePoll();}finally{state.busy=false;buildAvailability();button.replaceChildren(document.createTextNode('构建新固件 '),node('span','↗'));}
 }
 async function restore(config){
   const clean=safePreset(config),errors=validate(clean);if(errors.length)throw new Error(errors[0]);
@@ -202,6 +279,7 @@ async function restore(config){
 }
 async function init(){
   renderFeatures();presetOptions();
+  try{const p=JSON.parse(sessionStorage.getItem('pb-pending')||'null');if(p&&/^[a-f0-9-]{36}$/.test(p.id)&&Number.isFinite(p.at)&&typeof p.repo==='string')state.pending=p;}catch{}
   $('repository').value=localStorage.getItem('pb-repository')||'hadeschan1985/openwrt-personal-builds';$('branch').value=localStorage.getItem('pb-branch')||'main';$('autofill').checked=localStorage.getItem('pb-autofill')!=='false';
   $('builder-form').addEventListener('submit',e=>e.preventDefault());
   $('builder-form').addEventListener('input',update);
@@ -213,7 +291,9 @@ async function init(){
   $('package-search').addEventListener('input',()=>{const query=val('package-search').toLowerCase().trim();$('package-results').replaceChildren();if(query)for(const pkg of [...state.available].filter(p=>p.includes(query)).slice(0,12))$('package-results').append(chip(pkg,pkg,'packages'));update();});
   $('preview-button').addEventListener('click',showConfig);$('build-button').addEventListener('click',startBuild);
   $('connect-button').addEventListener('click',()=>$('connect-dialog').showModal());$('confirm-connect').addEventListener('click',connect);
-  $('refresh-runs').addEventListener('click',refreshRuns);
+  $('refresh-runs').addEventListener('click',()=>refreshRuns());
+  document.addEventListener('visibilitychange',()=>{clearTimeout(pollTimer);if(!document.hidden&&state.git)refreshRuns(false);});
+  $('release-pending').addEventListener('click',()=>{state.pending=null;savePending();pendingPanel();buildAvailability();toast('已解除本页等待。不会取消 GitHub 任务，重新提交前请确认没有重复任务。');});
   $('copy-config').addEventListener('click',async()=>{try{await navigator.clipboard.writeText($('config-json').value);toast('构建配置已复制。下一步打开 GitHub。');}catch{toast('自动复制不可用，请展开配置明细后复制。');}});
   $('download-config').addEventListener('click',()=>{const url=URL.createObjectURL(new Blob([$('config-json').value],{type:'application/json'}));const a=node('a');a.href=url;a.download=`openwrt-${state.config.target.replace('/','-')}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
   $('autofill').addEventListener('change',persist);
