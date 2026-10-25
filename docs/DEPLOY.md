@@ -31,7 +31,7 @@ GitHub 连接已识别用户。2026-10-25 经用户确认，已通过 GPT 内部
 
 填写 Wi-Fi SSID 时必须同时启用 WIFI_PASSWORD；本项目不生成无密码的开放热点。固件本身会包含首次启动所需的私人配置，不能因为使用 Secrets 就将产物公开分享。
 
-第一次可直接在 Actions 选择 `Build personal firmware` → Run workflow。config_json 留空，使用 configs/x86-default.json。
+首次部署先等待私有仓库的 `Automatically follow tested upstream` 成功（或手动运行一次），以生成批准记录。然后在 Actions 选择 `Build personal firmware` → Run workflow。config_json 留空，使用 configs/x86-default.json。未完成首次批准时会明确停止，不会绕过校验。
 
 以后在网页配置并导出 JSON，粘贴到 config_json 即可运行。无需向网页提供访问令牌，也无需运行服务器。
 

@@ -40,4 +40,10 @@
 
 维护者可在私有仓库 Actions → Automatically follow tested upstream → Run workflow 手动复检。暂停自动跟进可禁用该工作流；历史批准和已生成产物不会因此删除。
 
+## 首次真实验收 · 2026-10-26
+
+[自动跟进运行 40220414183](https://github.com/hadeschan1985/openwrt-personal-builds/actions/runs/40220414183) 已完成检测、两个来源构建、共六项引导/后台登录和独立批准，全部成功。批准的是 OpenWrt 25.12.6 与 Kwrt 25.12 / 2026-10-12 当前快照，不把尚未发布的新版本当作已实测。
+
+首次检测暴露了 Kwrt 对默认请求头的 403 拒绝，已修复为与现有下载器一致的请求头，并增加防回归测试。测试范围也覆盖新稳定版/同日不同构建器的新固定 ID、未知 Kwrt 大版本停止、缺报告/错运行号/失败登录不批准、并发提交不覆盖、索引漂移停止正常构建，以及未变化跳过编译。详细最终运行与网页证据见 WORKLOG.md。
+
 参考：[GitHub 定时工作流](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule)、[仓库内容 API](https://docs.github.com/en/rest/repos/contents#get-repository-content)。

@@ -1,1 +1,1 @@
-2026-10-26: initialize upstream approval; use consistent metadata request headers.
+2026-10-26: verify unchanged-upstream fast path and normal-build feed guards.

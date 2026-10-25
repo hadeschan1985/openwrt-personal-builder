@@ -31,6 +31,29 @@ def evidence(c):
 
 
 class UpstreamTests(unittest.TestCase):
+    def test_new_release_and_same_day_builder_change_get_distinct_pins(self):
+        c = candidate()
+        original = copy.deepcopy(c["registry"])
+        profile = {"version_number": "25.12-SNAPSHOT", "linux_kernel": {"version": "6.12.113"}, "source_date_epoch": 1791811088}
+        with patch.object(u.catalog, "get_json", side_effect=[{"stable_version": "25.12.7"}, profile]), \
+             patch.object(u.catalog, "target_data", return_value=c["sources"][0]["metadata"]), \
+             patch.object(u.catalog, "kwrt_data", return_value=c["sources"][1]["metadata"]), \
+             patch.object(u, "builder_checksum", side_effect=["a" * 64, "c" * 64]):
+            discovered = u.discover(c["registry"])
+        self.assertEqual(discovered["sources"][0]["version"], "25.12.7")
+        self.assertRegex(discovered["sources"][1]["version"], r"kwrt-25\.12-\d{8}-cccccccc")
+        for key, value in original.items():
+            self.assertEqual(discovered["registry"][key], value)
+        self.assertEqual(c["registry"], original)
+
+    def test_unknown_kwrt_major_family_stops_for_review(self):
+        c = candidate()
+        with patch.object(u.catalog, "get_json", side_effect=[{"stable_version": "25.12.7"}, {"version_number": "26.12-SNAPSHOT"}]), \
+             patch.object(u.catalog, "target_data", return_value=c["sources"][0]["metadata"]), \
+             patch.object(u, "builder_checksum", return_value="a" * 64):
+            with self.assertRaisesRegex(ValueError, "compatibility review"):
+                u.discover(c["registry"])
+
     def test_normal_build_checks_guard_before_and_after_build(self):
         calls = []
         for fails in (False, True):
