@@ -1,5 +1,9 @@
 # 个人工作台使用方法
 
+## 自动跟进上游
+
+主页已增加上游状态区。每天自动检查官方稳定版与 Kwrt 25.12 x86/64，发现变化先做构建和六种引导/后台登录回归，通过后加入版本列表；不替你更改当前配置、不自动刷机。连接私有仓库后会自动载入批准结果；关闭网页不影响定时检查。详细范围、权限与配额说明见 [UPSTREAM.md](UPSTREAM.md)。
+
 网页：https://hadeschan1985.github.io/openwrt-personal-builder/
 
 构建记录：https://github.com/hadeschan1985/openwrt-personal-builds/actions

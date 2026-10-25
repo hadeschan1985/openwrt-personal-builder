@@ -7,6 +7,7 @@ import unittest
 from unittest.mock import patch
 
 from scripts import upstream as u
+from scripts import build as builder
 
 
 def candidate():
@@ -30,6 +31,34 @@ def evidence(c):
 
 
 class UpstreamTests(unittest.TestCase):
+    def test_normal_build_checks_guard_before_and_after_build(self):
+        calls = []
+        for fails in (False, True):
+            calls.clear()
+            def build(config):
+                calls.append("build")
+                if fails:
+                    raise ValueError("disposable test failure")
+            with patch("sys.argv", ["build"]), patch.dict("os.environ", {"CONFIG_JSON": "", "ENFORCE_APPROVED_UPSTREAM": "true"}), \
+                 patch.object(u, "guard", side_effect=lambda config: calls.append("guard")), patch.object(builder, "build", side_effect=build):
+                result = builder.main()
+            self.assertEqual(calls, ["guard", "build"] if fails else ["guard", "build", "guard"])
+            self.assertEqual(result, 1 if fails else 0)
+
+    def test_normal_build_guard_rejects_feed_drift_before_publication(self):
+        c = candidate()
+        approved = u.approval(c, evidence(c), "123", "b" * 40)
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            u.write_json(root / u.APPROVED, approved)
+            with patch.object(u, "ROOT", root), patch.object(u.catalog, "target_data", return_value=c["sources"][0]["metadata"]), patch.object(u, "builder_checksum", return_value="a" * 64):
+                u.guard({"builder": "official", "version": "25.12.6", "target": "x86/64"})
+                changed = copy.deepcopy(c["sources"][0]["metadata"])
+                changed["packages"].append("new-package")
+                with patch.object(u.catalog, "target_data", return_value=changed):
+                    with self.assertRaisesRegex(ValueError, "暂停本次构建"):
+                        u.guard({"builder": "official", "version": "25.12.6", "target": "x86/64"})
+
     def test_checksum_request_uses_existing_builder_user_agent(self):
         response = io.BytesIO(("a" * 64 + " *builder.tar.zst\n").encode())
         with patch.object(u.urllib.request, "urlopen", return_value=response) as opened:

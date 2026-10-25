@@ -721,7 +721,12 @@ def main():
         if args.plan:
             print(json.dumps({"config": config, "packages": package_plan(config), "requires_private_repository": has_private_content(config)}, ensure_ascii=False, indent=2))
         else:
+            if os.environ.get("ENFORCE_APPROVED_UPSTREAM") == "true":
+                from scripts.upstream import guard
+                guard(config)
             build(config)
+            if os.environ.get("ENFORCE_APPROVED_UPSTREAM") == "true":
+                guard(config)
     except (ConfigError, ValueError, OSError, tarfile.TarError, zipfile.BadZipFile, subprocess.CalledProcessError) as error:
         print(f"Build failed: {error}", file=sys.stderr)
         return 1

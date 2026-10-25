@@ -61,7 +61,7 @@ def validate_candidate(candidate):
     require(candidate.get("schema_version") == 1, "Unsupported upstream schema")
     sources, registry = candidate.get("sources"), candidate.get("registry")
     require(isinstance(sources, list) and [s.get("source") for s in sources] == ["official", "kwrt"], "Unexpected upstream sources")
-    require(isinstance(registry, dict) and 1 <= len(registry) <= 32, "Invalid registry")
+    require(isinstance(registry, dict) and 1 <= len(registry) <= 512, "Invalid or oversized registry; archive old pins before adding more")
     for version, spec in registry.items():
         require(KWRT_VERSION.fullmatch(version), "Unexpected Kwrt release family")
         require(spec["target"] == "x86/64" and spec["base"] == KWRT_BASE and spec["archive"] == KWRT_ARCHIVE, "Untrusted builder location")
@@ -125,6 +125,28 @@ def detect(destination):
         with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as stream:
             stream.write(f"changed={str(changed).lower()}\n")
     print("Upstream change detected; build and isolated boot tests required." if changed else "Upstream unchanged; keep the approved version, skip expensive builds.")
+
+
+def guard(config):
+    """Normal builds fail closed if a tested rolling feed changes again."""
+    path = ROOT / APPROVED
+    require(path.exists(), "上游首次验证尚未完成，请在主页查看自动跟进状态后重试。")
+    approved = read_json(path)
+    selected = next((s for s in approved["sources"] if s["source"] == config["builder"] and s["version"] == config["version"]), None)
+    if not selected or config["target"] != "x86/64":
+        print("Historical/other-target build: outside automatic upstream boot approval coverage.")
+        return
+    if config["builder"] == "kwrt":
+        spec = read_json(ROOT / REGISTRY)[config["version"]]
+        metadata = catalog.kwrt_data(spec)
+        checksum = builder_checksum(spec["base"], spec["archive"])
+    else:
+        metadata = catalog.target_data(config["version"], "x86/64")
+        base = f"{catalog.DOWNLOADS}/releases/{config['version']}/targets/x86/64"
+        checksum = builder_checksum(base, f"openwrt-imagebuilder-{config['version']}-x86-64.Linux-x86_64.tar.zst")
+    require(checksum == selected["builder_sha256"] and digest(metadata) == digest(selected["metadata"]),
+            "上游构建器或软件源已变化，暂停本次构建。请等待自动跟进测试通过后重新提交；不会偷偷使用未验证更新。")
+    print("Approved upstream builder and feed fingerprint verified.")
 
 
 def prepare(candidate_path, source):
@@ -208,7 +230,7 @@ def publish(candidate_path, reports):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("action", choices=["detect", "prepare", "attest", "publish"])
+    parser.add_argument("action", choices=["detect", "prepare", "attest", "publish", "guard"])
     parser.add_argument("--candidate", type=Path, default=Path("work/upstream/candidate.json"))
     parser.add_argument("--source", choices=["official", "kwrt"])
     parser.add_argument("--reports", type=Path, default=Path("work/upstream/reports"))
@@ -219,6 +241,9 @@ def main():
         prepare(args.candidate, args.source)
     elif args.action == "attest":
         attest(args.candidate, args.source, args.reports / f"{args.source}.json")
+    elif args.action == "guard":
+        for source in read_json(ROOT / APPROVED)["sources"]:
+            guard({"builder": source["source"], "version": source["version"], "target": "x86/64"})
     else:
         publish(args.candidate, args.reports)
 

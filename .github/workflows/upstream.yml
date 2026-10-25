@@ -26,6 +26,9 @@ jobs:
       - id: detect
         name: Detect final releases, builder checksums and package indexes
         run: python -m scripts.upstream detect
+      - name: Verify the normal-build guard when upstream is unchanged
+        if: steps.detect.outputs.changed == 'false'
+        run: python -m scripts.upstream guard
       - if: steps.detect.outputs.changed == 'true'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:

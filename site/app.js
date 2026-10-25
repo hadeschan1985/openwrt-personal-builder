@@ -1,8 +1,8 @@
-import {COMMON,CORE,NFT_ONLY,PROXIES,THEMES,defaultConfig,tokenize,validate,privateContent,safePreset} from './lib/model.js?v=20261026-2';
-import {GitHub,repositoryName} from './lib/github.js?v=20261026-2';
-import {SOFTWARE_PROFILES,applySoftwareProfile,softwareAdvice} from './lib/software.js?v=20261026-2';
-import {runStatus,stepStatus,active,latestBuildResults,requestRun,stageName,failureHelp,artifactInfo,verifyDownload} from './lib/progress.js?v=20261026-2';
-import {mergeApproved} from './lib/upstream.js?v=20261026-2';
+import {COMMON,CORE,NFT_ONLY,PROXIES,THEMES,defaultConfig,tokenize,validate,privateContent,safePreset} from './lib/model.js?v=20261026-3';
+import {GitHub,repositoryName} from './lib/github.js?v=20261026-3';
+import {SOFTWARE_PROFILES,applySoftwareProfile,softwareAdvice} from './lib/software.js?v=20261026-3';
+import {runStatus,stepStatus,active,latestBuildResults,requestRun,stageName,failureHelp,artifactInfo,verifyDownload} from './lib/progress.js?v=20261026-3';
+import {mergeApproved} from './lib/upstream.js?v=20261026-3';
 
 const $=id=>document.getElementById(id);
 const state={catalog:null,device:null,target:null,available:new Set(),config:defaultConfig(),git:null,file:null,loadId:0,loading:false,metadataReady:false,busy:false,pending:null,runs:[],expanded:null,details:new Map(),refreshing:false,resultsLoaded:false,result:null,runError:''};
@@ -10,6 +10,7 @@ const targetCache=new Map();
 const verifiedFiles=new Map();
 let toastTimer,pollTimer;
 let upstreamBusy=false,upstreamAt=0,approvedFingerprint='';
+let deferredConfig=null;
 function toast(message){$('toast').textContent=message;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,4500);}
 function notice(message,kind=''){const n=$('notice');n.textContent=message;n.className='notice '+kind;}
 async function json(url){const r=await fetch(url);if(!r.ok)throw new Error(`资料读取失败（${r.status}）`);return r.json();}
@@ -41,6 +42,9 @@ function applyForm(c){
 }
 function browserSnapshot(c){const result=safePreset(c);result.defaults='';result.overlay='';return result;}
 function persist(){
+  // A private approved version may not be available until reconnecting. Do not
+  // replace its saved settings with the public baseline during initial load.
+  if(deferredConfig)return;
   try{localStorage.setItem('pb-autofill',String(checked('autofill')));if(checked('autofill'))localStorage.setItem('pb-current',JSON.stringify(browserSnapshot(state.config)));else localStorage.removeItem('pb-current');}catch{toast('浏览器储存不可用，仍可导出配置。');}
 }
 function update(){
@@ -94,7 +98,7 @@ function chip(pkg,name,group,{disabled=false,help=''}={}){
   const button=node('button',name,'chip');button.type='button';button.dataset.package=pkg;button.dataset.group=group;button.disabled=disabled;button.title=help||pkg;button.setAttribute('aria-pressed','false');
   if(disabled)button.append(node('small',group==='remove_packages'?'必要包':'源中无此包'));
   button.addEventListener('click',()=>{
-    state.config=readForm();const items=new Set(state.config[group]);items.has(pkg)?items.delete(pkg):items.add(pkg);state.config[group]=[...items];
+    deferredConfig=null;state.config=readForm();const items=new Set(state.config[group]);items.has(pkg)?items.delete(pkg):items.add(pkg);state.config[group]=[...items];
     if(group==='packages')$('custom-packages').value=state.config.packages.join(' ');
     if(group==='themes')renderDefaultThemes();update();conditionalFields();
   });return button;
@@ -301,6 +305,10 @@ async function refreshUpstream(){
       }
       parts.push(node('p',`已批准：${new Date(approved.approved_at).toLocaleString()} · ${approved.sources.map(s=>s.version).join(' / ')}`));
       parts.push(node('p','两种来源均已通过 EFI、Legacy、VMDK 启动与 LuCI 登录测试。新版本已加入固件版本列表；当前配置没有改动。','help'));
+      if(deferredConfig&&state.catalog.versions.includes(deferredConfig.version)){
+        const saved=deferredConfig,button=node('button','恢复上次自动更新版本的配置','button secondary');button.type='button';
+        button.addEventListener('click',async()=>{if(deferredConfig!==saved){button.remove();return;}button.disabled=true;try{await restore(saved);button.remove();toast('已恢复上次配置。');}catch(error){toast(error.message);button.disabled=false;}});parts.push(button);
+      }
     }else if(data.reason.status===404)parts.push(node('p','自动跟进已接入，尚无通过本流程的版本；首次校验完成后会自动加入版本列表。','help'));
     else parts.push(node('p',`更新资料读取失败：${data.reason.message} 已加载的版本仍保留。`,'error'));
     parts.push(externalLink('查看上游检查与测试记录 ↗',`https://github.com/${git.repo}/actions/workflows/upstream.yml`));
@@ -334,13 +342,14 @@ async function restore(config){
   const clean=safePreset(config),errors=validate(clean,null,state.catalog?.versions);if(errors.length)throw new Error(errors[0]);
   const device=state.catalog.devices.find(d=>d.version===clean.version&&d.target===clean.target&&d.id===clean.profile);if(!device)throw new Error('此配置的版本/设备不在当前目录中。');
   if(!await selectDevice(device,clean))throw new Error('此设备资料未载入，配置尚未导入。');
+  deferredConfig=null;persist();
 }
 async function init(){
   renderFeatures();presetOptions();renderLatestResults();
   try{const p=JSON.parse(sessionStorage.getItem('pb-pending')||'null');if(p&&/^[a-f0-9-]{36}$/.test(p.id)&&Number.isFinite(p.at)&&typeof p.repo==='string')state.pending=p;}catch{}
   $('repository').value=localStorage.getItem('pb-repository')||'hadeschan1985/openwrt-personal-builds';$('branch').value=localStorage.getItem('pb-branch')||'main';$('autofill').checked=localStorage.getItem('pb-autofill')!=='false';
   $('builder-form').addEventListener('submit',e=>e.preventDefault());
-  $('builder-form').addEventListener('input',update);
+  $('builder-form').addEventListener('input',()=>{deferredConfig=null;update();});
   $('builder-form').addEventListener('change',e=>{if(e.target.id==='network-mode')$('dhcp').checked=val('network-mode')==='router';conditionalFields();update();});
   $('device-search').addEventListener('input',()=>state.catalog&&showDevices());$('device-search').addEventListener('focus',()=>state.catalog&&showDevices());
   $('device-search').addEventListener('keydown',e=>{if(e.key==='Escape'){$('device-results').hidden=true;$('device-search').setAttribute('aria-expanded','false');}if(e.key==='ArrowDown'){$('device-results').querySelector('button')?.focus();e.preventDefault();}});
@@ -366,7 +375,7 @@ async function init(){
     $('metadata-date').textContent=`资料更新 ${new Date(state.catalog.updated).toLocaleDateString()}`;
     const devices=state.catalog.devices.filter(d=>d.version===val('version'));$('device-count').textContent=`${devices.length.toLocaleString()} 个设备档案`;
     let saved=null;try{if(checked('autofill'))saved=JSON.parse(localStorage.getItem('pb-current')||'null');}catch{}
-    if(saved)try{await restore(saved);return;}catch{toast('原保存配置不适用于当前目录，已恢复默认。');}
+    if(saved)try{await restore(saved);return;}catch{if(saved.version&&!state.catalog.versions.includes(saved.version)){deferredConfig=saved;toast('上次配置使用自动更新版本，连接私有仓库后可恢复；原保存内容未覆盖。');}else toast('原保存配置不适用于当前目录，已恢复默认。');}
     await selectDevice(devices.find(d=>d.target==='x86/64'&&d.id==='generic')||devices[0]);
   }catch(error){notice(`设备目录读取失败：${error.message}。请用 HTTP 服务器打开此网页，不要直接双击 HTML。`,'error');}
 }

@@ -32,6 +32,7 @@ jobs:
       CONFIG_JSON: ${{ inputs.config_json }}
       CONFIG_PATH: ${{ inputs.config_path }}
       REPOSITORY_PRIVATE: ${{ github.event.repository.private }}
+      ENFORCE_APPROVED_UPSTREAM: 'true'
       ROUTER_PASSWORD: ${{ secrets.ROUTER_PASSWORD }}
       PPPOE_USERNAME: ${{ secrets.PPPOE_USERNAME }}
       PPPOE_PASSWORD: ${{ secrets.PPPOE_PASSWORD }}
@@ -80,7 +81,7 @@ jobs:
           restore-keys: |
             imagebuilder-v1-${{ runner.os }}-
       - name: Build firmware
-        run: python scripts/build.py --config "${CONFIG_PATH:-configs/x86-default.json}"
+        run: python -m scripts.build --config "${CONFIG_PATH:-configs/x86-default.json}"
       - name: Upload firmware, manifests and checksums
         if: success()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

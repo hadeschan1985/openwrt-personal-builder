@@ -15,7 +15,7 @@ GitHub 连接已识别用户。2026-10-25 经用户确认，已通过 GPT 内部
 
 将本项目推送至网页仓库 main 分支。进入 Settings → Pages，将 Source 设为 GitHub Actions，运行 `Deploy configuration workbench`。
 
-工作流会同步官方设备目录和 x86/64 包索引，再发布 site/。默认 github.io 域名即可，不需要另买域名。
+工作流发布已纳入源码的基线设备目录和 site/，不在发布时直接引入未验证的新版本。自动跟进的新 x86/64 版本由私有仓库测试批准后，在网页连接时载入。默认 github.io 域名即可，不需要另买域名。详见 UPSTREAM.md。
 
 ## 构建仓库
 
