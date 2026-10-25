@@ -290,7 +290,7 @@ async function refreshUpstream(){
     const parts=[];
     if(runs.status==='fulfilled'){
       const run=runs.value.workflow_runs?.[0];
-      if(run){parts.push(node('p',`最近检查：${new Date(run.updated_at).toLocaleString()} · ${runStatus(run)}`));
+      if(run){const status=run.conclusion==='success'?'检查完成':active(run)?'检查 / 测试进行中':runStatus(run);parts.push(node('p',`最近检查：${new Date(run.updated_at).toLocaleString()} · ${status}`));
         if(['failure','timed_out','cancelled'].includes(run.conclusion))parts.push(node('p','本次检查或测试未通过，不会提升新版本；已批准的版本保持不变。','error'));}
     }else if(runs.reason.status!==404)parts.push(node('p',`检查状态读取失败：${runs.reason.message}`,'error'));
     if(data.status==='fulfilled'){
