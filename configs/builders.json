@@ -1,0 +1,13 @@
+{
+  "kwrt-25.12-20261012": {
+    "label": "Kwrt 25.12 · 2026-10-12（x86/64）",
+    "target": "x86/64",
+    "base": "https://dl.openwrt.ai/releases/targets/x86/64",
+    "archive": "kwrt-imagebuilder-x86-64.Linux-x86_64.tar.zst",
+    "sha256": "906099902698e5a95f5efef6f83f0803a220fa6567134011be97669e3a60e374",
+    "feeds": "https://dl.openwrt.ai/releases/25.12/packages/x86_64",
+    "kernel_feed": "https://dl.openwrt.ai/releases/25.12/targets/x86/64/6.12.112",
+    "exclude_defaults": ["kmod-i40evf", "kmod-usb-net-rtl8152-vendor", "luci-app-fan"],
+    "replacement_packages": ["kmod-iavf", "kmod-usb-net-rtl8152"]
+  }
+}

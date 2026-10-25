@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ['site/**', 'scripts/catalog.py', '.github/workflows/pages.yml']
+    paths: ['site/**', 'scripts/catalog.py', 'configs/builders.json', '.github/workflows/pages.yml']
 
 permissions:
   contents: read

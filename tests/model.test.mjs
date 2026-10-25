@@ -7,6 +7,19 @@ test('default config is valid; duplicate package tokens collapse',()=>{
   assert.deepEqual(validate(defaultConfig()),[]);
   assert.deepEqual(tokenize('curl  curl\nhtop'),['curl','htop']);
 });
+test('network timeouts advise checking history before retrying a build',async()=>{
+  const git=new GitHub('owner/repo','session-only','main',async()=>{throw new DOMException('Timed out','TimeoutError');});
+  await assert.rejects(()=>git.request('/actions/runs'),/先查看构建记录/);
+});
+test('Kwrt config preserves its builder and checks NAS feature requirements',()=>{
+  const c=defaultConfig('kwrt-25.12-20261012');
+  assert.equal(c.builder,'kwrt');
+  assert.equal(safePreset(c).builder,'kwrt');
+  c.system.theme_mode='nas';
+  assert.ok(validate(c).some(e=>e.includes('iStoreOS')));
+  c.features.istoreos=true;assert.deepEqual(validate(c),[]);
+  c.overlay='overlays/private.7z';assert.deepEqual(validate(c),[]);
+});
 test('unavailable package and essential removals are surfaced',()=>{
   const c=defaultConfig();c.packages=['luci-app-not-real'];c.remove_packages=['base-files'];
   const errors=validate(c,new Set(['luci-theme-bootstrap']));

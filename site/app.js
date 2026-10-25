@@ -2,7 +2,7 @@ import {COMMON,CORE,PROXIES,THEMES,defaultConfig,tokenize,validate,privateConten
 import {GitHub,repositoryName} from './lib/github.js';
 
 const $=id=>document.getElementById(id);
-const state={catalog:null,device:null,target:null,available:new Set(),config:defaultConfig(),git:null,file:null,loadId:0};
+const state={catalog:null,device:null,target:null,available:new Set(),config:defaultConfig(),git:null,file:null,loadId:0,loading:false,metadataReady:false,busy:false};
 const targetCache=new Map();
 let toastTimer;
 function toast(message){$('toast').textContent=message;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,4500);}
@@ -13,7 +13,7 @@ const val=id=>$(id).value;
 const checked=id=>$(id).checked;
 function clearSelectedFile(){state.file=null;$('overlay-file').value='';$('upload-label').textContent='选择文件包';}
 const bindings={
-  system:{hostname:'hostname',ip:'ip',webserver:'webserver',signature:'signature',default_theme:'default-theme'},
+  system:{hostname:'hostname',ip:'ip',webserver:'webserver',signature:'signature',default_theme:'default-theme',theme_mode:'theme-mode'},
   network:{mode:'network-mode',gateway:'gateway',wan_port:'wan-port',lan_ports:'lan-ports',wifi_ssid:'wifi-ssid'},
   output:{filesystem:'filesystem'}
 };
@@ -24,14 +24,14 @@ function readForm(){
   for(const [group,fields] of Object.entries(checks))for(const [key,id]of Object.entries(fields))c[group][key]=checked(id);
   c.output.rootfs_size_mb=Number(val('rootfs-size'));
   c.packages=tokenize(val('custom-packages'));c.firewall=val('firewall');c.defaults=val('defaults');c.overlay=val('overlay-path').trim();
-  for(const key of ['docker','usb_net','usb_wireless','wwan'])c.features[key]=checked(`feature-${key}`);
+  for(const key of ['docker','usb_net','usb_wireless','wwan','istoreos','routerdog','remove_links'])c.features[key]=checked(`feature-${key}`);
   return c;
 }
 function applyForm(c){
   for(const [group,fields]of Object.entries(bindings))for(const [key,id]of Object.entries(fields))$(id).value=c[group][key];
   for(const [group,fields]of Object.entries(checks))for(const [key,id]of Object.entries(fields))$(id).checked=c[group][key];
   $('rootfs-size').value=c.output.rootfs_size_mb;$('custom-packages').value=c.packages.join(' ');$('firewall').value=c.firewall;$('defaults').value=c.defaults;$('overlay-path').value=c.overlay;
-  for(const key of ['docker','usb_net','usb_wireless','wwan'])$(`feature-${key}`).checked=c.features[key];
+  for(const key of ['docker','usb_net','usb_wireless','wwan','istoreos','routerdog','remove_links'])$(`feature-${key}`).checked=c.features[key]||false;
   conditionalFields();
 }
 function browserSnapshot(c){const result=safePreset(c);result.defaults='';result.overlay='';return result;}
@@ -48,6 +48,7 @@ function update(){
   $('summary-output').textContent=[c.output.efi?'EFI':'',c.output.legacy?'Legacy':'',c.output.vmdk?'VMDK':'',c.output.rootfs?'ROOTFS':''].filter(Boolean).join(' / ')||c.output.filesystem;
   const panel=$('validation');panel.replaceChildren();panel.classList.toggle('invalid',errors.length>0);
   if(errors.length){const list=node('ul');errors.forEach(e=>list.append(node('li',e)));panel.append(list);}else panel.textContent=privateContent(c)||state.file?'配置已通过基础检查。含私人内容，须在私有仓库构建。':'配置已通过基础检查。构建时会再次检查依赖和映像支持。';
+  if(!errors.length&&!c.system.password_secret)panel.textContent+=' 尚未设置后台密码：仅建议用于实验，实际使用前请启用密码设置。';
   for(const e of document.querySelectorAll('[data-package]')){
     const group=e.dataset.group,pkg=e.dataset.package;
     e.classList.toggle('selected',c[group]?.includes(pkg));
@@ -59,6 +60,9 @@ function update(){
 function conditionalFields(){
   const side=val('network-mode')==='side',x86=state.config.target.startsWith('x86/');
   $('gateway-field').hidden=!side;$('gateway').required=side;
+  $('theme-mode').disabled=state.config.builder!=='kwrt';
+  if(val('wan-port')==='eth0'&&!val('lan-ports').trim())$('lan-ports').value='eth1';
+  for(const option of $('webserver').options)option.disabled=option.value==='lighttpd'&&state.config.builder!=='kwrt';
   $('pppoe-secret').disabled=side;if(side)$('pppoe-secret').checked=false;
   $('dhcp-help').textContent=side?'旁路由开启 DHCP 时，须关闭主路由 DHCP；关闭时需要终端正确指定网关和 DNS。':'主路由模式下通常开启 DHCP。';
   for(const id of ['wan-port','lan-ports','rootfs-size','efi','legacy','vmdk'])$(id).disabled=!x86;
@@ -80,13 +84,13 @@ function chip(pkg,name,group,{disabled=false,help=''}={}){
 }
 function renderDefaultThemes(){
   const old=state.config.system.default_theme;const select=$('default-theme');select.replaceChildren();
-  for(const pkg of state.config.themes)select.add(new Option(pkg.replace('luci-theme-',''),pkg.replace('luci-theme-','')));
+  for(const pkg of state.config.themes){const theme=pkg.replace('luci-theme-','');select.add(new Option(theme,theme));if(['argon','bootstrap'].includes(theme)){select.add(new Option(`${theme} · 浅色`,`${theme}-light`));select.add(new Option(`${theme} · 深色`,`${theme}-dark`));}}
   select.value=old;if(!select.value&&select.options.length){select.selectedIndex=0;state.config.system.default_theme=select.value;}
 }
 function renderPackages(){
   const meta=state.target.profiles,profile=meta.profiles[state.device.id];
   const factory=[...new Set([...(meta.default_packages||[]),...(profile.device_packages||[])])].sort();
-  $('factory-count').textContent=`${factory.length} 个`;$('factory-packages').replaceChildren(...factory.map(pkg=>chip(pkg,pkg,'remove_packages',{disabled:CORE.has(pkg)})));
+  $('factory-count').textContent=`${factory.length} 个`;$('factory-packages').replaceChildren(...factory.map(pkg=>chip(pkg,pkg,'remove_packages',{disabled:CORE.has(pkg)||(state.config.builder==='kwrt'&&pkg==='my-default-settings')})));
   $('package-count').textContent=`${state.available.size.toLocaleString()} 个可用包`;
   const groups=new Map();for(const item of COMMON){if(!groups.has(item.group))groups.set(item.group,[]);groups.get(item.group).push(item);}
   $('common-packages').replaceChildren();
@@ -94,7 +98,8 @@ function renderPackages(){
   $('proxy-packages').replaceChildren(...PROXIES.map(item=>chip(item.pkg,item.name,'proxies',{disabled:!state.available.has(item.pkg)})));
   $('theme-packages').replaceChildren(...THEMES.map(theme=>chip(`luci-theme-${theme}`,theme,'themes',{disabled:!state.available.has(`luci-theme-${theme}`)})));
   renderDefaultThemes();
-  const optional={docker:['luci-app-dockerman'],usb_net:['kmod-usb-net-rtl8152','kmod-usb-net-asix','kmod-usb-net-cdc-ether','kmod-usb-net-cdc-ncm'],usb_wireless:['kmod-mt76-usb','kmod-rt2800-usb','iw','wpad-mbedtls'],wwan:['luci-proto-modemmanager','modemmanager','kmod-usb-net-qmi-wwan','kmod-usb-serial-option']};
+  const optional={docker:['luci-app-dockerman'],usb_net:['kmod-usb-net-rtl8152','kmod-usb-net-asix','kmod-usb-net-cdc-ether','kmod-usb-net-cdc-ncm'],usb_wireless:['kmod-mt76-usb','kmod-rt2800-usb','iw','wpad-mbedtls'],wwan:['luci-proto-modemmanager','modemmanager','kmod-usb-net-qmi-wwan','kmod-usb-serial-option'],istoreos:['luci-app-istorex'],routerdog:['luci-app-routerdog']};
+  if(state.config.builder==='kwrt')optional.wwan=['luci-app-wwand','luci-proto-wwand','wwand-esim','wwand-mbim','wwand-mhi','wwand-ncm'];
   for(const [feature,pkgs]of Object.entries(optional)){
     const field=$(`feature-${feature}`);field.disabled=pkgs.some(p=>!state.available.has(p));
     field.parentElement.title=field.disabled?'当前软件源缺少一个或多个依赖包':pkgs.join(' ');
@@ -105,6 +110,7 @@ async function targetData(device){
   if(targetCache.has(key))return targetCache.get(key);
   let data;
   try{data=await json(`data/${device.metadata}`);}catch{
+    if(device.builder==='kwrt')throw new Error('Kwrt 固定版本资料不可用，请稍后重试；不会混用官方软件源');
     const profiles=await json(`https://downloads.openwrt.org/releases/${device.version}/targets/${device.target}/profiles.json`);
     const branch=device.version.split('.').slice(0,2).join('.');
     const indexes=await Promise.allSettled([json(`https://sysupgrade.openwrt.org/json/v1/releases/${device.version}/targets/${device.target}/index.json`),json(`https://sysupgrade.openwrt.org/json/v1/releases/packages-${branch}/${profiles.arch_packages}-index.json`)]);
@@ -115,20 +121,27 @@ async function targetData(device){
 }
 async function selectDevice(device,config=null){
   const requestId=++state.loadId;notice('正在读取设备详情和可用软件包…');$('device-results').hidden=true;$('device-search').setAttribute('aria-expanded','false');
+  state.loading=true;state.metadataReady=false;$('build-button').disabled=true;$('preview-button').disabled=true;
   try{
     const data=await targetData(device);if(requestId!==state.loadId)return;
     state.device=device;state.target=data;state.available=new Set(data.packages);state.config=config||defaultConfig(device.version,device.target,device.id);
     clearSelectedFile();
     $('device-search').value=device.name;$('version').value=device.version;
+    $('device-count').textContent=`${state.catalog.devices.filter(d=>d.version===device.version).length.toLocaleString()} 个设备档案`;
     $('device-name').textContent=device.name;$('device-platform').textContent=`${device.target} · ${device.id}`;
     $('target-label').textContent=device.target;$('arch-label').textContent=data.profiles.arch_packages;
+    $('builder-label').textContent=device.builder==='kwrt'?'Kwrt ImageBuilder':'官方 ImageBuilder';
     $('kernel-label').textContent=data.profiles.linux_kernel?.version||'查看构建环境';
     const images=data.profiles.profiles[device.id]?.images||[];
     $('official-images').replaceChildren();
-    for(const image of images){const row=node('div',undefined,'download-item');const link=node('a',`${image.type} · ${image.filesystem} · ${(image.size/1048576).toFixed(1)} MiB ↗`);link.href=`https://downloads.openwrt.org/releases/${device.version}/targets/${device.target}/${encodeURIComponent(image.name)}`;link.target='_blank';link.rel='noreferrer';row.append(link,node('code',`SHA256 ${image.sha256}`));$('official-images').append(row);}
+    const imageBase=data.image_base||`https://downloads.openwrt.org/releases/${device.version}/targets/${device.target}`;
+    for(const image of images){const row=node('div',undefined,'download-item');const link=node('a',`${image.type} · ${image.filesystem} · ${(image.size/1048576).toFixed(1)} MiB ↗`);link.href=`${imageBase}/${encodeURIComponent(image.name)}`;link.target='_blank';link.rel='noreferrer';row.append(link,node('code',`SHA256 ${image.sha256}`));$('official-images').append(row);}
     renderPackages();applyForm(state.config);update();
-    notice(data.package_metadata_errors.length?'设备资料已载入，但部分包索引不可用；请刷新后再构建。':state.git?`官方资料已载入。已连接构建仓库 ${state.git.repo}。`:'官方资料已载入。可导出配置，在 GitHub 手动构建；连接仓库授权后也可直接提交。',data.package_metadata_errors.length?'warning':'');
-  }catch(error){notice(`设备资料载入失败：${error.message}。可重新选择或刷新。`,'error');}
+    const source=device.builder==='kwrt'?'Kwrt 固定构建包':'OpenWrt 官方';
+    notice(data.package_metadata_errors.length?'设备资料已载入，但部分包索引不可用；请刷新后再构建。':`${source}资料已载入。`+(state.git?`已连接构建仓库 ${state.git.repo}。`:'可导出配置，在 GitHub 手动构建；连接仓库授权后也可直接提交。'),data.package_metadata_errors.length?'warning':'');
+    state.metadataReady=true;return true;
+  }catch(error){if(requestId===state.loadId)notice(`设备资料载入失败：${error.message}。可重新选择或刷新。`,'error');return false;
+  }finally{if(requestId===state.loadId){state.loading=false;$('build-button').disabled=state.busy||!state.metadataReady;$('preview-button').disabled=!state.metadataReady;}}
 }
 function showDevices(){
   const value=val('device-search').toLowerCase().trim(),version=val('version');
@@ -139,8 +152,8 @@ function showDevices(){
   $('device-results').hidden=false;$('device-search').setAttribute('aria-expanded','true');
 }
 function renderFeatures(){
-  for(const [id,label]of [['docker','Docker 管理'],['usb_net','USB 有线网卡'],['usb_wireless','USB 无线网卡'],['wwan','WWAN / ModemManager'],['istoreos','iStoreOS 风格界面'],['routerdog','路由狗 / NAS 模式'],['remove_links','去除作者外链']]){
-    const labelNode=node('label',undefined,'check');const input=node('input');input.type='checkbox';input.id=`feature-${id}`;input.disabled=['istoreos','routerdog','remove_links'].includes(id);labelNode.append(input,document.createTextNode(label));if(input.disabled)labelNode.append(node('small','需 Kwrt'));$('feature-options').append(labelNode);
+  for(const [id,label]of [['docker','Docker 管理'],['usb_net','USB 有线网卡'],['usb_wireless','USB 无线网卡'],['wwan','WWAN / 蜂窝网络'],['istoreos','iStoreOS 风格界面'],['routerdog','路由狗 / NAS 模式'],['remove_links','去除作者外链']]){
+    const labelNode=node('label',undefined,'check');const input=node('input');input.type='checkbox';input.id=`feature-${id}`;labelNode.append(input,document.createTextNode(label));if(id==='remove_links')labelNode.title='仅隐藏发行方推广链接，保留文字、开源许可和源码入口';$('feature-options').append(labelNode);
   }
 }
 function presetOptions(){
@@ -168,21 +181,24 @@ async function connect(){
     localStorage.setItem('pb-repository',git.repo);localStorage.setItem('pb-branch',git.ref);
     $('connection-label').textContent=`${git.repo.split('/')[1]} · ${data.private?'私有':'公开'}`;
     $('connection-dot').classList.add('connected');$('connect-dialog').close();toast('仓库已连接。令牌仅保存在本页内存中。');notice(`已连接${data.private?'私有':'公开'}构建仓库 ${git.repo}。`);await refreshRuns();
+    $('history-link').href=`https://github.com/${git.repo}/actions/workflows/build.yml`;
   }catch(error){$('connect-error').textContent=error.message;}finally{$('confirm-connect').disabled=false;}
 }
 async function startBuild(){
+  if(state.loading||!state.metadataReady){toast('请等设备资料载入完成后再构建。');return;}
   state.config=readForm();const errors=validate(state.config,state.available);if(errors.length){update();toast(errors[0]);return;}
   if(!state.git?.token){showConfig();toast('可导出配置并手动运行，或连接仓库授权后直接构建。');return;}
   if((privateContent(state.config)||state.file)&&!state.git.private){toast('初始化脚本、密码引用和文件包须使用私有构建仓库。');return;}
-  const button=$('build-button');button.disabled=true;button.textContent='正在提交…';
-  try{if(state.file){state.config.overlay=await state.git.upload(state.file);$('overlay-path').value=state.config.overlay;}
-    const requestId=crypto.randomUUID();await state.git.dispatch(state.config,requestId);toast('GitHub 已接受构建请求。请刷新记录查看排队状态。');notice('构建请求已提交。GitHub 执行期间可关闭页面，日志和产物在构建记录中。');await refreshRuns();
-  }catch(error){notice(error.message,'error');}finally{button.disabled=false;button.replaceChildren(document.createTextNode('构建新固件 '),node('span','↗'));}
+  const config=structuredClone(state.config),file=state.file,git=state.git;
+  const button=$('build-button');state.busy=true;button.disabled=true;button.textContent='正在提交…';
+  try{if(file){config.overlay=await git.upload(file);if(state.file===file){state.config.overlay=config.overlay;$('overlay-path').value=config.overlay;}}
+    const requestId=crypto.randomUUID();await git.dispatch(config,requestId);toast('GitHub 已接受构建请求。请刷新记录查看排队状态。');notice(`构建请求已提交：${config.version} / ${config.profile}。GitHub 执行期间可关闭页面，日志和产物在构建记录中。`);await refreshRuns();
+  }catch(error){notice(error.message,'error');}finally{state.busy=false;button.disabled=!state.metadataReady;button.replaceChildren(document.createTextNode('构建新固件 '),node('span','↗'));}
 }
 async function restore(config){
   const clean=safePreset(config),errors=validate(clean);if(errors.length)throw new Error(errors[0]);
   const device=state.catalog.devices.find(d=>d.version===clean.version&&d.target===clean.target&&d.id===clean.profile);if(!device)throw new Error('此配置的版本/设备不在当前目录中。');
-  await selectDevice(device,clean);
+  if(!await selectDevice(device,clean))throw new Error('此设备资料未载入，配置尚未导入。');
 }
 async function init(){
   renderFeatures();presetOptions();
@@ -198,15 +214,15 @@ async function init(){
   $('preview-button').addEventListener('click',showConfig);$('build-button').addEventListener('click',startBuild);
   $('connect-button').addEventListener('click',()=>$('connect-dialog').showModal());$('confirm-connect').addEventListener('click',connect);
   $('refresh-runs').addEventListener('click',refreshRuns);
-  $('copy-config').addEventListener('click',async()=>{try{await navigator.clipboard.writeText($('config-json').value);toast('JSON 已复制。');}catch{toast('自动复制不可用，可直接选择下方 JSON。');}});
+  $('copy-config').addEventListener('click',async()=>{try{await navigator.clipboard.writeText($('config-json').value);toast('构建配置已复制。下一步打开 GitHub。');}catch{toast('自动复制不可用，请展开配置明细后复制。');}});
   $('download-config').addEventListener('click',()=>{const url=URL.createObjectURL(new Blob([$('config-json').value],{type:'application/json'}));const a=node('a');a.href=url;a.download=`openwrt-${state.config.target.replace('/','-')}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
   $('autofill').addEventListener('change',persist);
   $('save-preset').addEventListener('click',()=>{const name=val('preset-name').trim();if(!name){toast('先给模板起一个名字。');return;}const presets=JSON.parse(localStorage.getItem('pb-presets')||'{}');presets[name]=browserSnapshot(readForm());localStorage.setItem('pb-presets',JSON.stringify(presets));presetOptions();toast('模板已保存在本机；初始化脚本和文件包路径未自动保存。');});
   $('preset-list').addEventListener('change',async()=>{if(!val('preset-list'))return;try{await restore(JSON.parse(localStorage.getItem('pb-presets'))[val('preset-list')]);toast('模板已载入。');}catch(error){toast(error.message);}});
   $('import-config').addEventListener('change',async e=>{try{const f=e.target.files[0];if(!f)return;if(f.size>60000)throw new Error('配置文件不能超过 60 KB。');await restore(JSON.parse(await f.text()));toast('配置已导入。');}catch(error){toast(error.message);}e.target.value='';});
   $('clear-overlay').addEventListener('click',()=>{clearSelectedFile();$('overlay-path').value='';update();toast('已清除本页选择；不会删除仓库中的文件。');});
-  $('overlay-file').addEventListener('change',e=>{const file=e.target.files[0];if(!file)return;if(file.size>12*1024*1024||!/(\.zip|\.tgz|\.tar\.gz)$/i.test(file.name)){e.target.value='';toast('请选择不超过 12 MiB 的 ZIP/TAR.GZ/TGZ。');return;}state.file=file;$('upload-label').textContent=`${file.name} · ${(file.size/1048576).toFixed(2)} MiB`;$('overlay-path').value='';update();});
-  try{state.catalog=await json('data/catalog.json');$('version').replaceChildren(...state.catalog.versions.map(v=>new Option(v,v)));$('version').value=state.catalog.default_version;
+  $('overlay-file').addEventListener('change',e=>{const file=e.target.files[0];if(!file)return;if(file.size>12*1024*1024||!/(\.zip|\.tgz|\.tar\.gz|\.7z)$/i.test(file.name)){e.target.value='';toast('请选择不超过 12 MiB 的 ZIP/TAR.GZ/TGZ/7Z。');return;}state.file=file;$('upload-label').textContent=`${file.name} · ${(file.size/1048576).toFixed(2)} MiB`;$('overlay-path').value='';update();});
+  try{state.catalog=await json('data/catalog.json');$('version').replaceChildren(...state.catalog.versions.map(v=>new Option(state.catalog.version_labels?.[v]||`OpenWrt ${v}`,v)));$('version').value=state.catalog.default_version;
     $('metadata-date').textContent=`资料更新 ${new Date(state.catalog.updated).toLocaleDateString()}`;
     const devices=state.catalog.devices.filter(d=>d.version===val('version'));$('device-count').textContent=`${devices.length.toLocaleString()} 个设备档案`;
     let saved=null;try{if(checked('autofill'))saved=JSON.parse(localStorage.getItem('pb-current')||'null');}catch{}

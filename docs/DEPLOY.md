@@ -47,10 +47,10 @@ ChatGPT 已连接 GitHub 不代表 Pages 网页自动获得该连接。不要把
 
 无令牌模式：自己通过 GitHub 上传文件包至私有仓库 overlays/，在网页填写对应路径后导出配置。
 
-7Z、压缩包内 IPK/APK 自动安装、Kwrt 专属包、电视盒内核/DTB 打包尚未接入。界面会标明不可用，构建端拒绝未配置能力；不以成功状态掩盖缺失功能。
+支持 7Z 以及 Kwrt 的兼容 IPK 设备端首次开机安装。IPK 包的维护脚本不会在 Actions 主机执行；核心包、内核模块和 APK 请从软件源选择。详见 USAGE.md。
 
 ## 验证范围
 
-本地完成配置逻辑、API 请求和文件路径边界测试。Windows 本地不执行 Linux ImageBuilder；真实构建需要仓库接通后的首次 Actions 运行。
+本地与 GitHub 均运行配置、API、文件路径、归档、构建调度等测试。Windows 本地不执行 Linux ImageBuilder；真实构建与隔离 QEMU 开机回归在 Actions 执行。流程与结果见 TESTING.md。
 
 构建通过不代表硬件启动验证通过。请先在虚拟机验证 x86 EFI/Legacy、LuCI、网络和包清单，再用于实机。

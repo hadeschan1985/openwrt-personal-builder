@@ -1,0 +1,61 @@
+name: Extended network and webserver regression
+on:
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: Choose the full suite or targeted Lighttpd regression
+        type: choice
+        options: [all, lighttpd]
+        default: all
+  push:
+    branches: [main]
+    paths: ['configs/extended-qa-trigger.txt']
+permissions:
+  contents: read
+concurrency:
+  group: extended-qa-${{ github.repository }}
+  cancel-in-progress: true
+jobs:
+  boot:
+    if: github.event.repository.private
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(inputs.suite == 'lighttpd' && '[{"source":"kwrt","variant":"lighttpd"},{"source":"kwrt","variant":"lighttpd-https"}]' || '[{"source":"official","variant":"side-ext4"},{"source":"official","variant":"nginx"},{"source":"official","variant":"nginx-https"},{"source":"kwrt","variant":"lighttpd"},{"source":"kwrt","variant":"lighttpd-https"},{"source":"kwrt","variant":"iptables"},{"source":"kwrt","variant":"features"}]') }}
+    env:
+      REPOSITORY_PRIVATE: 'true'
+      QA_SOURCE: ${{ matrix.source }}
+      QA_VARIANT: ${{ matrix.variant }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+      - name: Install build and isolated VM tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends build-essential libncurses-dev libssl-dev \
+            zlib1g-dev gawk gettext unzip file rsync wget curl zstd qemu-utils qemu-system-x86 ovmf openssh-client 7zip
+      - name: Prepare disposable scenario
+        run: python -m scripts.smoke prepare --source "$QA_SOURCE" --variant "$QA_VARIANT"
+      - name: Build disposable QA image
+        run: python scripts/build.py --config configs/qa-generated.json
+      - name: Boot and authenticate LuCI
+        run: python -m scripts.smoke run
+      - name: Upload reports only
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: extended-qa-${{ matrix.source }}-${{ matrix.variant }}
+          path: |
+            work/qa/boot-report.json
+            work/qa/serial-*.log
+            work/qa/qemu-*.log
+            work/qa/guest-*.log
+            outputs/build.log
+          if-no-files-found: ignore
+          retention-days: 7

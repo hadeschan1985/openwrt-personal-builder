@@ -1,0 +1,17 @@
+name: Diagnose configured public source
+on:
+  workflow_dispatch:
+  push:
+    paths: ['scripts/cloud_probe.py', '.github/workflows/source-probe.yml']
+permissions:
+  contents: read
+jobs:
+  source:
+    if: github.event.repository.private
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: python scripts/cloud_probe.py

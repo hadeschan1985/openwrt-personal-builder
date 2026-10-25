@@ -11,7 +11,9 @@ export class GitHub {
   async request(path,options={}) {
     const headers={'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28',...(options.body?{'Content-Type':'application/json'}:{})};
     if(this.token)headers.Authorization=`Bearer ${this.token}`;
-    const r=await this.fetcher(`${API}/repos/${this.repo}${path}`,{...options,headers,cache:'no-store'});
+    let r;
+    try{r=await this.fetcher(`${API}/repos/${this.repo}${path}`,{...options,headers,cache:'no-store',signal:options.signal??AbortSignal.timeout(90000)});}
+    catch(error){if(['AbortError','TimeoutError'].includes(error.name))throw new Error('GitHub 响应超时。先查看构建记录，确认是否已提交，再决定重试。');throw error;}
     if(!r.ok){let message='';try{message=(await r.json()).message||'';}catch{}throw new Error(`GitHub ${r.status}：${message||'请求失败，请检查仓库与授权。'}`);}
     return r.status===204?null:r.json();
   }
@@ -29,7 +31,7 @@ export class GitHub {
     if(file.size>12*1024*1024)throw new Error('文件包不能超过 12 MiB。');
     const name=file.name.toLowerCase();
     const extension=name.endsWith('.tar.gz')?'tar.gz':name.split('.').pop();
-    if(!['zip','tgz','tar.gz'].includes(extension))throw new Error('目前支持 ZIP/TAR.GZ/TGZ。');
+    if(!['zip','tgz','tar.gz','7z'].includes(extension))throw new Error('目前支持 ZIP/TAR.GZ/TGZ/7Z。');
     const bytes=new Uint8Array(await file.arrayBuffer());
     const hash=[...new Uint8Array(await crypto.subtle.digest('SHA-256',bytes))].map(n=>n.toString(16).padStart(2,'0')).join('');
     const path=`overlays/${hash.slice(0,24)}.${extension}`;

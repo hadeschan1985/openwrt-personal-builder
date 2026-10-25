@@ -9,6 +9,7 @@ import argparse
 import gzip
 import hashlib
 import ipaddress
+import io
 import json
 import os
 from pathlib import Path, PurePosixPath
@@ -23,15 +24,22 @@ import urllib.request
 import zipfile
 
 BASE = "https://downloads.openwrt.org"
+REGISTRY = Path(__file__).resolve().parents[1] / "configs" / "builders.json"
 PACKAGE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9+_.-]{0,120}$")
-CORE = {"base-files", "busybox", "libc", "libgcc", "kernel", "netifd", "procd", "uci", "fstools"}
+CORE = {"base-files", "busybox", "libc", "libgcc", "libgcc1", "kernel", "netifd", "procd", "uci", "fstools"}
 FEATURE_PACKAGES = {
     "docker": ["luci-app-dockerman"],
     "usb_net": ["kmod-usb-net-asix", "kmod-usb-net-rtl8152", "kmod-usb-net-cdc-ether", "kmod-usb-net-cdc-ncm"],
     "usb_wireless": ["kmod-mt76-usb", "kmod-rt2800-usb", "iw", "wpad-mbedtls"],
     "wwan": ["luci-proto-modemmanager", "modemmanager", "kmod-usb-net-qmi-wwan", "kmod-usb-serial-option"],
+    "istoreos": ["luci-app-istorex"],
+    "routerdog": ["luci-app-routerdog"],
+    "remove_links": [],
 }
-UNSUPPORTED = {"istoreos", "routerdog", "remove_links"}
+KWRT_FEATURES = {"istoreos", "routerdog"}
+KWRT_FEATURE_PACKAGES = {"wwan": ["luci-app-wwand", "luci-proto-wwand", "wwand-esim", "wwand-mbim", "wwand-mhi", "wwand-ncm"]}
+UNSUPPORTED = set()
+LANDING_MODES = {"auto", "overview", "dashboard", "istoreos", "nas", "next-nas", "router", "routerdog"}
 
 
 class ConfigError(ValueError):
@@ -52,19 +60,26 @@ def boolean(obj, key, default=False):
 def normalize(raw):
     require(isinstance(raw, dict), "Configuration must be a JSON object")
     require(raw.get("schema_version") == 1, "Unsupported schema_version")
-    require(raw.get("builder", "official") == "official", "Kwrt/custom builders are not configured yet")
+    builder = raw.get("builder", "official")
+    require(builder in ("official", "kwrt"), "Unknown builder")
     version = raw.get("version", "")
-    require(isinstance(version, str) and re.fullmatch(r"\d{2}\.\d{2}\.\d+(?:-rc\d+)?", version), "Use a fixed OpenWrt release")
+    if builder == "official":
+        require(isinstance(version, str) and re.fullmatch(r"\d{2}\.\d{2}\.\d+(?:-rc\d+)?", version), "Use a fixed OpenWrt release")
+    else:
+        require(isinstance(version, str) and version in json.loads(REGISTRY.read_text(encoding="utf-8")), "Use a checksum-pinned Kwrt builder")
     target, profile = raw.get("target", ""), raw.get("profile", "")
     require(isinstance(target, str) and re.fullmatch(r"[a-z0-9_-]+/[a-z0-9_-]+", target), "Invalid target")
     require(isinstance(profile, str) and re.fullmatch(r"[A-Za-z0-9_,.+-]+", profile), "Invalid profile")
-    result = {"schema_version": 1, "builder": "official", "version": version, "target": target, "profile": profile}
+    if builder == "kwrt":
+        require(target == json.loads(REGISTRY.read_text(encoding="utf-8"))[version]["target"], "Kwrt builder target mismatch")
+    result = {"schema_version": 1, "builder": builder, "version": version, "target": target, "profile": profile}
     for key in ("packages", "remove_packages", "themes", "proxies"):
         values = raw.get(key, [])
         require(isinstance(values, list) and len(values) <= 512, f"Invalid {key}")
         require(all(isinstance(p, str) and PACKAGE.fullmatch(p) for p in values), f"Invalid package name in {key}")
         result[key] = sorted(set(values))
     require(not (CORE & set(result["remove_packages"])), "Cannot remove essential system packages")
+    require(builder != "kwrt" or "my-default-settings" not in result["remove_packages"], "Kwrt requires my-default-settings")
     require(not (set(result["packages"]) & set(result["remove_packages"])), "Package both added and removed")
     result["firewall"] = raw.get("firewall", "nftables")
     require(result["firewall"] in ("nftables", "iptables"), "Invalid firewall")
@@ -82,14 +97,18 @@ def normalize(raw):
         raise ConfigError("Invalid management IPv4 address") from None
     webserver = system.get("webserver", "uhttpd")
     require(webserver in ("uhttpd", "nginx", "lighttpd"), "Invalid webserver")
+    require(builder == "kwrt" or webserver != "lighttpd", "Lighttpd LuCI integration requires the Kwrt builder")
     signature = system.get("signature", "")
     require(isinstance(signature, str) and len(signature) <= 120 and "\x00" not in signature, "Invalid signature")
     default_theme = system.get("default_theme", "bootstrap")
     require(isinstance(default_theme, str) and re.fullmatch(r"[a-zA-Z0-9_-]+", default_theme), "Invalid default theme")
-    require(f"luci-theme-{default_theme}" in result["themes"], "Default theme must be installed")
-    require(system.get("theme_mode", "auto") == "auto", "Custom NAS landing pages require a Kwrt builder")
+    theme_package = re.sub(r"^(argon|bootstrap)-(?:light|dark)$", r"\1", default_theme)
+    require(f"luci-theme-{theme_package}" in result["themes"], "Default theme must be installed")
+    theme_mode = system.get("theme_mode", "auto")
+    require(theme_mode in LANDING_MODES, "Invalid landing page mode")
+    require(builder == "kwrt" or theme_mode == "auto", "Custom NAS landing pages require a Kwrt builder")
     result["system"] = {"hostname": hostname, "ip": address, "webserver": webserver,
-        "signature": signature, "default_theme": default_theme,
+        "signature": signature, "default_theme": default_theme, "theme_mode": theme_mode,
         "https": boolean(system, "https", True), "ipv6": boolean(system, "ipv6", True),
         "password_secret": boolean(system, "password_secret")}
     net = raw.get("network", {})
@@ -113,6 +132,8 @@ def normalize(raw):
     require(not lan or re.fullmatch(r"eth\d+(?: eth\d+)*", lan), "Invalid LAN ports")
     require(not wan or wan not in lan.split(), "WAN and LAN ports overlap")
     require(not (wan or lan) or target.startswith("x86/"), "Custom eth port mapping is currently x86-only")
+    if wan and not lan:
+        lan = "eth1" if wan == "eth0" else "eth0"
     ssid = net.get("wifi_ssid", "")
     require(isinstance(ssid, str) and len(ssid.encode()) <= 32 and "\x00" not in ssid and "\n" not in ssid, "Invalid Wi-Fi SSID")
     require(not boolean(net, "wifi_password_secret") or ssid, "Wi-Fi password needs an SSID")
@@ -125,6 +146,10 @@ def normalize(raw):
     require(isinstance(features, dict) and not (set(features) - (set(FEATURE_PACKAGES) | UNSUPPORTED)), "Unknown feature")
     for feature in UNSUPPORTED:
         require(not boolean(features, feature), f"{feature} needs a verified Kwrt builder")
+    for feature in KWRT_FEATURES:
+        require(builder == "kwrt" or not boolean(features, feature), f"{feature} requires Kwrt")
+    require(theme_mode not in ("istoreos", "nas", "next-nas", "router") or boolean(features, "istoreos"), "Selected landing page requires iStoreX")
+    require(theme_mode != "routerdog" or boolean(features, "routerdog"), "Selected landing page requires RouterDog")
     result["features"] = {k: boolean(features, k) for k in FEATURE_PACKAGES}
     output = raw.get("output", {})
     require(isinstance(output, dict), "Invalid output settings")
@@ -158,14 +183,21 @@ def package_plan(config):
     remove = set(config["remove_packages"])
     system = config["system"]
     packages.update(["luci-ssl"] if system["webserver"] == "uhttpd" else [f"luci-{system['webserver']}"])
+    if system["webserver"] == "lighttpd":
+        packages.add("openssl-util")
     if config["firewall"] == "iptables":
         remove.add("firewall4")
-        packages.update(["firewall", "iptables-legacy"])
+        packages.update(["firewall", "iptables-zz-legacy"])
     for feature, enabled in config["features"].items():
         if enabled:
-            packages.update(FEATURE_PACKAGES[feature])
+            packages.update(KWRT_FEATURE_PACKAGES.get(feature, FEATURE_PACKAGES[feature]) if config["builder"] == "kwrt" else FEATURE_PACKAGES[feature])
     if config["features"]["usb_wireless"]:
         remove.update(["wpad-basic-mbedtls", "wpad-basic-wolfssl"])
+    if config["builder"] == "kwrt":
+        spec = json.loads(REGISTRY.read_text(encoding="utf-8"))[config["version"]]
+        require(not packages.intersection(spec["exclude_defaults"]), "Selected Kwrt package has missing upstream dependencies")
+        remove.update(spec["exclude_defaults"])
+        packages.update(p for p in spec["replacement_packages"] if p not in remove)
     require(not (packages & remove), "Generated package selections conflict")
     return sorted(packages) + [f"-{p}" for p in sorted(remove)]
 
@@ -188,16 +220,17 @@ def defaults_script(config, env=None):
         uci("network.lan.gateway", net["gateway"])
         lines.append("uci -q delete network.lan.dns || true")
         lines.append(f"uci -q add_list {q('network.lan.dns=' + net['gateway'])}")
-        uci("network.wan.auto", "0")
-        uci("network.wan6.auto", "0")
+        lines.append("[ -z \"$(uci -q get network.wan || true)\" ] || uci -q set network.wan.auto=0")
+        lines.append("[ -z \"$(uci -q get network.wan6 || true)\" ] || uci -q set network.wan6.auto=0")
     uci("dhcp.lan.ignore", "0" if net["dhcp"] else "1")
     if not system["ipv6"]:
         for key in ("ra", "dhcpv6", "ndp"):
             uci("dhcp.lan." + key, "disabled")
-        uci("network.wan6.auto", "0")
+        lines.append("[ -z \"$(uci -q get network.wan6 || true)\" ] || uci -q set network.wan6.auto=0")
     if net["wan_port"]:
+        lines.append("if ! uci -q get network.wan >/dev/null; then uci -q set network.wan=interface; uci -q set network.wan.proto=dhcp; fi")
         uci("network.wan.device", net["wan_port"])
-        uci("network.wan6.device", net["wan_port"])
+        lines.append(f"[ -z \"$(uci -q get network.wan6 || true)\" ] || uci -q set {q('network.wan6.device=' + net['wan_port'])}")
     if net["lan_ports"]:
         lines += ["bridge_section=''", r"for section in $(uci show network | sed -n 's/^network\.\([^=]*\)=device$/\1/p'); do",
             "  if [ \"$(uci -q get network.$section.name || true)\" = 'br-lan' ]; then bridge_section=$section; break; fi", "done",
@@ -205,10 +238,38 @@ def defaults_script(config, env=None):
             "uci -q delete network.$bridge_section.ports || true"]
         for port in net["lan_ports"].split():
             lines.append(f"uci -q add_list \"network.$bridge_section.ports={port}\"")
-    theme_path = {"bootstrap": "/luci-static/bootstrap", "openwrt": "/luci-static/openwrt.org", "openwrt-2020": "/luci-static/openwrt2020"}.get(system["default_theme"], "/luci-static/" + system["default_theme"])
+    theme_path = {"bootstrap": "/luci-static/bootstrap", "openwrt": "/luci-static/openwrt.org", "openwrt-2020": "/luci-static/openwrt2020", "argon-light": "/luci-static/argon", "argon-dark": "/luci-static/argon"}.get(system["default_theme"], "/luci-static/" + system["default_theme"])
     uci("luci.main.mediaurlbase", theme_path)
-    if system["webserver"] == "uhttpd" and system["https"]:
-        uci("uhttpd.main.redirect_https", "1")
+    if system["default_theme"] in ("argon-light", "argon-dark"):
+        uci("argon.@global[0].mode", system["default_theme"].split("-")[1])
+    if config["builder"] == "kwrt":
+        uci("luci.main.landing_page", system["theme_mode"])
+    if config["features"]["remove_links"]:
+        uci("system.@system[0].links", "0")
+        lines += ["for directory in /usr/share/ucode/luci/template/themes /usr/lib/lua/luci/view/themes; do",
+            "  [ -d \"$directory\" ] || continue",
+            "  find \"$directory\" -type f \\( -name 'footer*.ut' -o -name 'footer*.htm' \\) | while IFS= read -r footer; do",
+            "    grep -q personal-footer.js \"$footer\" && continue",
+            "    sed -i 's#</body>#<script type=\"module\" src=\"/luci-static/resources/personal-footer.js\"></script></body>#' \"$footer\"",
+            "  done", "done"]
+    if system["webserver"] == "uhttpd":
+        uci("uhttpd.main.redirect_https", "1" if system["https"] else "0")
+    elif system["webserver"] == "nginx":
+        lines += ["[ ! -x /etc/init.d/uhttpd ] || /etc/init.d/uhttpd disable",
+                  "[ ! -x /etc/init.d/lighttpd ] || /etc/init.d/lighttpd disable"]
+        if not system["https"]:
+            lines += ["uci -q delete nginx._redirect2ssl || true", "uci -q add_list 'nginx._lan.listen=80'", "uci -q add_list 'nginx._lan.listen=[::]:80'"]
+    elif system["webserver"] == "lighttpd":
+        uci("luci.main.ubuspath", "/cgi-bin/luci/admin/ubus")
+        # Generate a unique key on each device, never reuse an upstream PEM.
+        lines += ["mkdir -p /etc/lighttpd/conf.d", "umask 077",
+            "openssl req -x509 -newkey rsa:2048 -nodes -keyout /tmp/personal-tls.key -out /tmp/personal-tls.crt -days 3650 -subj /CN=OpenWrt-Personal >/dev/null 2>&1",
+            "cat /tmp/personal-tls.key /tmp/personal-tls.crt > /etc/lighttpd/conf.d/server.pem",
+            "rm -f /tmp/personal-tls.key /tmp/personal-tls.crt"]
+        if system["https"]:
+            lines.append("sed -i 's/^[ \\t]*# url.redirect/        url.redirect/' /etc/lighttpd/conf.d/82-https.conf")
+        else:
+            lines.append("sed -i 's/^[ \\t]*url.redirect/        # url.redirect/' /etc/lighttpd/conf.d/82-https.conf")
     if system["signature"]:
         lines.append(f"printf '%s\\n' {q(system['signature'])} >> /etc/banner")
     def secret(name):
@@ -246,7 +307,7 @@ def safe_member(name):
     return path
 
 
-def extract_overlay(archive: Path, destination: Path):
+def extract_overlay(archive: Path, destination: Path, allow_ipk=False):
     require(archive.stat().st_size <= 12 * 1024 * 1024, "Overlay archive exceeds 12 MiB")
     destination.mkdir(parents=True, exist_ok=True)
     count, total = 0, 0
@@ -258,7 +319,12 @@ def extract_overlay(archive: Path, destination: Path):
         path = destination.joinpath(*safe_member(name).parts)
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("wb") as out:
-            shutil.copyfileobj(stream, out)
+            actual = 0
+            while chunk := stream.read(65536):
+                actual += len(chunk)
+                require(actual <= size and actual <= 128 * 1024 * 1024, "Archive entry exceeds declared size")
+                out.write(chunk)
+            require(actual == size, "Archive entry size mismatch")
         path.chmod(mode & 0o777)
     if archive.name.endswith(".zip"):
         with zipfile.ZipFile(archive) as package:
@@ -276,10 +342,99 @@ def extract_overlay(archive: Path, destination: Path):
                 if info.isfile():
                     with package.extractfile(info) as stream:
                         write(info.name, info.size, stream, info.mode)
+    elif archive.name.endswith(".7z"):
+        seven = shutil.which("7zz") or shutil.which("7z")
+        require(bool(seven), "7-Zip is not installed on the build runner")
+        listing = subprocess.run([seven, "l", "-slt", "-ba", "--", str(archive.resolve())],
+            text=True, capture_output=True, timeout=30, check=True).stdout
+        for block in re.split(r"\r?\n\r?\n", listing.strip()):
+            fields = dict(line.split(" = ", 1) for line in block.splitlines() if " = " in line)
+            require("Path" in fields, "Unexpected 7z listing")
+            name = fields["Path"]
+            safe_member(name)
+            require(not any(c in name for c in "\r\n\x00"), "Unsupported archive filename")
+            attributes = fields.get("Attributes", "")
+            require(not any(k in fields for k in ("Symbolic Link", "Hard Link")) and not re.search(r"(?:^|\s)l[rwx-]", attributes), "Overlay links are not supported")
+            require(fields.get("Encrypted", "-") == "-", "Encrypted archives are not supported")
+            if fields.get("Folder") == "+" or attributes.startswith("D"):
+                continue
+            require(fields.get("Size", "").isdigit(), "Invalid 7z entry size")
+            size = int(fields["Size"])
+            require(size <= 128 * 1024 * 1024, "Expanded overlay exceeds limits")
+            process = subprocess.Popen([seven, "x", "-so", "-spd", "--", str(archive.resolve()), name],
+                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+            try:
+                write(name, size, process.stdout)
+                require(process.wait(timeout=30) == 0, "7z extraction failed")
+            finally:
+                if process.poll() is None:
+                    process.kill()
+                    process.wait()
     else:
-        raise ConfigError("7z overlay support is not enabled; convert it to ZIP or TAR.GZ")
-    require(not list(destination.rglob("*.ipk")) and not list(destination.rglob("*.apk")),
-        "Archive package installation needs a matching package-manager integration; use package names for now")
+        raise ConfigError("Unsupported overlay archive format")
+    require(not list(destination.rglob("*.apk")), "Custom APK installation is not supported; use repository package names")
+    require(allow_ipk or not list(destination.rglob("*.ipk")), "Custom IPK packages require the Kwrt/opkg builder")
+
+
+def ipk_control(path):
+    raw = path.read_bytes()
+    if raw.startswith(b"!<arch>\n"):
+        offset, control = 8, None
+        while offset + 60 <= len(raw):
+            header = raw[offset:offset + 60]
+            require(header[58:60] == b"`\n", "Invalid IPK ar header")
+            size = int(header[48:58].strip())
+            name = header[:16].decode().strip().rstrip("/")
+            offset += 60
+            require(0 <= size <= len(raw) - offset, "Truncated IPK")
+            if name == "control.tar.gz":
+                control = raw[offset:offset + size]
+            offset += size + size % 2
+    else:
+        with tarfile.open(fileobj=io.BytesIO(raw), mode="r:gz") as outer:
+            member = next((m for m in outer if m.name.removeprefix("./") == "control.tar.gz"), None)
+            require(member is not None and member.isfile() and member.size <= 1024 * 1024, "Invalid IPK control archive")
+            control = outer.extractfile(member).read()
+    require(control is not None and len(control) <= 1024 * 1024, "IPK lacks control metadata")
+    with tarfile.open(fileobj=io.BytesIO(control), mode="r:gz") as inner:
+        member = next((m for m in inner if m.name.removeprefix("./") == "control"), None)
+        require(member is not None and member.isfile() and member.size <= 64000, "Invalid IPK control metadata")
+        fields = dict(line.split(": ", 1) for line in inner.extractfile(member).read().decode().splitlines() if ": " in line and not line.startswith(" "))
+    require(PACKAGE.fullmatch(fields.get("Package", "")) is not None, "Invalid custom IPK package name")
+    require(fields["Package"] not in CORE and not fields["Package"].startswith("kmod-"), "Use the builder's own core and kernel-module packages")
+    require(fields.get("Architecture") in ("all", "x86_64"), "IPK architecture does not match this Kwrt x86 builder")
+    return fields
+
+
+def prepare_custom_ipks(overlay):
+    """Stage packages for device-side installation, never host-side scripts."""
+    packages, dependencies, staged = [], set(), []
+    for path in sorted(overlay.rglob("*.ipk")):
+        fields = ipk_control(path)
+        name = fields["Package"]
+        require(name not in {p["name"] for p in packages}, "Duplicate custom IPK package")
+        packages.append({"name": name, "version": fields.get("Version", ""), "sha256": sha256(path),
+                         "installation": "first-boot-on-device"})
+        for dep in fields.get("Depends", "").split(","):
+            if not dep.strip():
+                continue
+            dependency = dep.strip().split()[0]
+            require(PACKAGE.fullmatch(dependency) is not None, "Unsupported custom IPK dependency")
+            dependencies.add(dependency)
+        destination = overlay / "root" / "personal-packages" / (sha256(path) + ".ipk.payload")
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        path.rename(destination)
+        staged.append("/root/personal-packages/" + destination.name)
+    if packages:
+        script = overlay / "etc" / "uci-defaults" / "98-personal-packages"
+        script.parent.mkdir(parents=True, exist_ok=True)
+        install_paths = [p.removesuffix(".payload") for p in staged]
+        renames = "".join("if [ -f " + q(src) + " ]; then mv " + q(src) + " " + q(dst) + "; fi\n" for src, dst in zip(staged, install_paths))
+        script.write_text("#!/bin/sh\nset -eu\n# Runs on the router, never the Actions host.\n" + renames +
+            "opkg install " + " ".join(q(p) for p in install_paths) + "\n"
+            "rm -f " + " ".join(q(p) for p in install_paths) + "\nexit 0\n", encoding="utf-8")
+        script.chmod(0o755)
+    return packages, dependencies - {p["name"] for p in packages}
 
 
 def download(url, destination):
@@ -295,7 +450,8 @@ def sha256(path):
 
 
 def get_json(url):
-    with urllib.request.urlopen(url, timeout=60) as response:
+    request = urllib.request.Request(url, headers={"User-Agent": "OpenWrt-Personal-Builder/0.1"})
+    with urllib.request.urlopen(request, timeout=60) as response:
         return json.load(response)
 
 
@@ -309,11 +465,60 @@ def selected_images(images, config):
                 matches.append(image)
         elif fs == out["filesystem"]:
             if config["target"].startswith("x86/"):
-                if (kind == "combined" and out["legacy"]) or (kind == "combined-efi" and out["efi"]):
+                if not image.get("name", "").endswith(".vmdk.zip") and ((kind == "combined" and out["legacy"]) or (kind == "combined-efi" and out["efi"])):
                     matches.append(image)
             elif kind in ("sysupgrade", "factory", "sdcard", "combined", "combined-efi"):
                 matches.append(image)
     return matches
+
+
+def translation_alias(workspace, name, dependency):
+    """The publisher embeds zh-cn data but leaves obsolete split-package deps.
+
+    This explicitly labelled metadata-only compatibility package depends on the
+    real runtime package. Presence of the actual translation is checked later.
+    """
+    control = (f"Package: {name}\nVersion: 1.0+pb1\nArchitecture: all\nDepends: {dependency}\n"
+        "Section: luci\nDescription: Personal Builder compatibility alias; Chinese translation is embedded in the runtime package.\n")
+    def member_tar(members):
+        buffer = io.BytesIO()
+        with tarfile.open(fileobj=buffer, mode="w:gz") as archive:
+            for path, data in members.items():
+                info = tarfile.TarInfo(path)
+                info.size = len(data)
+                info.mode = 0o644
+                archive.addfile(info, io.BytesIO(data))
+        return buffer.getvalue()
+    payload = member_tar({"./debian-binary": b"2.0\n", "./control.tar.gz": member_tar({"./control": control.encode()}),
+                          "./data.tar.gz": member_tar({})})
+    destination = workspace / "packages" / (name + "_1.0+pb1_all.ipk")
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.write_bytes(payload)
+
+
+def prepare_kwrt(workspace):
+    """Adapt the published server-oriented builder without weakening failures."""
+    repositories = workspace / "repositories.conf"
+    source = repositories.read_text()
+    require("file://www/wwwroot/dl.openwrt.ai/" in source, "Kwrt repository layout changed; review required")
+    source = source.replace("file://www/wwwroot/dl.openwrt.ai/", "https://dl.openwrt.ai/")
+    for line in source.splitlines():
+        if line.strip() and not line.lstrip().startswith("#"):
+            parts = line.split()
+            require(len(parts) == 3 and (parts[2].startswith("https://dl.openwrt.ai/") or parts[2] == "file:packages"), "Unexpected Kwrt repository URL")
+    repositories.write_text(source)
+    makefile = workspace / "Makefile"
+    source = makefile.read_text()
+    permissive = "$(OPKG) install --force-maintainer $(BUILD_PACKAGES) luci-i18n-base-zh-cn || true"
+    require(source.count(permissive) == 1, "Kwrt package installer layout changed; review required")
+    source = source.replace(permissive, permissive.removesuffix(" || true"))
+    automatic = ('\t$(if $(USER_FILES), \\\n\tfind $(USER_FILES) -name "*.ipk" -print0 | \\\n'
+        "\twhile IFS= read -r -d '' ipk; do \\\n\t\t$(OPKG) install \"$$ipk\" && rm -f \"$$ipk\" || true; \\\n\tdone; \\\n\t)\n")
+    source = source.replace(automatic, "\t# Personal IPKs are staged for device-side first boot, never host installation.\n")
+    require('find $(USER_FILES) -name "*.ipk"' not in source, "Unsafe Kwrt host-side custom IPK installer could not be disabled")
+    makefile.write_text(source)
+    translation_alias(workspace, "luci-i18n-base-zh-cn", "luci-base")
+    translation_alias(workspace, "luci-i18n-ttyd-zh-cn", "luci-app-ttyd")
 
 
 def build(config, root=Path(".")):
@@ -321,11 +526,12 @@ def build(config, root=Path(".")):
     root = root.resolve()
     workspace = root / "work" / "builder"
     require(not workspace.exists(), "Build directory already exists; use a fresh workspace")
-    base = f"{BASE}/releases/{config['version']}/targets/{config['target']}"
+    kwrt = json.loads(REGISTRY.read_text(encoding="utf-8")).get(config["version"]) if config["builder"] == "kwrt" else None
+    base = kwrt["base"] if kwrt else f"{BASE}/releases/{config['version']}/targets/{config['target']}"
     metadata = get_json(base + "/profiles.json")
     require(config["profile"] in metadata["profiles"], "Profile not found in the selected target")
     available_images = metadata["profiles"][config["profile"]]["images"]
-    require(selected_images(available_images, config), "Requested output is unavailable in this builder")
+    require(selected_images(available_images, config) or (kwrt and config["target"] == "x86/64" and config["output"]["filesystem"] == "ext4"), "Requested output is unavailable in this builder")
     if config["output"]["rootfs"]:
         require(any(i.get("filesystem") == "targz" for i in available_images), "This builder does not offer ROOTFS TAR.GZ")
     private = os.environ.get("REPOSITORY_PRIVATE", "true") == "true"
@@ -337,9 +543,13 @@ def build(config, root=Path(".")):
         parts = line.split()
         if len(parts) == 2:
             expected[parts[1].lstrip("*")] = parts[0]
-    prefix = f"openwrt-imagebuilder-{config['version']}-{config['target'].replace('/', '-')}"
-    candidates = [n for n in expected if n.startswith(prefix + ".Linux-x86_64.tar.") and "/" not in n]
-    require(len(candidates) == 1, "Cannot uniquely identify official ImageBuilder")
+    if kwrt:
+        candidates = [kwrt["archive"]]
+        require(expected.get(kwrt["archive"]) == kwrt["sha256"], "Kwrt upstream builder changed; pinned registry needs review")
+    else:
+        prefix = f"openwrt-imagebuilder-{config['version']}-{config['target'].replace('/', '-')}"
+        candidates = [n for n in expected if n.startswith(prefix + ".Linux-x86_64.tar.") and "/" not in n]
+        require(len(candidates) == 1, "Cannot uniquely identify official ImageBuilder")
     archive = root / "work" / "downloads" / candidates[0]
     if not archive.exists() or sha256(archive) != expected[archive.name]:
         download(base + "/" + archive.name, archive)
@@ -350,17 +560,34 @@ def build(config, root=Path(".")):
     builders = [p for p in extract.iterdir() if p.is_dir() and (p / "Makefile").exists()]
     require(len(builders) == 1, "Unexpected ImageBuilder layout")
     builders[0].rename(workspace)
+    if kwrt:
+        prepare_kwrt(workspace)
     overlay = workspace / "personal-files"
     if config["overlay"]:
-        extract_overlay(root / config["overlay"], overlay)
+        extract_overlay(root / config["overlay"], overlay, allow_ipk=bool(kwrt))
+    custom_packages, dependencies = prepare_custom_ipks(overlay) if kwrt else ([], set())
+    custom_names = {p["name"] for p in custom_packages}
+    factory = set(metadata.get("default_packages", [])) | set(metadata["profiles"][config["profile"]].get("device_packages", []))
+    existing = (factory | {p for p in package_plan(config) if not p.startswith("-")}) - set(config["remove_packages"])
+    require(not custom_names.intersection(existing), "Remove a conflicting factory/repository package before adding its custom IPK")
+    require(not dependencies.intersection(config["remove_packages"]), "Custom IPK needs a package selected for removal")
+    build_packages = package_plan(config) + sorted(dependencies - set(package_plan(config)))
+    if config["features"]["remove_links"]:
+        asset = overlay / "www" / "luci-static" / "resources" / "personal-footer.js"
+        asset.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(REGISTRY.parent.parent / "firmware-assets" / "personal-footer.js", asset)
     defaults = overlay / "etc" / "uci-defaults" / "99-personal-builder"
     defaults.parent.mkdir(parents=True, exist_ok=True)
     defaults.write_text(defaults_script(config), encoding="utf-8", newline="\n")
     defaults.chmod(0o755)
     command = ["make", "image", "PROFILE=" + config["profile"],
-        "PACKAGES=" + " ".join(package_plan(config)), "FILES=" + str(overlay)]
+        "PACKAGES=" + " ".join(build_packages), "FILES=" + str(overlay)]
     if config["target"].startswith("x86/"):
         command.append("ROOTFS_PARTSIZE=" + str(config["output"]["rootfs_size_mb"]))
+        if config["output"]["filesystem"] == "ext4":
+            command.append("CONFIG_TARGET_ROOTFS_EXT4FS=y")
+        if kwrt and config["output"]["vmdk"]:
+            command.append("CONFIG_VMDK_IMAGES=y")
     # Filesystem filtering is done on produced images as older builders do not
     # necessarily implement ROOTFS_FILESYSTEM. All selected outputs are checked.
     outputs = root / "outputs"
@@ -378,6 +605,15 @@ def build(config, root=Path(".")):
     manifests = list((workspace / "bin" / "targets").glob("*/*/profiles.json"))
     require(len(manifests) == 1, "Build produced no unique profiles.json")
     produced = json.loads(manifests[0].read_text())
+    if kwrt:
+        roots = [i for i in produced["profiles"][config["profile"]]["images"] if i.get("filesystem") == "targz"]
+        require(len(roots) == 1, "Kwrt translation compatibility verification needs ROOTFS output")
+        with tarfile.open(manifests[0].parent / roots[0]["name"], "r:gz") as root_archive:
+            names = {m.name.removeprefix("./") for m in root_archive}
+        require("usr/lib/lua/luci/i18n/base.zh-cn.lmo" in names, "Kwrt embedded Chinese translation missing")
+        require(all("root/personal-packages/" + p["sha256"] + ".ipk.payload" in names for p in custom_packages), "Custom IPK payload was lost before device-side installation")
+        if "usr/lib/opkg/info/luci-i18n-ttyd-zh-cn.control" in names:
+            require("usr/lib/lua/luci/i18n/ttyd.zh-cn.lmo" in names, "Kwrt ttyd translation compatibility check failed")
     images = selected_images(produced["profiles"][config["profile"]]["images"], config)
     require(bool(images), "Build produced no requested image")
     for image in images:
@@ -389,7 +625,20 @@ def build(config, root=Path(".")):
         for required, image_type in [(out["efi"], "combined-efi"), (out["legacy"], "combined"), (out["rootfs"], "rootfs")]:
             require(not required or any(i["type"] == image_type for i in images), f"Missing requested output: {image_type}")
     if out["vmdk"]:
-        for image in images:
+        native_vmdks = [i for i in produced["profiles"][config["profile"]]["images"]
+            if i.get("name", "").endswith(".vmdk.zip") and i.get("filesystem") == out["filesystem"] and
+            i.get("type") in {x["type"] for x in images if x["type"] in ("combined", "combined-efi")}]
+        if kwrt:
+            require(len(native_vmdks) == sum(i["type"] in ("combined", "combined-efi") for i in images), "Kwrt native ESXi VMDK output missing")
+            for image in native_vmdks:
+                filename = image["name"]
+                require(PurePosixPath(filename).name == filename, "Unexpected VMDK archive filename")
+                source = manifests[0].parent / filename
+                with zipfile.ZipFile(source) as archive_zip:
+                    require(archive_zip.testzip() is None, "Kwrt VMDK archive is corrupt")
+                    require(all(PurePosixPath(n).name == n and n.endswith(".vmdk") for n in archive_zip.namelist()), "Unexpected native VMDK archive layout")
+                shutil.copy2(source, outputs / filename)
+        for image in ([] if kwrt else images):
             if image["type"] not in ("combined", "combined-efi"):
                 continue
             path = outputs / image["name"]
@@ -406,12 +655,18 @@ def build(config, root=Path(".")):
         installed.update(line.split()[0] for line in path.read_text().splitlines() if line.strip())
     requested = [p for p in package_plan(config) if not p.startswith("-")]
     require(not (set(requested) - installed), "Installed package manifest is missing requested packages")
-    require(not (set(config["remove_packages"]) & installed), "Removed packages are still installed")
+    require(not custom_names.intersection(installed), "A custom IPK was unexpectedly installed on the build host")
+    removed = {p[1:] for p in package_plan(config) if p.startswith("-")}
+    require(not (removed & installed), "Removed packages are still installed")
     files = [{"name": p.name, "bytes": p.stat().st_size, "sha256": sha256(p)} for p in sorted(outputs.iterdir()) if p.is_file()]
     (outputs / "SHA256SUMS").write_text("".join(f"{f['sha256']}  {f['name']}\n" for f in files), encoding="utf-8")
     summary = {"schema_version": 1, "status": "built-not-boot-tested", "version": config["version"],
-        "target": config["target"], "profile": config["profile"], "builder_sha256": expected[archive.name],
+        "target": config["target"], "profile": config["profile"], "builder": config["builder"], "builder_sha256": expected[archive.name],
         "packages": requested, "files": files, "private_content": has_private_content(config)}
+    if kwrt:
+        summary["compatibility_adjustments"] = {"excluded_broken_defaults": kwrt["exclude_defaults"],
+            "replacement_packages": kwrt["replacement_packages"], "translation_aliases": "zh-cn data verified inside rootfs"}
+    summary["custom_packages"] = custom_packages
     (outputs / "build-summary.json").write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
     print("Build complete. Firmware still requires boot/hardware verification.")
 
@@ -432,7 +687,7 @@ def main():
             print(json.dumps({"config": config, "packages": package_plan(config), "requires_private_repository": has_private_content(config)}, ensure_ascii=False, indent=2))
         else:
             build(config)
-    except (ConfigError, ValueError, OSError, subprocess.CalledProcessError) as error:
+    except (ConfigError, ValueError, OSError, tarfile.TarError, zipfile.BadZipFile, subprocess.CalledProcessError) as error:
         print(f"Build failed: {error}", file=sys.stderr)
         return 1
     return 0

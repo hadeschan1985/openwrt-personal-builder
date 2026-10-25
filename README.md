@@ -4,11 +4,11 @@
 
 网页已上线：[打开个人固件工作台](https://hadeschan1985.github.io/openwrt-personal-builder/)。使用方法见 `docs/USAGE.md`，验证记录见 `docs/WORKLOG.md`。
 
-当前为官方 ImageBuilder 基础版；真实 x86/64 EFI/Legacy 构建与下载校验已通过，尚未进行开机和实机验证，不能把构建成功等同于硬件可安全刷入。
+已接入官方 OpenWrt 与校验值固定的 Kwrt x86/64 构建环境。官方版 EFI、Legacy、VMDK 已完成隔离虚拟机开机与后台登录；详细验收范围见 `docs/TESTING.md`。虚拟机测试不等于所有实体设备可安全刷入。
 
 接入步骤见 `docs/DEPLOY.md`。推荐公开网页仓库与私有构建仓库分开，避免自己的配置与产物公开。
 
-目前支持官方 OpenWrt ImageBuilder；Kwrt 专属软件源、电视盒和包内 IPK/APK 安装等高级能力尚未接通，界面会明确标识。
+支持设备/软件搜索、出厂包移除、代理和主题、系统/网络设置、Docker/NAS 组件、7Z/ZIP/TAR 文件覆盖、Kwrt 的设备端 IPK 安装、EFI/Legacy/Ext4/VMDK/ROOTFS 输出。电视盒、任意内核/DTB 和 EMMC 专用打包不在当前版本范围内。
 
 ## 本地预览
 

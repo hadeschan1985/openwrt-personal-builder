@@ -6,10 +6,12 @@ import concurrent.futures
 import datetime as dt
 import json
 from pathlib import Path
+import re
 import urllib.request
 
 DOWNLOADS = "https://downloads.openwrt.org"
 ASU = "https://sysupgrade.openwrt.org"
+REGISTRY = Path(__file__).resolve().parents[1] / "configs" / "builders.json"
 
 
 def get_json(url: str):
@@ -39,12 +41,30 @@ def target_data(version, target):
     return {"profiles": data, "packages": sorted(packages), "package_metadata_errors": errors}
 
 
+def kwrt_data(spec):
+    profiles = get_json(spec["base"] + "/profiles.json")
+    profiles["default_packages"] = sorted((set(profiles.get("default_packages", [])) - set(spec["exclude_defaults"])) | set(spec["replacement_packages"]))
+    urls = [spec["kernel_feed"] + "/Packages"] + [spec["feeds"] + "/" + feed + "/Packages"
+        for feed in ("base", "packages", "luci", "routing", "video", "kiddin9")]
+    def names(url):
+        request = urllib.request.Request(url, headers={"User-Agent": "OpenWrt-Personal-Builder/0.1"})
+        with urllib.request.urlopen(request, timeout=90) as response:
+            return re.findall(r"^Package: (\S+)$", response.read().decode(), re.MULTILINE)
+    packages = set()
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+        for result in pool.map(names, urls):
+            packages.update(result)
+    return {"profiles": profiles, "packages": sorted(packages), "package_metadata_errors": [],
+            "image_base": spec["base"], "builder_sha256": spec["sha256"],
+            "compatibility_adjustments": {"excluded_defaults": spec["exclude_defaults"], "replacements": spec["replacement_packages"]}}
+
+
 def sync(destination: Path, versions=None, preload=("x86/64",)):
     releases = get_json(f"{DOWNLOADS}/.versions.json")
     versions = versions or [releases["stable_version"], releases["oldstable_version"]]
     result = {"updated": dt.datetime.now(dt.timezone.utc).isoformat(),
               "source": DOWNLOADS, "default_version": releases["stable_version"],
-              "versions": [], "devices": []}
+              "versions": [], "version_labels": {}, "devices": []}
     for version in dict.fromkeys(versions):
         overview = get_json(f"{DOWNLOADS}/releases/{version}/.overview.json")
         result["versions"].append(version)
@@ -54,7 +74,6 @@ def sync(destination: Path, versions=None, preload=("x86/64",)):
                 "version": version, "name": names[0] if names else profile["id"],
                 "aliases": names, "metadata": f"targets/{version}/{profile['target']}.json"})
     destination.mkdir(parents=True, exist_ok=True)
-    (destination / "catalog.json").write_text(json.dumps(result, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     tasks = [(v, t) for v in result["versions"] for t in preload]
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
         futures = {pool.submit(target_data, v, t): (v, t) for v, t in tasks}
@@ -65,6 +84,21 @@ def sync(destination: Path, versions=None, preload=("x86/64",)):
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
             print(f"Metadata: {version} {target}, {len(data['packages'])} packages")
+    for version, spec in json.loads(REGISTRY.read_text(encoding="utf-8")).items():
+        data = kwrt_data(spec)
+        target = spec["target"]
+        path = destination / "targets" / version / f"{target}.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+        result["versions"].append(version)
+        result["version_labels"][version] = spec["label"]
+        for profile_id, profile in data["profiles"]["profiles"].items():
+            names = [title(t) for t in profile.get("titles", [])]
+            result["devices"].append({"id": profile_id, "target": target, "builder": "kwrt",
+                "version": version, "name": names[0] if names else profile_id, "aliases": names,
+                "metadata": f"targets/{version}/{target}.json"})
+        print(f"Metadata: {version} {target}, {len(data['packages'])} packages")
+    (destination / "catalog.json").write_text(json.dumps(result, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     print(f"Catalog: {len(result['devices'])} version/profile entries")
 
 

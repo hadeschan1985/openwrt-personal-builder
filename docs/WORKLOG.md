@@ -67,3 +67,16 @@
 - firmware-2（63,690,007 bytes）SHA256 f5f1dceeeae5a4b6e9352c5d7e63c06c0f3a8f850371cbe98721b5e3d697dd75；下载后核对一致，所有包内校验值、所需包清单、Gzip 完整性与 512 MiB 根分区均通过。
 - 从实际 ROOTFS 内只读检查初始化脚本：可执行标记、旁路由网关、关闭 DHCP、关闭 LAN RA、openwrt-2020 主题路径和自定义 Shell 均按测试配置嵌入。未执行脚本，尚未验证启动后实际网络行为或 ESXi 兼容性。
 - 本地最终检查为 11 项 JavaScript、18 项 Python 测试通过；新增离线产物校验工具 scripts/verify_artifact.py，生成校验记录供复查。
+
+### 2026-10-25 扩展实现与真实开机验收
+
+- 接入固定 SHA256 的 Kwrt x86/64 ImageBuilder 和独立 IPK 软件索引；官方来源继续保持版本、架构和包管理器隔离。原站可见功能、交互/API 线索、自建模块与版本建议整理在 FEATURE-MAP.md。
+- 实现 NAS/iStoreX/路由狗、主页模式、主题浅深色、WWAN、iptables legacy、Lighttpd、7Z、自订 IPK 和原生 ESXi VMDK 输出。去推广外链仍保留许可和源码入口。
+- 修正 Kwrt 上游不可用的出厂包名称、本地绝对软件源、被忽略的安装错误和中文拆包差异；构建器固定指纹，不静默换源或混入不匹配内核模块。
+- 发现并禁用 Kwrt Makefile 在构建主机执行用户 IPK 安装脚本的路径；自订 IPK 以 payload 暂存，只在路由器首次开机安装，依赖在构建前解析，核心/内核包拒绝此路径。
+- 修正首次开机 WAN/LAN 映射、HTTP/HTTPS 开关、Nginx 监听、Lighttpd CGI RPC、Argon 登录页外链注入及原生 VMDK 开关。实际包模板确认 Argon 支持 normal/light/dark 三种模式。
+- 9 份云端报告、13 次隔离虚拟机开机、root 密码登录和 HTTP JSON-RPC 均通过；报告下载后逐一核对 GitHub archive SHA256。完整引导回归 40167823669、扩展矩阵 40167403974 的 5 项成功任务及 Lighttpd 修复回归 40168809787 构成最终证据。
+- 测试覆盖官方/Kwrt、EFI/Legacy/VMDK、SquashFS/Ext4、旁路由、三种 Web 服务器、Docker、USB/蜂窝包和设备端 IPK。未刷实体设备，不等于 USB/WWAN 实物、实际代理订阅或 ESXi 宿主机全部验证。
+- 现有 29 项 Python 与 14 项 JavaScript 检查，Windows 的一项 7-Zip 检查在 Linux runner 完整执行。详细边界见 TESTING.md 和 verification.json。
+- 网页免令牌操作简化为复制配置与打开 GitHub 两步；增加始终可用的历史入口、资料加载保护、文件/配置提交快照、超时后的防重复提交提醒和明显的无密码实验警告。
+- 用户明确批准新建网页专用细粒度令牌，仅私有构建仓库、30 天、Actions/Contents 读写。GitHub 本人身份验证由用户完成；令牌不写源码、配置、文件或聊天，只用于网页会话和 GitHub API。接通和最终发布验收尚在进行中。
