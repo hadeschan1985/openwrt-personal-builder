@@ -4,7 +4,7 @@ export function repositoryName(value) {
   return value;
 }
 export class GitHub {
-  constructor(repo,token,ref='main',fetcher=fetch) {
+  constructor(repo,token,ref='main',fetcher=(...args)=>fetch(...args)) {
     this.repo=repositoryName(repo);this.token=token;this.ref=ref;this.fetcher=fetcher;
     if(!/^[A-Za-z0-9_./-]+$/.test(ref)||ref.includes('..'))throw new Error('分支名无效。');
   }

@@ -62,6 +62,12 @@ test('repository input cannot redirect credentials to another host',()=>{
   assert.throws(()=>repositoryName('https://example.com/steal'));
   assert.throws(()=>repositoryName('owner/repo/../../x'));
 });
+test('default browser fetch is called without binding the API instance',async()=>{
+  const previous=globalThis.fetch;
+  globalThis.fetch=async function(){assert.equal(this,undefined);return {ok:true,status:200,json:async()=>({private:true})};};
+  try{assert.equal((await new GitHub('test-owner/builds','temporary-token').connect()).private,true);}
+  finally{globalThis.fetch=previous;}
+});
 test('dispatch uses JSON API body, credentials only in authorization header',async()=>{
   const calls=[];
   const mock=async(url,options)=>{calls.push({url,options});return {ok:true,status:204};};
