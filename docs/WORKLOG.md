@@ -80,3 +80,13 @@
 - 现有 29 项 Python 与 14 项 JavaScript 检查，Windows 的一项 7-Zip 检查在 Linux runner 完整执行。详细边界见 TESTING.md 和 verification.json。
 - 网页免令牌操作简化为复制配置与打开 GitHub 两步；增加始终可用的历史入口、资料加载保护、文件/配置提交快照、超时后的防重复提交提醒和明显的无密码实验警告。
 - 用户明确批准新建网页专用细粒度令牌，仅私有构建仓库、30 天、Actions/Contents 读写。GitHub 本人身份验证由用户完成；令牌不写源码、配置、文件或聊天，只用于网页会话和 GitHub API。接通和最终发布验收尚在进行中。
+
+### 网页直接构建闭环与最终交付
+
+- 本人验证后创建 30 天细粒度令牌，只选 openwrt-personal-builds；Actions/Contents 读写、Metadata 必需只读，没有账号级、Secrets 或工作流编辑权限。令牌内容未记录到本文件或源码，正式网页连接后输入框已清空。
+- 浏览器联调发现将原生 fetch 作为实例方法调用会导致 Illegal invocation；改成包装函数，补充默认 fetch 接收者回归测试。JS 现为 15 项，加 Python 29 项共 44 项云端检查；本地 Windows 跳过一项 7-Zip，云端完整执行。
+- 为避免 GitHub Pages 缓存旧模块，发布脚本/样式使用版本标记。新版部署 40170856198 成功，public commit c0ba25f87e76ff42f36b6c6c4598be71726303c0。390 像素移动布局、模板可见性、WAN eth0 自动匹配 LAN eth1、资料恢复与免令牌两步流程已检查。
+- 已由正式网页完成私有历史读取、文件包上传和构建提交；任务 40170974151 成功，产物 firmware-3。无敏感测试 ZIP 只保留在私有仓库，未同步公开仓库。
+- 下载后核对 GitHub archive SHA256 2900ec86e32d24ca44e49142177bd5f44fe05468386d6057d51aa2df1bca2d7a；包内校验值、Gzip、磁盘分区、256 MiB 根分区和软件清单通过。ROOTFS 只读确认测试覆盖文件、主机名和签名真实生效于输出文件。
+- 原站功能/架构/自建拆解/复用边界/版本建议/风险见 FEATURE-MAP.md；使用方法见 USAGE.md；验收与未测边界见 TESTING.md 和 verification.json。未对真实设备刷机或更改现有家庭网络，也未触发付费。
+- 本机直连 GitHub Git 传输失败，但连接器提交成功；本地源码树与上传树一致，另提供源码 ZIP 和 Git bundle。不能将该网络问题误记为构建失败。

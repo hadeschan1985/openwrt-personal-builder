@@ -1,0 +1,86 @@
+{
+  "archive": "web-e2e-test-not-for-flashing.zip",
+  "archive_sha256": "2900ec86e32d24ca44e49142177bd5f44fe05468386d6057d51aa2df1bca2d7a",
+  "status": "integrity-verified-not-boot-tested",
+  "files": [
+    {
+      "name": "build.log",
+      "bytes": 45646,
+      "sha256": "9ae2cb92b9f3c4bccd339ae6ff3ec4e5d35adbee82f57fff98ff28964912d55b"
+    },
+    {
+      "name": "openwrt-25.12.6-x86-64-generic-squashfs-combined-efi.img.gz",
+      "bytes": 12783244,
+      "sha256": "ad1381dd1b6bc95653c1a1ca593cfef477e44b9265df4cb7404a2f081bc6a981"
+    },
+    {
+      "name": "openwrt-25.12.6-x86-64-generic-squashfs-combined.img.gz",
+      "bytes": 12587472,
+      "sha256": "21ed75e5088b4fce7a2002734ccadd587ad863fb449fe234a28b49fcb56c78d9"
+    },
+    {
+      "name": "openwrt-25.12.6-x86-64-generic-targz-rootfs.tar.gz",
+      "bytes": 7564594,
+      "sha256": "22af27b468024bd00d1e921d03f894da3a5e987a8f5c6e2795b95c5e86429adb"
+    },
+    {
+      "name": "openwrt-25.12.6-x86-64-generic.manifest",
+      "bytes": 5405,
+      "sha256": "d94ad85c8ff7028f39960b614f25cf6c0354f4994f59f935f8226c700815ff79"
+    }
+  ],
+  "disks": [
+    {
+      "name": "openwrt-25.12.6-x86-64-generic-squashfs-combined-efi.img.gz",
+      "table": "GPT",
+      "uncompressed_bytes": 285507072,
+      "partitions": [
+        {
+          "number": 1,
+          "start_sector": 512,
+          "bytes": 16777216
+        },
+        {
+          "number": 2,
+          "start_sector": 33280,
+          "bytes": 268435456
+        },
+        {
+          "number": 128,
+          "start_sector": 34,
+          "bytes": 244736
+        }
+      ]
+    },
+    {
+      "name": "openwrt-25.12.6-x86-64-generic-squashfs-combined.img.gz",
+      "table": "MBR",
+      "uncompressed_bytes": 285736960,
+      "partitions": [
+        {
+          "number": 1,
+          "start_sector": 512,
+          "bytes": 16777216
+        },
+        {
+          "number": 2,
+          "start_sector": 33792,
+          "bytes": 268435456
+        }
+      ]
+    }
+  ],
+  "version": "25.12.6",
+  "target": "x86/64",
+  "profile": "generic",
+  "requested_packages": [
+    "luci-app-ddns",
+    "luci-ssl",
+    "luci-theme-bootstrap"
+  ],
+  "workflow_run": 40170974151,
+  "artifact_id": 12590336045,
+  "web_submission": true,
+  "uploaded_file_present": true,
+  "hostname_and_signature_present": true
+}

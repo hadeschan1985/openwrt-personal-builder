@@ -27,7 +27,7 @@
 | 主机名/Overlay | 自定义名称与根分区容量，受设备限制 | 名称检查、x86 64–6144 MiB；固定 Flash 不开放任意扩容 |
 | 签名/去外链 | 发行信息与推广链接调整，原站受赞助限制 | 自订启动横幅；隐藏推广链接并保留许可、文字和源码入口 |
 | 文件系统 | SquashFS/Ext4 | 按构建器能力构建并筛选；不靠改扩展名转换 |
-| VMDK/ROOTFS | ESXi 磁盘、Docker/LXC 根文件系统 | qemu-img streamOptimized VMDK、原生 ROOTFS TAR.GZ；ESXi 实机另测 |
+| VMDK/ROOTFS | ESXi 磁盘、Docker/LXC 根文件系统 | 官方 streamOptimized VMDK、Kwrt 原生 descriptor+flat VMDK ZIP、ROOTFS TAR.GZ；ESXi 实机另测 |
 | 初始化 Shell | 嵌入首次开机脚本 | 写入 uci-defaults，仅在路由器内运行，需要私有仓库 |
 | 文件包/IPK | 文件覆盖、包内 IPK 安装、上传历史 | ZIP/TAR.GZ/TGZ/7Z 受限解包；IPK 在设备首次开机安装。GitHub 保存文件版本，不复制原站会员上传系统 |
 | 自动填写 | 浏览器保存表单 | 非敏感配置自动填写、命名模板、JSON 导入导出；不保存访问令牌和初始化脚本 |
