@@ -1,10 +1,10 @@
-import {COMMON,CORE,NFT_ONLY,PROXIES,THEMES,defaultConfig,tokenize,validate,privateContent,safePreset} from './lib/model.js?v=20261025-6';
-import {GitHub,repositoryName} from './lib/github.js?v=20261025-6';
-import {SOFTWARE_PROFILES,applySoftwareProfile,softwareAdvice} from './lib/software.js?v=20261025-6';
-import {runStatus,stepStatus,active,requestRun,stageName,failureHelp,artifactInfo,verifyDownload} from './lib/progress.js?v=20261025-6';
+import {COMMON,CORE,NFT_ONLY,PROXIES,THEMES,defaultConfig,tokenize,validate,privateContent,safePreset} from './lib/model.js?v=20261026-1';
+import {GitHub,repositoryName} from './lib/github.js?v=20261026-1';
+import {SOFTWARE_PROFILES,applySoftwareProfile,softwareAdvice} from './lib/software.js?v=20261026-1';
+import {runStatus,stepStatus,active,latestBuildResults,requestRun,stageName,failureHelp,artifactInfo,verifyDownload} from './lib/progress.js?v=20261026-1';
 
 const $=id=>document.getElementById(id);
-const state={catalog:null,device:null,target:null,available:new Set(),config:defaultConfig(),git:null,file:null,loadId:0,loading:false,metadataReady:false,busy:false,pending:null,runs:[],expanded:null,details:new Map(),refreshing:false};
+const state={catalog:null,device:null,target:null,available:new Set(),config:defaultConfig(),git:null,file:null,loadId:0,loading:false,metadataReady:false,busy:false,pending:null,runs:[],expanded:null,details:new Map(),refreshing:false,resultsLoaded:false,result:null,runError:''};
 const targetCache=new Map();
 const verifiedFiles=new Map();
 let toastTimer,pollTimer;
@@ -192,6 +192,26 @@ function pendingPanel(){
   $('pending-id').textContent=`请求编号 ${p.id}`;
   $('release-pending').hidden=Date.now()-p.at<120000||Boolean(run&&active(run));
 }
+function renderLatestResults(){
+  const body=$('latest-results-body'),git=state.git,button=$('refresh-results');body.replaceChildren();
+  button.textContent=git?'刷新结果 ↻':'连接查看结果';button.disabled=state.refreshing;
+  $('results-privacy').textContent=git?(git.private?'已授权读取私有仓库 · 不公开固件':'当前连接的是公开仓库，请勿放入私人配置'):'固件保持私有，不会发布到公开网页';
+  if(!git){body.append(node('p','你的固件保存在私有仓库。连接 GitHub 后，这里会显示最近成功的编译结果；登录 GitHub 本站不等于已授权此网页。','help'));return;}
+  if(state.runError){body.append(node('p',`暂时无法读取编译结果：${state.runError}`,'error'));const reconnect=node('button','重新连接 GitHub','button secondary');reconnect.type='button';reconnect.addEventListener('click',()=>$('connect-dialog').showModal());body.append(reconnect);return;}
+  if(!state.resultsLoaded){body.append(node('p','正在读取你的编译结果…','help'));return;}
+  const {latest,success}=latestBuildResults(state.runs);
+  if(latest&&latest.id!==success?.id){const message=node('p',`最新任务 #${latest.run_number}：${runStatus(latest)}。${success?'下方保留最近成功的结果。':'成功后会自动显示下载包。'}`,'notice');message.append(document.createTextNode(' '),externalLink('查看任务 ↗',latest.html_url));body.append(message);}
+  if(!success){body.append(node('p',latest?'暂时没有成功的编译结果。':'这个仓库还没有构建记录。可以在下方选择设备并启动构建。','help'));return;}
+  const summary=node('div',undefined,'result-summary');
+  summary.append(node('strong',`构建 #${success.run_number} · 编译成功`),node('span',`完成时间 ${new Date(success.updated_at||success.created_at).toLocaleString()}`));
+  summary.append(externalLink('查看日志与映像清单 ↗',success.html_url));body.append(summary);
+  if(state.result?.runId!==success.id){body.append(node('p','正在读取下载包…','help'));return;}
+  if(state.result.error){body.append(node('p',`下载包读取失败：${state.result.error} 请点击“刷新结果”重试。`,'error'));return;}
+  const artifacts=state.result.artifacts.filter(artifact=>/^firmware-\d+$/.test(artifact.name));
+  if(!artifacts.length)body.append(node('p','此任务已成功，但下载包已被清理或未保存。请查看任务日志，必要时重新构建。','help'));
+  for(const artifact of artifacts)body.append(renderArtifact(success,artifact));
+  body.append(node('p','这里是仓库最近成功的任务，不代表下方尚未提交的配置。下载的是完整 ZIP；EFI / Legacy / VMDK 等映像及各自 SHA256 请解压查看包内清单，或打开上方“映像清单”。','fine'));
+}
 function renderRunDetails(run,container){
   container.replaceChildren();const data=state.details.get(run.id);
   if(!data){container.append(node('p','正在读取步骤与产物…','help'));return;}
@@ -202,23 +222,25 @@ function renderRunDetails(run,container){
   container.append(list);
   if(run.conclusion==='failure'||run.conclusion==='timed_out')container.append(node('p',failureHelp(failed),'notice warning'));
   if(!data.artifacts.length)container.append(node('p',active(run)?'完成后会在这里显示固件、校验值与到期时间。':'没有可下载的产物，或已被 GitHub 清理。','help'));
-  for(const artifact of data.artifacts){
+  for(const artifact of data.artifacts)container.append(renderArtifact(run,artifact));
+  container.append(node('p','ZIP 校验不等于固件已通过实机测试。解压后请用包内 SHA256SUMS 校验具体映像；固件含私人设置时勿转发。','fine'));
+}
+function renderArtifact(run,artifact){
     const info=artifactInfo(artifact),card=node('div',undefined,'artifact');
     card.append(node('strong',`${artifact.name} · ${(artifact.size_in_bytes/1048576).toFixed(1)} MiB`));
     card.append(node('p',info.expired?'已到期，无法下载':`到期：${new Date(artifact.expires_at).toLocaleString()}${info.days!==null?`（约 ${info.days} 天）`:''}`,'help'));
     if(info.digest)card.append(node('code',`ZIP 下载包 SHA256：${info.digest}`));
     if(!info.expired){
-      card.append(externalLink('在 GitHub 下载 ZIP ↗',`https://github.com/${state.git.repo}/actions/runs/${run.id}/artifacts/${artifact.id}`));
-      if(info.digest){
+      const download=externalLink(/^firmware-\d+$/.test(artifact.name)?'下载固件 ZIP ↗':'下载日志 / 附件 ZIP ↗',`https://github.com/${state.git.repo}/actions/runs/${run.id}/artifacts/${artifact.id}`);download.className='button primary';card.append(download);
+      if(info.digest&&artifact.size_in_bytes<=256*1024*1024){
         const label=node('label','校验已下载的 ZIP（仅在本机读取，不上传）','verify-label'),input=node('input');input.type='file';input.accept='.zip';
         const remembered=verifiedFiles.get(info.digest),result=node('p',remembered?.text||'',remembered?.className||'help');result.setAttribute('role','status');
         input.addEventListener('change',async()=>{const file=input.files[0];if(!file)return;input.disabled=true;result.textContent='正在本机计算 SHA256…';try{const check=await verifyDownload(file,info.digest);result.textContent=check.ok?'校验通过：ZIP 与 GitHub 保存的下载包一致。':'校验不一致：请勿使用。确认选中了本次任务的原始 ZIP，必要时重新下载。';result.className=check.ok?'help':'error';}catch(error){result.textContent=error.message;result.className='error';}finally{verifiedFiles.set(info.digest,{text:result.textContent,className:result.className});input.disabled=false;}});
         label.append(input);card.append(label,result);
       }
+      if(info.digest&&artifact.size_in_bytes>256*1024*1024)card.append(node('p','此 ZIP 超过 256 MiB，为避免浏览器内存不足，请下载后使用系统 SHA256 工具对照上方校验值。ZIP 校验与解压后的映像校验值不同。','help'));
     }
-    container.append(card);
-  }
-  container.append(node('p','ZIP 校验不等于固件已通过实机测试。解压后请用包内 SHA256SUMS 校验具体映像；固件含私人设置时勿转发。','fine'));
+    return card;
 }
 function renderRuns(){
   $('run-list').replaceChildren();$('run-list').classList.toggle('empty',!state.runs.length);
@@ -241,18 +263,20 @@ async function loadRunDetails(run,container){
 function schedulePoll(){clearTimeout(pollTimer);if(state.git&&!document.hidden)pollTimer=setTimeout(()=>refreshRuns(false),state.pending||state.runs.some(active)?20000:60000);}
 async function refreshRuns(manual=true){
   if(!state.git){if(manual)toast('先连接你的 GitHub 构建仓库。');return;}
-  if(state.refreshing)return;state.refreshing=true;const git=state.git;$('refresh-runs').disabled=true;
+  if(state.refreshing)return;state.refreshing=true;const git=state.git;$('refresh-runs').disabled=true;$('refresh-results').disabled=true;
   try{const {workflow_runs:runs}=await git.runs();if(git!==state.git)return;
-    state.runs=runs;const tracked=state.pending?.repo===git.repo?requestRun(runs,state.pending.id):null;
+    state.runs=runs;state.resultsLoaded=true;state.runError='';const tracked=state.pending?.repo===git.repo?requestRun(runs,state.pending.id):null;
     if(tracked){state.expanded=tracked.id;if(!active(tracked)){state.pending=null;savePending();}}
+    const {success}=latestBuildResults(runs);
+    if(success){try{const data=await git.artifacts(success.id);if(git!==state.git)return;state.result={runId:success.id,artifacts:data.artifacts||[]};}catch(error){if(git!==state.git)return;state.result={runId:success.id,error:error.message};}}else state.result=null;
     const opened=runs.find(run=>run.id===state.expanded);if(opened)await loadRunDetails(opened);
     if(git!==state.git)return;renderRuns();pendingPanel();buildAvailability();$('poll-status').textContent=`自动更新中 · 最近更新 ${new Date().toLocaleTimeString()}（切换到后台时暂停）`;
-  }catch(error){if(git===state.git)$('poll-status').textContent=`刷新失败：${error.message} 原记录保留；不会自动重提交构建。`;}
-  finally{state.refreshing=false;$('refresh-runs').disabled=false;schedulePoll();}
+  }catch(error){if(git===state.git){state.runError=error.message;$('poll-status').textContent=`刷新失败：${error.message} 原记录保留；不会自动重提交构建。`;}}
+  finally{state.refreshing=false;$('refresh-runs').disabled=false;renderLatestResults();schedulePoll();}
 }
 async function connect(){
   $('connect-error').textContent='';$('confirm-connect').disabled=true;
-  try{const git=new GitHub(val('repository').trim(),val('github-token').trim(),val('branch').trim());const data=await git.connect();state.git=git;state.runs=[];state.details.clear();state.expanded=null;$('github-token').value='';
+  try{const git=new GitHub(val('repository').trim(),val('github-token').trim(),val('branch').trim());const data=await git.connect();state.git=git;state.runs=[];state.details.clear();state.expanded=null;state.resultsLoaded=false;state.result=null;state.runError='';renderLatestResults();$('github-token').value='';
     // Store only the repository and branch. GitHub credentials remain in RAM.
     localStorage.setItem('pb-repository',git.repo);localStorage.setItem('pb-branch',git.ref);
     $('connection-label').textContent=`${git.repo.split('/')[1]} · ${data.private?'私有':'公开'}`;
@@ -278,7 +302,7 @@ async function restore(config){
   if(!await selectDevice(device,clean))throw new Error('此设备资料未载入，配置尚未导入。');
 }
 async function init(){
-  renderFeatures();presetOptions();
+  renderFeatures();presetOptions();renderLatestResults();
   try{const p=JSON.parse(sessionStorage.getItem('pb-pending')||'null');if(p&&/^[a-f0-9-]{36}$/.test(p.id)&&Number.isFinite(p.at)&&typeof p.repo==='string')state.pending=p;}catch{}
   $('repository').value=localStorage.getItem('pb-repository')||'hadeschan1985/openwrt-personal-builds';$('branch').value=localStorage.getItem('pb-branch')||'main';$('autofill').checked=localStorage.getItem('pb-autofill')!=='false';
   $('builder-form').addEventListener('submit',e=>e.preventDefault());
@@ -292,6 +316,7 @@ async function init(){
   $('preview-button').addEventListener('click',showConfig);$('build-button').addEventListener('click',startBuild);
   $('connect-button').addEventListener('click',()=>$('connect-dialog').showModal());$('confirm-connect').addEventListener('click',connect);
   $('refresh-runs').addEventListener('click',()=>refreshRuns());
+  $('refresh-results').addEventListener('click',()=>state.git?refreshRuns():$('connect-dialog').showModal());
   document.addEventListener('visibilitychange',()=>{clearTimeout(pollTimer);if(!document.hidden&&state.git)refreshRuns(false);});
   $('release-pending').addEventListener('click',()=>{state.pending=null;savePending();pendingPanel();buildAvailability();toast('已解除本页等待。不会取消 GitHub 任务，重新提交前请确认没有重复任务。');});
   $('copy-config').addEventListener('click',async()=>{try{await navigator.clipboard.writeText($('config-json').value);toast('构建配置已复制。下一步打开 GitHub。');}catch{toast('自动复制不可用，请展开配置明细后复制。');}});

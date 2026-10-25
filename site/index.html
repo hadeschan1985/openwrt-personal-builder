@@ -6,8 +6,8 @@
   <meta name="description" content="个人 OpenWrt 固件定制工作台，使用 GitHub Pages 与 Actions，无会员。">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' https://api.github.com https://downloads.openwrt.org https://sysupgrade.openwrt.org; style-src 'self'; script-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'self'">
   <title>Personal Builder · 固件定制工作台</title>
-  <link rel="stylesheet" href="styles.css?v=20261025-6">
-  <script type="module" src="app.js?v=20261025-6"></script>
+  <link rel="stylesheet" href="styles.css?v=20261026-1">
+  <script type="module" src="app.js?v=20261026-1"></script>
 </head>
 <body>
   <a class="skip" href="#main">跳到主要内容</a>
@@ -22,6 +22,11 @@
     <main id="main">
       <div class="heading-row"><div><div class="eyebrow">YOUR DEVICE. YOUR FIRMWARE.</div><h1>让固件，刚好适合你。</h1><p class="lede">选择设备，装入需要的软件。其余交给 GitHub Actions。</p></div><span class="pill">个人版 · 无会员限制</span></div>
       <div id="notice" class="notice" role="status">正在载入官方设备目录…</div>
+      <section class="card latest-results" id="latest-results" aria-labelledby="results-title">
+        <div class="section-head"><span class="result-icon" aria-hidden="true">↓</span><div><h2 id="results-title">最近编译结果</h2><p>成功的固件直接在这里下载，无需翻到页面底部。</p></div><button id="refresh-results" type="button" class="button subtle">连接查看结果</button></div>
+        <div id="latest-results-body"><p class="help">你的固件保存在私有仓库。连接 GitHub 后，这里会显示最近成功的编译结果；登录 GitHub 本站不等于已授权此网页。</p></div>
+        <div class="result-foot"><span id="results-privacy">固件保持私有，不会发布到公开网页</span><a href="#history">全部构建记录 ↓</a></div>
+      </section>
       <div class="workspace">
         <form id="builder-form" class="configuration" novalidate>
           <section class="card" id="device">

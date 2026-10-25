@@ -3,6 +3,10 @@ const RESULT={success:'构建成功',failure:'构建失败',cancelled:'已取消
 export function runStatus(run){return RESULT[run.conclusion]||STATUS[run.status]||'正在确认状态';}
 export function stepStatus(step){return step.conclusion==='success'?'已完成':step.conclusion==='failure'?'未通过':runStatus(step);}
 export function active(run){return run.status!=='completed'&&!run.conclusion;}
+export function latestBuildResults(runs){
+  const sorted=[...runs].sort((a,b)=>Number(b.run_number||b.id)-Number(a.run_number||a.id));
+  return {latest:sorted[0]||null,success:sorted.find(run=>run.status==='completed'&&run.conclusion==='success')||null};
+}
 export function requestRun(runs,id){return runs.find(run=>typeof run.display_title==='string'&&run.display_title.endsWith(` · ${id}`));}
 export function stageName(name){
   const translations={'Checkout':'读取构建代码','Python':'准备运行环境','Validate configuration':'检查配置与隐私限制','Install ImageBuilder dependencies':'准备构建工具','Restore verified ImageBuilder download cache':'恢复并校验构建缓存','Build firmware':'检查依赖并生成固件','Upload firmware, manifests and checksums':'保存固件和校验值','Upload failure log':'保存失败日志','Run summary':'生成结果摘要','Set up job':'准备 GitHub 构建环境','Complete job':'收尾'};

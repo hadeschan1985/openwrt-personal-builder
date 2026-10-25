@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {runStatus,active,requestRun,artifactInfo,verifyDownload,failureHelp,stageName} from '../site/lib/progress.js';
+import {runStatus,active,latestBuildResults,requestRun,artifactInfo,verifyDownload,failureHelp,stageName} from '../site/lib/progress.js';
 import {SOFTWARE_PROFILES,applySoftwareProfile,softwareAdvice} from '../site/lib/software.js';
 import {defaultConfig,validate} from '../site/lib/model.js';
 import {GitHub} from '../site/lib/github.js';
@@ -15,6 +15,30 @@ test('statuses and stages are Chinese and unknown states do not claim success',(
 test('request matching is exact, not a title substring',()=>{
   const runs=[{id:1,display_title:'Personal firmware · abc-extra'},{id:2,display_title:'Personal firmware · abc'}];
   assert.equal(requestRun(runs,'abc').id,2);assert.equal(requestRun(runs,'missing'),undefined);
+});
+test('homepage shows manually submitted builds without a webpage request identifier',()=>{
+  const run={id:100,run_number:5,status:'completed',conclusion:'success',display_title:'Personal firmware · 5'};
+  assert.equal(latestBuildResults([run]).success,run);
+});
+test('homepage preserves last successful result while newer build is queued or failed',()=>{
+  const success={id:100,run_number:5,status:'completed',conclusion:'success'};
+  for(const latest of [{id:200,run_number:6,status:'queued'},{id:200,run_number:6,status:'completed',conclusion:'failure'}]){
+    assert.deepEqual(latestBuildResults([success,latest]),{latest,success});
+  }
+});
+test('newest successful build replaces old result without mutating API response',()=>{
+  const a={id:100,run_number:4,status:'completed',conclusion:'success'},b={id:200,run_number:5,status:'completed',conclusion:'success'};
+  const runs=[a,b];assert.equal(latestBuildResults(runs).success,b);assert.deepEqual(runs,[a,b]);
+});
+test('empty and unsuccessful build histories never claim a downloadable success',()=>{
+  assert.deepEqual(latestBuildResults([]),{latest:null,success:null});
+  assert.equal(latestBuildResults([{id:1,status:'completed',conclusion:'failure'}]).success,null);
+  assert.equal(latestBuildResults([{id:1,status:'in_progress',conclusion:null}]).success,null);
+});
+test('large firmware ZIP digest remains visible, and expiration prevents availability',()=>{
+  const a={size_in_bytes:1024*1024*1024,expires_at:'2026-10-20T00:00:00Z',digest:`sha256:${'c'.repeat(64)}`};
+  const info=artifactInfo(a,Date.parse('2026-10-26T00:00:00Z'));
+  assert.equal(info.expired,true);assert.equal(info.digest,'c'.repeat(64));
 });
 test('expiry and ZIP digest have bounded, explicit meanings',()=>{
   const now=Date.parse('2026-10-25T00:00:00Z');
