@@ -16,7 +16,7 @@
 | Kwrt iptables | 移除 firewall4，legacy 后端，首次开机配置与后台通信 | 回归 40167403974 的 kwrt/iptables 子任务成功 |
 | Kwrt Lighttpd · HTTP/HTTPS | 实际开机、密码登录及 CGI JSON-RPC 均成功 | [定向回归 40168809787](https://github.com/hadeschan1985/openwrt-personal-builds/actions/runs/40168809787)，两个子任务均成功 |
 | Kwrt Ext4/1 GiB + Docker/USB/WWAN | 实际开机，Docker daemon 可响应，驱动和蜂窝组件已安装，深色主题、NAS/IPK、登录/RPC | 回归 40167403974 的 kwrt/features 子任务成功；不等于 USB/蜂窝实物已测 |
-| 配置/归档/请求测试 | 当前 34 项 Python（Windows 缺 7-Zip 时跳过 1 项）、17 项 JS；云端完整执行 51 项 | tests/ 与 Validate code and build configuration 工作流 |
+| 配置/归档/请求测试 | 当前 38 项 Python（Windows 缺 7-Zip 时跳过 1 项）、25 项 JS；云端完整执行 63 项 | tests/ 与 Validate code and build configuration 工作流；日志确认 40193188058 |
 
 早期回归中保留着已定位的失败记录，不能把这些历史工作流描述为全部成功。当前完整引导回归 `40167823669` 已全部成功；扩展矩阵早期 Lighttpd RPC 失败已经通过显式 CGI 路径修复，定向回归 `40168809787` 的 HTTP 和 HTTPS 均成功。
 
@@ -39,6 +39,10 @@
 本轮修复了自订包框绕过防火墙要求、HomeProxy Pro 漏检、主题/代理同时添加移除、冲突插件无法取消等问题；新增前后端检查已发布。详见 `PACKAGE-TESTING.md` 和 `software-qa-verification.json`，不把插件集成通过说成用户真实线路/实物验证通过。
 
 ## 验证边界
+
+交钥匙完善版增加了实际依赖预检、双核心软件组合、中文自动跟踪和 ZIP 本机校验。正式网页任务 40193155017 已成功，产物完整性与页面跟踪、正确/错误 ZIP 拦截均验证；该单独网页产物不冒充另行开机验收。最新九组回归的最终状态与证据以 RELEASE-6.md 为准。
+
+新回归 40192493869 已全部成功：九组各完成一次 BIOS 开机、安装/移除包数据库、密码登录及 HTTPS/RPC 验证；另有缺包负向检查成功。10 份报告均下载并核对 SHA256，汇总见 release6-verification.json。本轮新增 9 次开机；加上此前 13 与 15 次，累计 37 次隔离开机实例（含重复组合/基线，不是 37 台实体设备）。
 
 - 没有对实体路由器刷机、写盘或修改现有家庭网络。
 - 官方目录中的设备数量不是经过本项目逐台实机测试的数量。
