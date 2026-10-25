@@ -72,7 +72,9 @@ def normalize(raw):
     require(isinstance(profile, str) and re.fullmatch(r"[A-Za-z0-9_,.+-]+", profile), "Invalid profile")
     if builder == "kwrt":
         require(target == json.loads(REGISTRY.read_text(encoding="utf-8"))[version]["target"], "Kwrt builder target mismatch")
-    result = {"schema_version": 1, "builder": builder, "version": version, "target": target, "profile": profile}
+    build_mode = raw.get("build_mode", "experiment")
+    require(build_mode in ("release", "experiment"), "Invalid build mode")
+    result = {"schema_version": 1, "build_mode": build_mode, "builder": builder, "version": version, "target": target, "profile": profile}
     for key in ("packages", "remove_packages", "themes", "proxies"):
         values = raw.get(key, [])
         require(isinstance(values, list) and len(values) <= 512, f"Invalid {key}")

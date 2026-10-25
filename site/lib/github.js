@@ -15,6 +15,8 @@ export class GitHub {
     try{r=await this.fetcher(`${API}/repos/${this.repo}${path}`,{...options,headers,cache:'no-store',signal:options.signal??AbortSignal.timeout(90000)});}
     catch(error){if(['AbortError','TimeoutError'].includes(error.name))throw new Error('GitHub 响应超时。先查看构建记录，确认是否已提交，再决定重试。');throw error;}
     if(!r.ok){const explanations={401:'授权令牌无效或已到期，请重新连接。',403:'权限不足、请求限额或 GitHub 策略限制，请检查授权与 GitHub 提示。',404:'仓库或任务不存在，或当前授权没有访问权限。',410:'构建产物已到期，请重新构建。',422:'配置、分支或工作流输入不符合 GitHub 要求。'};const error=new Error(`GitHub ${r.status}：${explanations[r.status]||'请求失败，请稍后检查 GitHub 状态。'}`);error.status=r.status;throw error;}
+    const expires=r.headers?.get('github-authentication-token-expiration');if(expires)this.tokenExpiresAt=expires;
+    const remaining=r.headers?.get('x-ratelimit-remaining');if(remaining!==null&&remaining!==undefined)this.rateRemaining=Number(remaining);
     return r.status===204?null:r.json();
   }
   async connect(){const data=await this.request('');this.private=data.private;this.defaultBranch=data.default_branch;return data;}
@@ -24,16 +26,27 @@ export class GitHub {
     if(new TextEncoder().encode(serialized).length>60000)throw new Error('配置超过 60 KB。');
     await this.request('/actions/workflows/build.yml/dispatches',{method:'POST',body:JSON.stringify({ref:this.ref,inputs:{config_json:serialized,request_id:requestId}})});
   }
-  runs(){return this.request('/actions/workflows/build.yml/runs?per_page=12');}
-  upstreamRuns(){return this.request('/actions/workflows/upstream.yml/runs?per_page=1');}
-  async approvedUpstream(){
-    let file=await this.request(`/contents/updates/approved.json?ref=${encodeURIComponent(this.ref)}`);
-    if(!Number.isInteger(file.size)||file.size<1||file.size>4*1024*1024)throw new Error('上游版本资料大小无效。');
-    // Large Contents responses omit base64. Stay on the same GitHub API host;
-    // never follow a download_url with the session credential.
+  runs(page=1){if(!Number.isInteger(page)||page<1||page>1000)throw new Error('历史页码无效。');return this.request(`/actions/workflows/build.yml/runs?per_page=12&page=${page}`);}
+  latestSuccess(){return this.request('/actions/workflows/build.yml/runs?status=success&per_page=10');}
+  releases(){return this.request('/releases?per_page=100');}
+  buildRecord(runId){if(!/^\d+$/.test(String(runId)))throw new Error('任务 ID 无效');return this.readJSON(`records/${runId}.json`,256*1024);}
+  async archive(runId){
+    if(!this.private||!this.token)throw new Error('私有收藏需要已授权的私有仓库。');
+    if(!/^\d+$/.test(String(runId)))throw new Error('任务 ID 无效');
+    await this.request('/actions/workflows/archive.yml/dispatches',{method:'POST',body:JSON.stringify({ref:this.ref,inputs:{run_id:String(runId)}})});
+  }
+  archiveRuns(){return this.request('/actions/workflows/archive.yml/runs?per_page=3');}
+  async readJSON(path,limit=4*1024*1024){
+    if(!/^(updates\/approved|records\/\d+)\.json$/.test(path))throw new Error('资料路径无效。');
+    let file=await this.request(`/contents/${path}?ref=${encodeURIComponent(this.ref)}`);
+    if(!Number.isInteger(file.size)||file.size<1||file.size>limit)throw new Error('上游版本资料大小无效。');
     if(file.encoding==='none'&&/^[a-f0-9]{40}$/.test(file.sha))file=await this.request(`/git/blobs/${file.sha}`);
     if(file.encoding!=='base64'||typeof file.content!=='string'||file.content.length>6*1024*1024)throw new Error('上游版本资料格式无效。');
     return JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(Uint8Array.from(atob(file.content.replace(/\s/g,'')),c=>c.charCodeAt(0))));
+  }
+  upstreamRuns(){return this.request('/actions/workflows/upstream.yml/runs?per_page=1');}
+  async approvedUpstream(){
+    return this.readJSON('updates/approved.json');
   }
   artifacts(runId){if(!/^\d+$/.test(String(runId)))throw new Error('任务 ID 无效');return this.request(`/actions/runs/${runId}/artifacts`);}
   jobs(runId){if(!/^\d+$/.test(String(runId)))throw new Error('任务 ID 无效');return this.request(`/actions/runs/${runId}/jobs?per_page=100`);}

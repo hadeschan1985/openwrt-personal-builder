@@ -1,5 +1,6 @@
 {
   "schema_version": 1,
+  "build_mode": "experiment",
   "builder": "official",
   "version": "25.12.6",
   "target": "x86/64",

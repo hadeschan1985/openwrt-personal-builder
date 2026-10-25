@@ -1,0 +1,29 @@
+name: Archive selected firmware privately
+run-name: Private archive · ${{ inputs.run_id }}
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Successful personal firmware run ID to archive privately
+        required: true
+        type: string
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: private-archive-${{ github.repository }}
+  cancel-in-progress: false
+jobs:
+  archive:
+    if: github.event.repository.private
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Verify and preserve selected private firmware
+        run: python -m scripts.archive "$BUILD_RUN_ID"
+        env:
+          BUILD_RUN_ID: ${{ inputs.run_id }}
+          GH_TOKEN: ${{ github.token }}

@@ -36,7 +36,7 @@ test('presets never project tokens or plaintext secret fields',()=>{
   assert.ok(!serialized.includes('secret-token'));assert.ok(!serialized.includes('plaintext'));assert.ok(!serialized.includes('other-secret'));
 });
 test('sensitive overlays require a private build workflow',()=>{
-  const c=defaultConfig();assert.equal(privateContent(c),false);c.overlay='overlays/personal.zip';assert.equal(privateContent(c),true);
+  const c=defaultConfig();assert.equal(privateContent(c),true);c.system.password_secret=false;c.build_mode='experiment';assert.equal(privateContent(c),false);c.overlay='overlays/personal.zip';assert.equal(privateContent(c),true);
 });
 test('custom package box cannot bypass nft firewall requirements including HomeProxy Pro',()=>{
   for(const field of ['packages','proxies'])for(const pkg of ['luci-app-homeproxy','luci-app-homeproxy-pro','luci-app-nikki']){
@@ -52,7 +52,7 @@ test('selected themes and proxies cannot simultaneously be removed',()=>{
 });
 
 test('side router must use the same subnet, including CIDR boundaries',()=>{
-  const c=defaultConfig();c.network.mode='side';c.system.ip='192.168.1.129/25';c.network.gateway='192.168.1.1';
+  const c=defaultConfig();c.build_mode='experiment';c.network.mode='side';c.system.ip='192.168.1.129/25';c.network.gateway='192.168.1.1';
   assert.ok(validate(c).some(e=>e.includes('同一子网')));
   c.network.gateway='192.168.1.130';assert.deepEqual(validate(c),[]);
   c.system.ip='192.168.1.129/0';c.network.gateway='10.0.0.1';assert.deepEqual(validate(c),[]);

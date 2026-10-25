@@ -1,0 +1,54 @@
+name: Verify real-image delivery and local services
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['configs/delivery-qa-trigger.txt']
+permissions:
+  contents: read
+concurrency:
+  group: delivery-qa-${{ github.repository }}
+  cancel-in-progress: false
+jobs:
+  verify:
+    if: github.event.repository.private
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        source: [official, kwrt]
+    env:
+      REPOSITORY_PRIVATE: 'true'
+      CONFIG_PATH: configs/qa-generated.json
+      CONFIG_JSON: ''
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Install isolated build, VM and client tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends build-essential libncurses-dev libssl-dev zlib1g-dev gawk gettext unzip zip file rsync wget curl zstd qemu-utils qemu-system-x86 ovmf openssh-client sshpass smbclient 7zip
+      - name: Prepare test password without using user secrets
+        run: python -m scripts.delivery_qa --source "$QA_SOURCE"
+        env:
+          QA_SOURCE: ${{ matrix.source }}
+      - run: python -m scripts.delivery policy
+      - name: Build exact candidate images
+        run: python -m scripts.build --config configs/qa-generated.json
+      - name: Verify every disk and selected local services
+        run: python -m scripts.delivery_vm
+      - name: Prepare verified delivery record
+        run: python -m scripts.delivery record
+      - name: Upload safe reports only, never firmware or test credentials
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: delivery-qa-${{ matrix.source }}
+          path: |
+            outputs/vm-report.json
+            outputs/build-summary.json
+          if-no-files-found: ignore
+          retention-days: 7

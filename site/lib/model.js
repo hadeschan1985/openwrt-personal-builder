@@ -26,8 +26,8 @@ export const COMMON = [
 ].map(([group,pkg,name])=>({group,pkg,name}));
 
 export function defaultConfig(version='25.12.6',target='x86/64',profile='generic') {
-  return {schema_version:1,builder:version.startsWith('kwrt-')?'kwrt':'official',version,target,profile,packages:[],remove_packages:[],themes:['luci-theme-bootstrap'],proxies:[],firewall:'nftables',
-    system:{hostname:'OpenWrt',ip:'192.168.1.1',webserver:'uhttpd',https:true,ipv6:true,signature:'',default_theme:'bootstrap',theme_mode:'auto',password_secret:false},
+  return {schema_version:1,build_mode:target==='x86/64'?'release':'experiment',builder:version.startsWith('kwrt-')?'kwrt':'official',version,target,profile,packages:[],remove_packages:[],themes:['luci-theme-bootstrap'],proxies:[],firewall:'nftables',
+    system:{hostname:'OpenWrt',ip:'192.168.1.1',webserver:'uhttpd',https:true,ipv6:true,signature:'',default_theme:'bootstrap',theme_mode:'auto',password_secret:target==='x86/64'},
     network:{mode:'router',gateway:'',dhcp:true,wan_port:'',lan_ports:'',wifi_ssid:'',pppoe_secret:false,wifi_password_secret:false},
     features:{docker:false,usb_net:false,usb_wireless:false,wwan:false,istoreos:false,routerdog:false,remove_links:false},
     output:{filesystem:'squashfs',rootfs_size_mb:256,efi:true,legacy:true,vmdk:false,rootfs:false},defaults:'',overlay:''};
@@ -47,6 +47,14 @@ export function validate(c,available=null,versions=null) {
   }
   for(const key of ['system','network','features','output'])if(!c[key]||typeof c[key]!=='object'||Array.isArray(c[key]))errors.push(`${key} 设置格式不正确。`);
   if(errors.length) return errors;
+  if(!['release','experiment'].includes(c.build_mode??'experiment'))errors.push('构建模式无效。');
+  if(c.build_mode==='release'){
+    if(!c.system.password_secret)errors.push('正式模式必须设置后台密码（仓库 ROUTER_PASSWORD，至少 12 字符）。');
+    if(!c.system.https)errors.push('正式模式必须启用 HTTPS 后台。');
+    if(c.target!=='x86/64'||!c.output.efi&&!c.output.legacy)errors.push('正式模式目前要求 x86/64 EFI 或 Legacy 磁盘，以便自动启动验收；其他输出请明确选择实验模式。');
+    if([c.network.wan_port,...(c.network.lan_ports||'').split(' ')].filter(Boolean).some(p=>Number(p.slice(3))>7))errors.push('正式模式的自动验收最多支持 eth0–eth7。');
+    const prefix=Number((c.system.ip||'').split('/')[1]??24);if(prefix<8||prefix>30)errors.push('正式模式的管理网段须为 /8–/30；其他掩码请使用实验模式。');
+  }
   if(c.remove_packages.some(x=>CORE.has(x))) errors.push('不能移除必要的基础系统包。');
   if(c.builder==='kwrt'&&c.remove_packages.includes('my-default-settings'))errors.push('Kwrt 初始化依赖 my-default-settings，不能移除。');
   const selected=[...c.packages,...c.themes,...c.proxies];
@@ -107,6 +115,7 @@ export function safePreset(c) {
   // Explicit projection prevents imported objects from smuggling credentials.
   const base=defaultConfig(c.version,c.target,c.profile);
   base.builder=c.builder??base.builder;
+  base.build_mode=c.build_mode??'experiment';
   for(const key of ['packages','remove_packages','themes','proxies','firewall','defaults','overlay']) base[key]=structuredClone(c[key]??base[key]);
   for(const key of ['system','network','features','output']) {
     for(const field of Object.keys(base[key])) if(c[key]?.[field]!==undefined) base[key][field]=c[key][field];

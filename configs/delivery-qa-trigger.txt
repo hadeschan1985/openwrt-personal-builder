@@ -1,0 +1,1 @@
+2026-10-26 revision 2: use installed uhttpd for isolated download test.

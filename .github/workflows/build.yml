@@ -65,14 +65,17 @@ jobs:
                   'Use a private repository for secrets, overlays or custom shell')
           # Do not print configuration or user shell to the log.
           print('Configuration validated:', config['version'], config['target'], config['profile'])
+          from scripts.delivery import policy
+          policy(config, os.environ)
           with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
               output.write('builder_key=' + config['version'] + '-' + config['target'].replace('/', '-') + '\n')
+              output.write('build_mode=' + config['build_mode'] + '\n')
           PY
       - name: Install ImageBuilder dependencies
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends build-essential libncurses-dev libssl-dev \
-            zlib1g-dev gawk gettext unzip zip file rsync wget curl zstd qemu-utils 7zip
+            zlib1g-dev gawk gettext unzip zip file rsync wget curl zstd qemu-utils qemu-system-x86 ovmf openssh-client sshpass smbclient 7zip
       - name: Restore verified ImageBuilder download cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -82,13 +85,69 @@ jobs:
             imagebuilder-v1-${{ runner.os }}-
       - name: Build firmware
         run: python -m scripts.build --config "${CONFIG_PATH:-configs/x86-default.json}"
-      - name: Upload firmware, manifests and checksums
-        if: success()
+      - name: Verify actual images and selected local services
+        if: steps.config.outputs.build_mode == 'release'
+        run: python -m scripts.delivery_vm
+      - name: Prepare delivery manifest
+        id: delivery
+        run: python -m scripts.delivery record
+      - name: Upload EFI disk
+        if: steps.delivery.outputs.efi == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: firmware-${{ github.run_number }}-efi
+          path: outputs/*combined-efi.img.gz
+          retention-days: 7
+          compression-level: 0
+      - name: Upload Legacy disk
+        if: steps.delivery.outputs.legacy == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: firmware-${{ github.run_number }}-legacy
+          path: outputs/*combined.img.gz
+          retention-days: 7
+          compression-level: 0
+      - name: Upload VMDK disks
+        if: steps.delivery.outputs.vmdk == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: firmware-${{ github.run_number }}-vmdk
+          path: outputs/*.vmdk*
+          retention-days: 7
+          compression-level: 0
+      - name: Upload ROOTFS
+        if: steps.delivery.outputs.rootfs == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: firmware-${{ github.run_number }}-rootfs
+          path: outputs/*rootfs.tar.gz
+          retention-days: 7
+          compression-level: 0
+      - name: Upload other-platform firmware
+        if: steps.delivery.outputs.x86 != 'true'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: firmware-${{ github.run_number }}
           path: outputs/
           if-no-files-found: error
+          retention-days: 7
+      - name: Upload logs and manifests
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: firmware-${{ github.run_number }}-reports
+          path: |
+            outputs/build.log
+            outputs/SHA256SUMS
+            outputs/*.manifest
+            outputs/build-summary.json
+            outputs/vm-report.json
+          retention-days: 7
+      - name: Upload private record for trusted recorder
+        if: github.event.repository.private
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: build-record-${{ github.run_id }}
+          path: work/build-record.json
           retention-days: 7
       - name: Upload failure log
         if: failure()
@@ -108,8 +167,28 @@ jobs:
           with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as f:
               f.write('## Firmware built\n\n')
               f.write('Download the firmware artifact below. Verify SHA256SUMS before use.\n\n')
-              f.write('Status: built, **not yet boot/hardware tested**.\n\n')
+              mode = '${{ steps.config.outputs.build_mode }}'
+              f.write('Status: **exact-image VM verified; hardware NOT tested**.\n\n' if mode == 'release' else 'Status: **EXPERIMENTAL; NOT boot/hardware tested**.\n\n')
               f.write('| File | Bytes | SHA256 |\n|---|---:|---|\n')
               for item in data['files']:
                   f.write(f"| {item['name']} | {item['bytes']} | `{item['sha256']}` |\n")
           PY
+  record:
+    needs: firmware
+    if: github.event.repository.private
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0
+        with:
+          name: build-record-${{ github.run_id }}
+          path: work
+      - name: Save private build record without executing upstream code
+        run: python -m scripts.delivery save
+        env:
+          GH_TOKEN: ${{ github.token }}

@@ -9,12 +9,15 @@ export function latestBuildResults(runs){
 }
 export function requestRun(runs,id){return runs.find(run=>typeof run.display_title==='string'&&run.display_title.endsWith(` · ${id}`));}
 export function stageName(name){
+  const delivery={'Verify actual images and selected local services':'验收本次映像启动与本地服务','Prepare delivery manifest':'生成逐文件交付清单','Upload EFI disk':'保存 EFI 映像','Upload Legacy disk':'保存 Legacy 映像','Upload VMDK disks':'保存 VMDK 映像','Upload ROOTFS':'保存 ROOTFS','Upload logs and manifests':'保存日志与校验报告','Upload private record for trusted recorder':'准备私有构建记录','Save private build record without executing upstream code':'保存私有配置与映像记录'};
+  if(delivery[name])return delivery[name];
   const translations={'Checkout':'读取构建代码','Python':'准备运行环境','Validate configuration':'检查配置与隐私限制','Install ImageBuilder dependencies':'准备构建工具','Restore verified ImageBuilder download cache':'恢复并校验构建缓存','Build firmware':'检查依赖并生成固件','Upload firmware, manifests and checksums':'保存固件和校验值','Upload failure log':'保存失败日志','Run summary':'生成结果摘要','Set up job':'准备 GitHub 构建环境','Complete job':'收尾'};
   return translations[name]||name.replace(/^Post /,'清理：');
 }
 export function failureHelp(step){
   if(!step)return '请打开 GitHub 日志查看具体原因；失败不会生成可用固件。';
   if(/Validate/.test(step.name))return '配置或私有仓库检查未通过。检查软件包、输出格式和仓库 Secrets 设置。';
+  if(/Verify actual images/.test(step.name))return '本次映像启动、后台认证或本地服务验收未通过，不会交付为正式固件。请查看失败检查项；不要直接刷机。';
   if(/dependencies|Python|Checkout|cache/i.test(step.name))return '构建环境或下载准备失败，可能是上游或 GitHub 暂时不可用。请先查看日志，再决定重试。';
   if(/Build firmware/.test(step.name))return '依赖预检、上游下载或映像生成未通过。日志中“依赖预检”后的信息会指出缺包、冲突或下载问题；请勿直接反复提交。';
   if(/Upload/.test(step.name))return '保存产物失败。检查 GitHub 存储配额与日志；不要把此任务当作交付成功。';
