@@ -1,5 +1,5 @@
-import {COMMON,CORE,PROXIES,THEMES,defaultConfig,tokenize,validate,privateContent,safePreset} from './lib/model.js?v=20261025-4';
-import {GitHub,repositoryName} from './lib/github.js?v=20261025-4';
+import {COMMON,CORE,NFT_ONLY,PROXIES,THEMES,defaultConfig,tokenize,validate,privateContent,safePreset} from './lib/model.js?v=20261025-5';
+import {GitHub,repositoryName} from './lib/github.js?v=20261025-5';
 
 const $=id=>document.getElementById(id);
 const state={catalog:null,device:null,target:null,available:new Set(),config:defaultConfig(),git:null,file:null,loadId:0,loading:false,metadataReady:false,busy:false};
@@ -68,9 +68,9 @@ function conditionalFields(){
   for(const id of ['wan-port','lan-ports','rootfs-size','efi','legacy','vmdk'])$(id).disabled=!x86;
   if(!x86){$('wan-port').value='';$('lan-ports').value='';$('rootfs-size').value=256;$('vmdk').checked=false;}
   for(const b of document.querySelectorAll('#proxy-packages button')){
-    const nft=['luci-app-homeproxy','luci-app-nikki','luci-app-xray-status','luci-app-fchomo'].includes(b.dataset.package);
+    const nft=NFT_ONLY.has(b.dataset.package);
     const blocked=nft&&val('firewall')==='iptables';
-    b.disabled=!state.available.has(b.dataset.package)||blocked;
+    b.disabled=!state.available.has(b.dataset.package)||(blocked&&!state.config.proxies.includes(b.dataset.package));
   }
 }
 function chip(pkg,name,group,{disabled=false,help=''}={}){
@@ -79,7 +79,7 @@ function chip(pkg,name,group,{disabled=false,help=''}={}){
   button.addEventListener('click',()=>{
     state.config=readForm();const items=new Set(state.config[group]);items.has(pkg)?items.delete(pkg):items.add(pkg);state.config[group]=[...items];
     if(group==='packages')$('custom-packages').value=state.config.packages.join(' ');
-    if(group==='themes')renderDefaultThemes();update();
+    if(group==='themes')renderDefaultThemes();update();conditionalFields();
   });return button;
 }
 function renderDefaultThemes(){

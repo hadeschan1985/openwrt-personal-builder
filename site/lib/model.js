@@ -1,5 +1,6 @@
 export const CORE = new Set(['base-files','busybox','libc','libgcc','libgcc1','kernel','netifd','procd','uci','fstools']);
 export const PACKAGE_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9+_.-]{0,120}$/;
+export const NFT_ONLY = new Set(['luci-app-homeproxy','luci-app-homeproxy-pro','luci-app-nikki','luci-app-xray-status','luci-app-fchomo']);
 export const PROXIES = [
   ['PassWall','passwall'],['PassWall2','passwall2'],['HomeProxy','homeproxy'],['HomeProxy Pro','homeproxy-pro'],
   ['SSR-Plus','ssr-plus'],['OpenClash','openclash'],['Nikki','nikki'],['Momo','momo'],['Meow','meow'],
@@ -74,7 +75,7 @@ export function validate(c,available=null) {
   if(c.builder!=='kwrt'&&(landing!=='auto'||c.features.istoreos||c.features.routerdog))errors.push('iStoreX、路由狗和自定义主页需要 Kwrt。');
   if(['istoreos','nas','next-nas','router'].includes(landing)&&!c.features.istoreos)errors.push('此主页模式需要开启 iStoreOS 风格界面。');
   if(landing==='routerdog'&&!c.features.routerdog)errors.push('此主页模式需要开启路由狗。');
-  if(c.firewall==='iptables'&&selected.some(p=>['luci-app-homeproxy','luci-app-homeproxy-pro','luci-app-nikki','luci-app-xray-status','luci-app-fchomo'].includes(p))) errors.push('选中的代理插件需要 nftables。');
+  if(c.firewall==='iptables'&&selected.some(p=>NFT_ONLY.has(p))) errors.push('选中的代理插件需要 nftables。');
   if(!Number.isInteger(c.output?.rootfs_size_mb)||c.output.rootfs_size_mb<64||c.output.rootfs_size_mb>6144) errors.push('分区大小须为 64–6144 MB 的整数。');
   if(!c.target.startsWith('x86/')&&c.output.rootfs_size_mb!==256)errors.push('自定义根分区大小目前仅支持 x86。');
   if(c.output.vmdk&&!c.target.startsWith('x86/'))errors.push('VMDK 目前仅支持 x86。');
