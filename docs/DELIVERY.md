@@ -2,11 +2,13 @@
 
 网站已经上线，无需 VPS，不含会员或收费系统。
 
-- 网站：https://hadeschan1985.github.io/openwrt-personal-builder/?v=20261025-6
+- 网站：https://hadeschan1985.github.io/openwrt-personal-builder/?v=20261026-1
 - 私有构建与下载：https://github.com/hadeschan1985/openwrt-personal-builds/actions/workflows/build.yml
 - 本机完整项目：E:\OpenWrt-Personal-Builder
 
 ## 日常使用
+
+首页现有“最近编译结果”，连接后直接显示最近成功任务的 ZIP 下载、大小、SHA256 与到期时间，支持 GitHub 手动构建。当前 68 项代码检查通过，首页专项验收见 HOMEPAGE-RESULTS.md。未连接时点“连接查看结果”，不需要重新编译已有固件；刷新网页需重连授权。
 
 1. 打开网站，选择设备与版本。需要 PassWall/OpenClash/NAS 等组件时选择 Kwrt x86/64。
 2. 按需要选择软件与系统设置，查看右侧检查提示。
