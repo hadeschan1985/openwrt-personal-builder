@@ -1,0 +1,11 @@
+{
+  "official-network": {"source":"official","packages":["luci-app-ddns","luci-app-upnp","luci-proto-wireguard","luci-app-sqm","luci-app-statistics","luci-app-ttyd"],"remove_packages":["ppp","ppp-mod-pppoe"],"theme":"bootstrap-dark"},
+  "official-storage": {"source":"official","packages":["luci-app-samba4","luci-app-minidlna","luci-app-transmission","luci-app-aria2","luci-app-hd-idle"],"theme":"openwrt-2020","filesystem":"ext4"},
+  "kwrt-dns": {"source":"kwrt","packages":["luci-app-smartdns","luci-app-mosdns","luci-app-adguardhome","luci-app-unblockneteasemusic"]},
+  "kwrt-passwall2": {"source":"kwrt","proxies":["luci-app-passwall2"]},
+  "kwrt-openclash": {"source":"kwrt","proxies":["luci-app-openclash"],"theme":"argon-light"},
+  "kwrt-homeproxy": {"source":"kwrt","proxies":["luci-app-homeproxy"]},
+  "kwrt-homeproxy-pro": {"source":"kwrt","proxies":["luci-app-homeproxy-pro"],"theme":"argon-dark"},
+  "kwrt-nikki": {"source":"kwrt","proxies":["luci-app-nikki"]},
+  "kwrt-utilities": {"source":"kwrt","packages":["luci-app-filebrowser-q","luci-app-vlmcsd","luci-app-uugamebooster","luci-app-turboacc","luci-app-natmap"],"remove_packages":["nano","htop"]}
+}

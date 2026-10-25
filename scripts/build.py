@@ -80,11 +80,12 @@ def normalize(raw):
         result[key] = sorted(set(values))
     require(not (CORE & set(result["remove_packages"])), "Cannot remove essential system packages")
     require(builder != "kwrt" or "my-default-settings" not in result["remove_packages"], "Kwrt requires my-default-settings")
-    require(not (set(result["packages"]) & set(result["remove_packages"])), "Package both added and removed")
+    selected = set(result["packages"] + result["themes"] + result["proxies"])
+    require(not (selected & set(result["remove_packages"])), "Package both added and removed")
     result["firewall"] = raw.get("firewall", "nftables")
     require(result["firewall"] in ("nftables", "iptables"), "Invalid firewall")
-    require(not (result["firewall"] == "iptables" and any(x in result["proxies"] for x in
-        ["luci-app-homeproxy", "luci-app-nikki", "luci-app-xray-status", "luci-app-fchomo"])), "Selected proxy requires nftables")
+    require(not (result["firewall"] == "iptables" and selected.intersection(
+        {"luci-app-homeproxy", "luci-app-homeproxy-pro", "luci-app-nikki", "luci-app-xray-status", "luci-app-fchomo"})), "Selected proxy requires nftables")
     system = raw.get("system", {})
     require(isinstance(system, dict), "Invalid system settings")
     hostname = system.get("hostname", "OpenWrt")

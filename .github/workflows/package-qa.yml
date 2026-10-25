@@ -1,0 +1,60 @@
+name: Package combination regression
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['configs/package-qa-trigger.txt']
+permissions:
+  contents: read
+concurrency:
+  group: package-qa-${{ github.repository }}
+  cancel-in-progress: false
+jobs:
+  boot:
+    if: github.event.repository.private
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        case: [official-network, official-storage, kwrt-dns, kwrt-passwall2, kwrt-openclash, kwrt-homeproxy, kwrt-homeproxy-pro, kwrt-nikki, kwrt-utilities]
+    env:
+      REPOSITORY_PRIVATE: 'true'
+      QA_CASE: ${{ matrix.case }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+      - name: Install build and isolated VM tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends build-essential libncurses-dev libssl-dev \
+            zlib1g-dev gawk gettext unzip zip file rsync wget curl zstd qemu-utils qemu-system-x86 ovmf openssh-client 7zip
+      - name: Restore verified archive download cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: work/downloads
+          key: package-qa-v1-${{ runner.os }}-${{ startsWith(matrix.case, 'kwrt-') && 'kwrt' || 'official' }}
+      - name: Prepare disposable package combination
+        run: python -m scripts.package_qa prepare --case "$QA_CASE"
+      - name: Build disposable firmware
+        run: python scripts/build.py --config configs/qa-generated.json
+      - name: Boot and verify guest package database and LuCI
+        run: python -m scripts.smoke run
+      - name: Upload reports only - never QA image or credentials
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: package-qa-${{ matrix.case }}
+          path: |
+            work/qa/boot-report.json
+            work/qa/serial-*.log
+            work/qa/qemu-*.log
+            work/qa/guest-*.log
+            outputs/build.log
+          if-no-files-found: ignore
+          retention-days: 7

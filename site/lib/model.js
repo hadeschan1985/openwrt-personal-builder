@@ -46,7 +46,8 @@ export function validate(c,available=null) {
   if(errors.length) return errors;
   if(c.remove_packages.some(x=>CORE.has(x))) errors.push('不能移除必要的基础系统包。');
   if(c.builder==='kwrt'&&c.remove_packages.includes('my-default-settings'))errors.push('Kwrt 初始化依赖 my-default-settings，不能移除。');
-  if(c.packages.some(x=>c.remove_packages.includes(x))) errors.push('同一个包不能同时添加和移除。');
+  const selected=[...c.packages,...c.themes,...c.proxies];
+  if(selected.some(x=>c.remove_packages.includes(x))) errors.push('同一个包不能同时添加和移除（包括主题和代理插件）。');
   if(!/^[A-Za-z0-9](?:[A-Za-z0-9.-]{0,61}[A-Za-z0-9])?$/.test(c.system?.hostname||'')) errors.push('主机名格式不正确。');
   if(!ipv4(c.system?.ip,true)) errors.push('后台 IPv4 地址格式不正确。');
   if(!['router','side'].includes(c.network?.mode)) errors.push('网络模式无效。');
@@ -73,7 +74,7 @@ export function validate(c,available=null) {
   if(c.builder!=='kwrt'&&(landing!=='auto'||c.features.istoreos||c.features.routerdog))errors.push('iStoreX、路由狗和自定义主页需要 Kwrt。');
   if(['istoreos','nas','next-nas','router'].includes(landing)&&!c.features.istoreos)errors.push('此主页模式需要开启 iStoreOS 风格界面。');
   if(landing==='routerdog'&&!c.features.routerdog)errors.push('此主页模式需要开启路由狗。');
-  if(c.firewall==='iptables'&&c.proxies.some(p=>['luci-app-homeproxy','luci-app-nikki','luci-app-xray-status','luci-app-fchomo'].includes(p))) errors.push('选中的代理插件需要 nftables。');
+  if(c.firewall==='iptables'&&selected.some(p=>['luci-app-homeproxy','luci-app-homeproxy-pro','luci-app-nikki','luci-app-xray-status','luci-app-fchomo'].includes(p))) errors.push('选中的代理插件需要 nftables。');
   if(!Number.isInteger(c.output?.rootfs_size_mb)||c.output.rootfs_size_mb<64||c.output.rootfs_size_mb>6144) errors.push('分区大小须为 64–6144 MB 的整数。');
   if(!c.target.startsWith('x86/')&&c.output.rootfs_size_mb!==256)errors.push('自定义根分区大小目前仅支持 x86。');
   if(c.output.vmdk&&!c.target.startsWith('x86/'))errors.push('VMDK 目前仅支持 x86。');

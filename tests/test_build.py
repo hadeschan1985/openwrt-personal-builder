@@ -19,6 +19,23 @@ def example():
 
 
 class ConfigurationTests(unittest.TestCase):
+    def test_firewall_checks_custom_package_box_and_homeproxy_pro(self):
+        for field in ("packages", "proxies"):
+            for package in ("luci-app-homeproxy", "luci-app-homeproxy-pro", "luci-app-nikki"):
+                config = example()
+                config.update(builder="kwrt", version="kwrt-25.12-20261012", firewall="iptables")
+                config[field] = [package]
+                with self.subTest(field=field, package=package), self.assertRaisesRegex(ConfigError, "requires nftables"):
+                    normalize(config)
+
+    def test_theme_or_proxy_cannot_also_be_removed(self):
+        for field, package in (("themes", "luci-theme-bootstrap"), ("proxies", "luci-app-passwall2")):
+            config = example()
+            config[field] = [package]
+            config["remove_packages"] = [package]
+            with self.subTest(field=field), self.assertRaisesRegex(ConfigError, "both added and removed"):
+                normalize(config)
+
     def test_default_config_and_package_plan(self):
         config = normalize(example())
         self.assertIn("luci-ssl", package_plan(config))

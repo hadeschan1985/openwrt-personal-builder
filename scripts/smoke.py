@@ -23,9 +23,25 @@ import time
 import urllib.parse
 import zipfile
 
-from scripts.build import normalize, require
+from scripts.build import normalize, require, PACKAGE
 
 QA = Path("work/qa")
+
+
+def theme_path(name):
+    return {"openwrt": "/luci-static/openwrt.org", "openwrt-2020": "/luci-static/openwrt2020",
+        "argon-light": "/luci-static/argon", "argon-dark": "/luci-static/argon"}.get(name, "/luci-static/" + name)
+
+
+def package_checks(spec):
+    checks = "\n# Assert actual guest package database, not only build manifest.\n"
+    for field in ("packages", "remove_packages"):
+        for package in spec.get(field, []):
+            require(isinstance(package, str) and PACKAGE.fullmatch(package), "Invalid QA package name")
+            query = ("if command -v apk >/dev/null; then apk info -e " + package + " >/dev/null 2>&1; "
+                "else opkg status " + package + " 2>/dev/null | grep -q 'Status: install ok installed'; fi")
+            checks += ("if " + query + "; then exit 81; fi\n" if field == "remove_packages" else query + "\n")
+    return checks
 
 
 def test_ipk():
@@ -168,7 +184,7 @@ def boot(image: Path, mode: str, config):
     log = QA / f"serial-{mode}.log"
     ip = config["system"]["ip"]
     command = ["qemu-system-x86_64", "-accel", "tcg,thread=multi", "-cpu", "max", "-smp", "2",
-        "-m", "768", "-display", "none", "-monitor", "none", "-serial", f"file:{log}",
+        "-m", "1536" if (QA / "package-spec.json").exists() else "768", "-display", "none", "-monitor", "none", "-serial", f"file:{log}",
         "-no-reboot", "-snapshot", "-drive", f"file={image.resolve()},format={'vmdk' if image.suffix == '.vmdk' else 'raw'},if=virtio",
         "-netdev", "user,id=lan,net=192.168.1.0/24,host=192.168.1.2,restrict=on,"
             f"hostfwd=tcp:127.0.0.1:2222-{ip}:22,hostfwd=tcp:127.0.0.1:18080-{ip}:80,"
@@ -211,7 +227,12 @@ ubus call system board
 df -h /
 echo ALL_GUEST_ASSERTIONS_PASSED
 """
-            theme = "/luci-static/" + config["system"]["default_theme"]
+            theme = theme_path(config["system"]["default_theme"])
+            if config["system"]["default_theme"] in ("argon-light", "argon-dark"):
+                checks += 'test "$(uci -q get argon.@global[0].mode)" = ' + config["system"]["default_theme"].split("-")[1] + "\n"
+            package_spec = json.loads((QA / "package-spec.json").read_text()) if (QA / "package-spec.json").exists() else None
+            if package_spec:
+                checks += package_checks(package_spec)
             if config["system"]["webserver"] == "uhttpd":
                 checks += 'test "$(uci -q get uhttpd.main.redirect_https)" = ' + ("1" if config["system"]["https"] else "0") + "\n"
             if config["network"]["mode"] == "side":
@@ -243,8 +264,12 @@ echo ALL_GUEST_ASSERTIONS_PASSED
             authenticated = ssh("ubus call session login " + shlex.quote(login) + "\n")
             require(authenticated.returncode == 0 and '"ubus_rpc_session"' in authenticated.stdout,
                     f"Root password login failed in {mode}")
-            return {"mode": mode, "status": "passed", "seconds": round(time.monotonic() - started, 1),
+            report = {"mode": mode, "status": "passed", "seconds": round(time.monotonic() - started, 1),
                 "checks": ["boot", "first-boot-script", "overlay", "hostname", "lan-ip", "wan-port", "dhcp", "theme", "authenticated-luci", "root-password"], "web": web}
+            if package_spec:
+                report["package_combination"] = package_spec
+                report["checks"] += ["guest-installed-packages", "guest-removed-packages"]
+            return report
         finally:
             process.terminate()
             try:
