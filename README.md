@@ -4,7 +4,7 @@
 
 网页已上线：[打开个人固件工作台](https://hadeschan1985.github.io/openwrt-personal-builder/)。使用方法见 `docs/USAGE.md`，功能地图与自建分析见 `docs/FEATURE-MAP.md`，验证记录见 `docs/TESTING.md` 和 `docs/WORKLOG.md`。
 
-已接入官方 OpenWrt 与校验值固定的 Kwrt x86/64 构建环境。13 次隔离虚拟机开机、后台登录和 RPC 验收通过；正式网页直接提交、文件上传、构建、下载与 SHA256 闭环已验证。详细范围见 `docs/TESTING.md`；不等于所有实体设备可安全刷入。
+已接入官方 OpenWrt 与校验值固定的 Kwrt x86/64 构建环境。基线引导和 9 组软件组合均完成隔离虚拟机开机、后台登录与 RPC；正式网页直接提交、文件上传、构建、下载与 SHA256 闭环已验证。51 项云端代码/配置检查通过。详细范围及改善建议见 `docs/TESTING.md`、`docs/PACKAGE-TESTING.md`；不等于所有实体设备可安全刷入。
 
 接入步骤见 `docs/DEPLOY.md`。推荐公开网页仓库与私有构建仓库分开，避免自己的配置与产物公开。
 

@@ -16,7 +16,7 @@
 | Kwrt iptables | 移除 firewall4，legacy 后端，首次开机配置与后台通信 | 回归 40167403974 的 kwrt/iptables 子任务成功 |
 | Kwrt Lighttpd · HTTP/HTTPS | 实际开机、密码登录及 CGI JSON-RPC 均成功 | [定向回归 40168809787](https://github.com/hadeschan1985/openwrt-personal-builds/actions/runs/40168809787)，两个子任务均成功 |
 | Kwrt Ext4/1 GiB + Docker/USB/WWAN | 实际开机，Docker daemon 可响应，驱动和蜂窝组件已安装，深色主题、NAS/IPK、登录/RPC | 回归 40167403974 的 kwrt/features 子任务成功；不等于 USB/蜂窝实物已测 |
-| 配置/归档/请求测试 | 当前本地 29 项 Python（Windows 缺 7-Zip 时跳过 1 项）、15 项 JS；云端安装 7-Zip 后完整执行 | tests/ 与 Validate code and build configuration 工作流 |
+| 配置/归档/请求测试 | 当前 34 项 Python（Windows 缺 7-Zip 时跳过 1 项）、17 项 JS；云端完整执行 51 项 | tests/ 与 Validate code and build configuration 工作流 |
 
 早期回归中保留着已定位的失败记录，不能把这些历史工作流描述为全部成功。当前完整引导回归 `40167823669` 已全部成功；扩展矩阵早期 Lighttpd RPC 失败已经通过显式 CGI 路径修复，定向回归 `40168809787` 的 HTTP 和 HTTPS 均成功。
 
@@ -31,6 +31,12 @@
 浏览器联调发现 native fetch 接收者问题，已修正并补充回归测试；为避免 Pages 缓存旧模块，脚本和样式使用发布版本标记。390 像素移动端未见横向溢出，模板与构建控件均可使用。
 
 此前官方版真实构建 `40127788108`、扩展输出构建 `40128376512` 成功，产物已经下载并核对包内 SHA256、映像大小、Gzip 完整性、MBR/GPT、根分区边界与所选包清单。Ext4、两种 VMDK 和 ROOTFS TAR.GZ 生成通过。
+
+## 后续软件组合验收（同日追加）
+
+用户要求继续添加各种定制软件进行调试后，新增 9 组软件组合，覆盖 25 种明确指定的软件/协议/代理包。全部实际构建、开机、设备内包数据库、后台密码登录与 RPC 通过；另重新完成 6 次 EFI/Legacy/VMDK 基线开机。11 份报告下载后 SHA256 均匹配。
+
+本轮修复了自订包框绕过防火墙要求、HomeProxy Pro 漏检、主题/代理同时添加移除、冲突插件无法取消等问题；新增前后端检查已发布。详见 `PACKAGE-TESTING.md` 和 `software-qa-verification.json`，不把插件集成通过说成用户真实线路/实物验证通过。
 
 ## 验证边界
 

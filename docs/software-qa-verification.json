@@ -1,0 +1,664 @@
+{
+  "schema_version": 1,
+  "completed": true,
+  "code_validation": {"workflow_run":40176507735,"python":34,"javascript":17,"total":51,"conclusion":"success"},
+  "website_validation": {"asset_version":"20261025-5","deployment_run":40176503093,"conclusion":"success"},
+  "verified_at_utc": "2026-10-25T08:35:14.820Z",
+  "expected_combinations": 9,
+  "verified_combinations": 9,
+  "verified_boots": 15,
+  "integration_commit": "b46e1b3570cfb5ae5d71473b338b47caab900677",
+  "input_validation_commit": "2af92855ab7352bb9a1b80dd17b77827c6cfa8e9",
+  "notes": [
+    "Each archive SHA256 matched GitHub metadata before reading its report.",
+    "Isolated QA only. No hardware flashing, user subscription or external connectivity validation.",
+    "Only report artifacts were uploaded; QA firmware and credentials were not published."
+  ],
+  "reports": [
+    {
+      "run_id": 40175491386,
+      "commit": "b46e1b3570cfb5ae5d71473b338b47caab900677",
+      "artifact_id": 12591704290,
+      "name": "package-qa-official-network",
+      "archive_sha256": "aebf080187d58360a0901c017fd0dd7c598c6f3c8ff0e966929ec61335db4644",
+      "report": {
+        "builder": "official",
+        "version": "25.12.6",
+        "results": [
+          {
+            "mode": "bios",
+            "status": "passed",
+            "seconds": 46.5,
+            "checks": [
+              "boot",
+              "first-boot-script",
+              "overlay",
+              "hostname",
+              "lan-ip",
+              "wan-port",
+              "dhcp",
+              "theme",
+              "authenticated-luci",
+              "root-password",
+              "guest-installed-packages",
+              "guest-removed-packages"
+            ],
+            "web": {
+              "protocol": "https",
+              "login_status": 403,
+              "authenticated_status": 200,
+              "rpc_status": 200,
+              "bytes": 3928
+            },
+            "package_combination": {
+              "name": "official-network",
+              "packages": [
+                "luci-app-ddns",
+                "luci-app-sqm",
+                "luci-app-statistics",
+                "luci-app-ttyd",
+                "luci-app-upnp",
+                "luci-proto-wireguard",
+                "luci-theme-bootstrap"
+              ],
+              "remove_packages": [
+                "ppp",
+                "ppp-mod-pppoe"
+              ]
+            }
+          }
+        ],
+        "hardware_tested": false,
+        "network": "isolated; outbound disabled; loopback forwards only"
+      }
+    },
+    {
+      "run_id": 40175491386,
+      "commit": "b46e1b3570cfb5ae5d71473b338b47caab900677",
+      "artifact_id": 12591544580,
+      "name": "package-qa-official-storage",
+      "archive_sha256": "34fa1a8133c871a4ed4e807a4a38f102ea7375f9bb86a3db31d09fdfc2772254",
+      "report": {
+        "builder": "official",
+        "version": "25.12.6",
+        "results": [
+          {
+            "mode": "bios",
+            "status": "passed",
+            "seconds": 56.3,
+            "checks": [
+              "boot",
+              "first-boot-script",
+              "overlay",
+              "hostname",
+              "lan-ip",
+              "wan-port",
+              "dhcp",
+              "theme",
+              "authenticated-luci",
+              "root-password",
+              "guest-installed-packages",
+              "guest-removed-packages"
+            ],
+            "web": {
+              "protocol": "https",
+              "login_status": 403,
+              "authenticated_status": 200,
+              "rpc_status": 200,
+              "bytes": 3537
+            },
+            "package_combination": {
+              "name": "official-storage",
+              "packages": [
+                "luci-app-aria2",
+                "luci-app-hd-idle",
+                "luci-app-minidlna",
+                "luci-app-samba4",
+                "luci-app-transmission",
+                "luci-theme-bootstrap",
+                "luci-theme-openwrt-2020"
+              ],
+              "remove_packages": []
+            }
+          }
+        ],
+        "hardware_tested": false,
+        "network": "isolated; outbound disabled; loopback forwards only"
+      }
+    },
+    {
+      "run_id": 40175491386,
+      "commit": "b46e1b3570cfb5ae5d71473b338b47caab900677",
+      "artifact_id": 12592151323,
+      "name": "package-qa-kwrt-passwall2",
+      "archive_sha256": "b82ef89a3d8e6ee7d25b4cb4a20c03b9769ac651b1c42a88baaead6aec03acd3",
+      "report": {
+        "builder": "kwrt",
+        "version": "kwrt-25.12-20261012",
+        "results": [
+          {
+            "mode": "bios",
+            "status": "passed",
+            "seconds": 91.1,
+            "checks": [
+              "boot",
+              "first-boot-script",
+              "overlay",
+              "hostname",
+              "lan-ip",
+              "wan-port",
+              "dhcp",
+              "theme",
+              "authenticated-luci",
+              "root-password",
+              "guest-installed-packages",
+              "guest-removed-packages"
+            ],
+            "web": {
+              "protocol": "https",
+              "login_status": 403,
+              "authenticated_status": 200,
+              "rpc_status": 200,
+              "bytes": 9903
+            },
+            "package_combination": {
+              "name": "kwrt-passwall2",
+              "packages": [
+                "luci-app-passwall2",
+                "luci-theme-argon",
+                "luci-theme-bootstrap"
+              ],
+              "remove_packages": []
+            }
+          }
+        ],
+        "hardware_tested": false,
+        "network": "isolated; outbound disabled; loopback forwards only"
+      }
+    },
+    {
+      "run_id": 40175491386,
+      "commit": "b46e1b3570cfb5ae5d71473b338b47caab900677",
+      "artifact_id": 12592116307,
+      "name": "package-qa-kwrt-dns",
+      "archive_sha256": "1848cf02d116f13d637a8c227f70a2d68fe7f68094a08768cc791279cee01df4",
+      "report": {
+        "builder": "kwrt",
+        "version": "kwrt-25.12-20261012",
+        "results": [
+          {
+            "mode": "bios",
+            "status": "passed",
+            "seconds": 66.5,
+            "checks": [
+              "boot",
+              "first-boot-script",
+              "overlay",
+              "hostname",
+              "lan-ip",
+              "wan-port",
+              "dhcp",
+              "theme",
+              "authenticated-luci",
+              "root-password",
+              "guest-installed-packages",
+              "guest-removed-packages"
+            ],
+            "web": {
+              "protocol": "https",
+              "login_status": 403,
+              "authenticated_status": 200,
+              "rpc_status": 200,
+              "bytes": 9903
+            },
+            "package_combination": {
+              "name": "kwrt-dns",
+              "packages": [
+                "luci-app-adguardhome",
+                "luci-app-mosdns",
+                "luci-app-smartdns",
+                "luci-app-unblockneteasemusic",
+                "luci-theme-argon",
+                "luci-theme-bootstrap"
+              ],
+              "remove_packages": []
+            }
+          }
+        ],
+        "hardware_tested": false,
+        "network": "isolated; outbound disabled; loopback forwards only"
+      }
+    },
+    {
+      "run_id": 40175491357,
+      "commit": "b46e1b3570cfb5ae5d71473b338b47caab900677",
+      "artifact_id": 12592760530,
+      "name": "boot-qa-report-kwrt",
+      "archive_sha256": "13ec10cdb426cde4e11a42428323bb7e48d09dd2799920efa35c4aec4ec7418c",
+      "report": {
+        "builder": "kwrt",
+        "version": "kwrt-25.12-20261012",
+        "results": [
+          {
+            "mode": "uefi",
+            "status": "passed",
+            "seconds": 137,
+            "checks": [
+              "boot",
+              "first-boot-script",
+              "overlay",
+              "hostname",
+              "lan-ip",
+              "wan-port",
+              "dhcp",
+              "theme",
+              "authenticated-luci",
+              "root-password"
+            ],
+            "web": {
+              "protocol": "https",
+              "login_status": 403,
+              "authenticated_status": 200,
+              "rpc_status": 200,
+              "bytes": 9903
+            }
+          },
+          {
+            "mode": "bios",
+            "status": "passed",
+            "seconds": 130.2,
+            "checks": [
+              "boot",
+              "first-boot-script",
+              "overlay",
+              "hostname",
+              "lan-ip",
+              "wan-port",
+              "dhcp",
+              "theme",
+              "authenticated-luci",
+              "root-password"
+            ],
+            "web": {
+              "protocol": "https",
+              "login_status": 403,
+              "authenticated_status": 200,
+              "rpc_status": 200,
+              "bytes": 9903
+            }
+          },
+          {
+            "mode": "native-vmdk-bios",
+            "status": "passed",
+            "seconds": 130.6,
+            "checks": [
+              "boot",
+              "first-boot-script",
+              "overlay",
+              "hostname",
+              "lan-ip",
+              "wan-port",
+              "dhcp",
+              "theme",
+              "authenticated-luci",
+              "root-password"
+            ],
+            "web": {
+              "protocol": "https",
+              "login_status": 403,
+              "authenticated_status": 200,
+              "rpc_status": 200,
+              "bytes": 9903
+            }
+          }
+        ],
+        "hardware_tested": false,
+        "network": "isolated; outbound disabled; loopback forwards only"
+      }
+    },
+    {
+      "run_id": 40175491357,
+      "commit": "b46e1b3570cfb5ae5d71473b338b47caab900677",
+      "artifact_id": 12591569647,
+      "name": "boot-qa-report-official",
+      "archive_sha256": "415110d5df756895f1f9a552a888a5c0902176071a894b8f87efae7c9afdf3fc",
+      "report": {
+        "builder": "official",
+        "version": "25.12.6",
+        "results": [
+          {
+            "mode": "uefi",
+            "status": "passed",
+            "seconds": 58.8,
+            "checks": [
+              "boot",
+              "first-boot-script",
+              "overlay",
+              "hostname",
+              "lan-ip",
+              "wan-port",
+              "dhcp",
+              "theme",
+              "authenticated-luci",
+              "root-password"
+            ],
+            "web": {
+              "protocol": "https",
+              "login_status": 403,
+              "authenticated_status": 200,
+              "rpc_status": 200,
+              "bytes": 4221
+            }
+          },
+          {
+            "mode": "bios",
+            "status": "passed",
+            "seconds": 52.9,
+            "checks": [
+              "boot",
+              "first-boot-script",
+              "overlay",
+              "hostname",
+              "lan-ip",
+              "wan-port",
+              "dhcp",
+              "theme",
+              "authenticated-luci",
+              "root-password"
+            ],
+            "web": {
+              "protocol": "https",
+              "login_status": 403,
+              "authenticated_status": 200,
+              "rpc_status": 200,
+              "bytes": 4221
+            }
+          },
+          {
+            "mode": "vmdk-bios",
+            "status": "passed",
+            "seconds": 52.6,
+            "checks": [
+              "boot",
+              "first-boot-script",
+              "overlay",
+              "hostname",
+              "lan-ip",
+              "wan-port",
+              "dhcp",
+              "theme",
+              "authenticated-luci",
+              "root-password"
+            ],
+            "web": {
+              "protocol": "https",
+              "login_status": 403,
+              "authenticated_status": 200,
+              "rpc_status": 200,
+              "bytes": 4221
+            }
+          }
+        ],
+        "hardware_tested": false,
+        "network": "isolated; outbound disabled; loopback forwards only"
+      }
+    },
+    {
+      "run_id": 40175491386,
+      "commit": "b46e1b3570cfb5ae5d71473b338b47caab900677",
+      "artifact_id": 12592950445,
+      "name": "package-qa-kwrt-openclash",
+      "archive_sha256": "07c88081fa2bd7743a79a5226ebb056f6178e16755637ec448627433497066d3",
+      "report": {
+        "builder": "kwrt",
+        "version": "kwrt-25.12-20261012",
+        "results": [
+          {
+            "mode": "bios",
+            "status": "passed",
+            "seconds": 70.7,
+            "checks": [
+              "boot",
+              "first-boot-script",
+              "overlay",
+              "hostname",
+              "lan-ip",
+              "wan-port",
+              "dhcp",
+              "theme",
+              "authenticated-luci",
+              "root-password",
+              "guest-installed-packages",
+              "guest-removed-packages"
+            ],
+            "web": {
+              "protocol": "https",
+              "login_status": 403,
+              "authenticated_status": 200,
+              "rpc_status": 200,
+              "bytes": 9805
+            },
+            "package_combination": {
+              "name": "kwrt-openclash",
+              "packages": [
+                "luci-app-openclash",
+                "luci-theme-argon",
+                "luci-theme-bootstrap"
+              ],
+              "remove_packages": []
+            }
+          }
+        ],
+        "hardware_tested": false,
+        "network": "isolated; outbound disabled; loopback forwards only"
+      }
+    },
+    {
+      "run_id": 40175491386,
+      "commit": "b46e1b3570cfb5ae5d71473b338b47caab900677",
+      "artifact_id": 12592686398,
+      "name": "package-qa-kwrt-homeproxy",
+      "archive_sha256": "ffa44b266078bd1228127472eacf7aa5ee7b6e9903c38c07f5efe1fbd55e72bb",
+      "report": {
+        "builder": "kwrt",
+        "version": "kwrt-25.12-20261012",
+        "results": [
+          {
+            "mode": "bios",
+            "status": "passed",
+            "seconds": 130.5,
+            "checks": [
+              "boot",
+              "first-boot-script",
+              "overlay",
+              "hostname",
+              "lan-ip",
+              "wan-port",
+              "dhcp",
+              "theme",
+              "authenticated-luci",
+              "root-password",
+              "guest-installed-packages",
+              "guest-removed-packages"
+            ],
+            "web": {
+              "protocol": "https",
+              "login_status": 403,
+              "authenticated_status": 200,
+              "rpc_status": 200,
+              "bytes": 9903
+            },
+            "package_combination": {
+              "name": "kwrt-homeproxy",
+              "packages": [
+                "luci-app-homeproxy",
+                "luci-theme-argon",
+                "luci-theme-bootstrap"
+              ],
+              "remove_packages": []
+            }
+          }
+        ],
+        "hardware_tested": false,
+        "network": "isolated; outbound disabled; loopback forwards only"
+      }
+    },
+    {
+      "run_id": 40175491386,
+      "commit": "b46e1b3570cfb5ae5d71473b338b47caab900677",
+      "artifact_id": 12593011088,
+      "name": "package-qa-kwrt-homeproxy-pro",
+      "archive_sha256": "f7383402392202066fe649c418cce80890ed374d6b922d6d5754a7c39522bd05",
+      "report": {
+        "builder": "kwrt",
+        "version": "kwrt-25.12-20261012",
+        "results": [
+          {
+            "mode": "bios",
+            "status": "passed",
+            "seconds": 74.3,
+            "checks": [
+              "boot",
+              "first-boot-script",
+              "overlay",
+              "hostname",
+              "lan-ip",
+              "wan-port",
+              "dhcp",
+              "theme",
+              "authenticated-luci",
+              "root-password",
+              "guest-installed-packages",
+              "guest-removed-packages"
+            ],
+            "web": {
+              "protocol": "https",
+              "login_status": 403,
+              "authenticated_status": 200,
+              "rpc_status": 200,
+              "bytes": 9803
+            },
+            "package_combination": {
+              "name": "kwrt-homeproxy-pro",
+              "packages": [
+                "luci-app-homeproxy-pro",
+                "luci-theme-argon",
+                "luci-theme-bootstrap"
+              ],
+              "remove_packages": []
+            }
+          }
+        ],
+        "hardware_tested": false,
+        "network": "isolated; outbound disabled; loopback forwards only"
+      }
+    },
+    {
+      "run_id": 40175491386,
+      "commit": "b46e1b3570cfb5ae5d71473b338b47caab900677",
+      "artifact_id": 12592956751,
+      "name": "package-qa-kwrt-nikki",
+      "archive_sha256": "9f92e55f16a110977fa60992ceb5354611c23325c9b66f279eaf46a55bba265e",
+      "report": {
+        "builder": "kwrt",
+        "version": "kwrt-25.12-20261012",
+        "results": [
+          {
+            "mode": "bios",
+            "status": "passed",
+            "seconds": 88.9,
+            "checks": [
+              "boot",
+              "first-boot-script",
+              "overlay",
+              "hostname",
+              "lan-ip",
+              "wan-port",
+              "dhcp",
+              "theme",
+              "authenticated-luci",
+              "root-password",
+              "guest-installed-packages",
+              "guest-removed-packages"
+            ],
+            "web": {
+              "protocol": "https",
+              "login_status": 403,
+              "authenticated_status": 200,
+              "rpc_status": 200,
+              "bytes": 9903
+            },
+            "package_combination": {
+              "name": "kwrt-nikki",
+              "packages": [
+                "luci-app-nikki",
+                "luci-theme-argon",
+                "luci-theme-bootstrap"
+              ],
+              "remove_packages": []
+            }
+          }
+        ],
+        "hardware_tested": false,
+        "network": "isolated; outbound disabled; loopback forwards only"
+      }
+    },
+    {
+      "run_id": 40175491386,
+      "commit": "b46e1b3570cfb5ae5d71473b338b47caab900677",
+      "artifact_id": 12592117709,
+      "name": "package-qa-kwrt-utilities",
+      "archive_sha256": "d573ba73eb5ff1f0223eff78f7410a859aa7a4f03578ad9280c44bf58027efc6",
+      "report": {
+        "builder": "kwrt",
+        "version": "kwrt-25.12-20261012",
+        "results": [
+          {
+            "mode": "bios",
+            "status": "passed",
+            "seconds": 65.9,
+            "checks": [
+              "boot",
+              "first-boot-script",
+              "overlay",
+              "hostname",
+              "lan-ip",
+              "wan-port",
+              "dhcp",
+              "theme",
+              "authenticated-luci",
+              "root-password",
+              "guest-installed-packages",
+              "guest-removed-packages"
+            ],
+            "web": {
+              "protocol": "https",
+              "login_status": 403,
+              "authenticated_status": 200,
+              "rpc_status": 200,
+              "bytes": 9903
+            },
+            "package_combination": {
+              "name": "kwrt-utilities",
+              "packages": [
+                "luci-app-filebrowser-q",
+                "luci-app-natmap",
+                "luci-app-turboacc",
+                "luci-app-uugamebooster",
+                "luci-app-vlmcsd",
+                "luci-theme-argon",
+                "luci-theme-bootstrap"
+              ],
+              "remove_packages": [
+                "htop",
+                "nano"
+              ]
+            }
+          }
+        ],
+        "hardware_tested": false,
+        "network": "isolated; outbound disabled; loopback forwards only"
+      }
+    }
+  ]
+}

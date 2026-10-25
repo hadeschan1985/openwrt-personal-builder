@@ -2,7 +2,7 @@
 
 网站已经上线，无需 VPS，不含会员或收费系统。
 
-- 网站：https://hadeschan1985.github.io/openwrt-personal-builder/?v=20261025-3
+- 网站：https://hadeschan1985.github.io/openwrt-personal-builder/?v=20261025-5
 - 私有构建与下载：https://github.com/hadeschan1985/openwrt-personal-builds/actions/workflows/build.yml
 - 本机完整项目：E:\OpenWrt-Personal-Builder
 
@@ -23,7 +23,7 @@
 
 ## 已完成的验收
 
-网页实际连接私有仓库、上传文件、直接提交构建、读取状态、下载与 SHA256 校验已通过。9 份报告包含 13 次隔离虚拟机启动、后台密码登录与 RPC；另有 44 项云端代码/配置检查。详见 TESTING.md、verification.json、web-e2e-verification.json。
+网页实际连接私有仓库、上传文件、直接提交构建、读取状态、下载与 SHA256 校验已通过。初始 13 次隔离虚拟机验收后，又完成 9 组软件组合（25 种明确指定软件）及 6 次引导回归，本轮新增 15 次开机验证；这些包含重复基线，并非逐台实体设备验收。当前 51 项云端代码/配置检查通过。详见 TESTING.md、PACKAGE-TESTING.md、verification.json、software-qa-verification.json、web-e2e-verification.json。
 
 Kwrt 当前自订构建仅 x86/64；官方目录不是本项目逐台实测清单。电视盒/任意内核/DTB/EMMC 未接入；实体 USB/WWAN、实际代理订阅和 ESXi 宿主机未测。不能承诺所有可选包任意组合均可用。
 
