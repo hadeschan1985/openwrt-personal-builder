@@ -21,7 +21,7 @@ class DeliveryTests(unittest.TestCase):
         c = configuration()
         good = {"REPOSITORY_PRIVATE": "true", "ROUTER_PASSWORD": "test-only-password"}
         d.policy(c, good)
-        for env in ({}, {**good, "REPOSITORY_PRIVATE": "false"}, {**good, "ROUTER_PASSWORD": "root"}, {**good, "ROUTER_PASSWORD": "a" * 12 + "\n"}):
+        for env in ({}, {**good, "REPOSITORY_PRIVATE": "false"}, {**good, "ROUTER_PASSWORD": "root"}, {**good, "ROUTER_PASSWORD": "a" * 12 + "\n"}, {**good,"ROUTER_PASSWORD":"a"*129}, {**good,"ROUTER_PASSWORD":"a"*12+":"}):
             with self.assertRaises(ValueError):
                 d.policy(c, env)
         c["system"]["https"] = False
@@ -70,6 +70,25 @@ class DeliveryTests(unittest.TestCase):
             vm.ssh("test true", "never-in-argv")
         self.assertNotIn("never-in-argv", " ".join(run.call_args.args[0]))
         self.assertEqual(run.call_args.kwargs["env"]["SSHPASS"], "never-in-argv")
+
+    def test_complete_plan_checks_automatic_features_and_removals(self):
+        c=configuration();c.update(builder='kwrt',version='kwrt-25.12-20261012',firewall='iptables');c['features'].update(docker=True,usb_net=True)
+        command,requested,removed=vm.configuration_checks(c)
+        for package in ['luci-app-dockerman','kmod-usb-net-rtl8152','iptables-zz-legacy']:
+            self.assertIn(package,requested);self.assertIn(package,command)
+        self.assertIn('firewall4',removed);self.assertIn('iptables -V',command)
+
+    def test_network_mask_side_gateway_and_port_mapping_are_verified(self):
+        c=configuration();c['system'].update(ip='192.168.27.129/25',ipv6=False)
+        c['network'].update(mode='side',gateway='192.168.27.254',dhcp=False,wan_port='eth0',lan_ports='eth2')
+        command,_,_=vm.configuration_checks(c)
+        for value in ['255.255.255.128','192.168.27.254','network.wan.auto','eth2','dhcp.lan.ra','nft list table inet fw4']:
+            self.assertIn(value,command)
+
+    def test_aria2_uses_selected_webserver_without_starting_uhttpd(self):
+        with tempfile.TemporaryDirectory() as folder,patch.object(vm,'command_check',return_value='passed') as check:
+            vm.services({'luci-app-aria2'},'test-only',Path(folder))
+            command=check.call_args.args[1];self.assertIn('https://127.0.0.1/',command);self.assertNotIn('uhttpd -p',command)
 
     def test_file_groups_are_deterministic(self):
         self.assertEqual(d.file_group("a-combined-efi.img.gz"), "efi")

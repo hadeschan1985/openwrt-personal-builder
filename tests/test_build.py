@@ -8,6 +8,7 @@ import tarfile
 import tempfile
 import unittest
 import zipfile
+from unittest.mock import patch
 
 from scripts.build import ConfigError, normalize, package_plan, defaults_script, extract_overlay, selected_images, has_private_content, prepare_kwrt, translation_alias, prepare_custom_ipks
 
@@ -105,7 +106,8 @@ class ConfigurationTests(unittest.TestCase):
         config["network"].update(wan_port="eth0", lan_ports="eth1", wifi_ssid="Test' $(false)", wifi_password_secret=True)
         config["defaults"] = "echo user-only"
         normalized = normalize(config)
-        script = defaults_script(normalized, {"ROUTER_PASSWORD": "abc'$(false)", "WIFI_PASSWORD": "abcd'$(false)"})
+        with patch('scripts.build.password_hash', return_value='$6$test$' + 'a'*86):
+            script = defaults_script(normalized, {"ROUTER_PASSWORD": "abc'$(false)", "WIFI_PASSWORD": "abcd'$(false)"})
         self.assertIn("'\"'\"'", script)
         self.assertIn("/tmp/unwanted", script)  # data remains in a quoted string
         self.assertIn("\\1/p", script)
@@ -119,8 +121,10 @@ class ConfigurationTests(unittest.TestCase):
         normalized = normalize(config)
         with self.assertRaises(ConfigError):
             defaults_script(normalized, {})
-        script = defaults_script(normalized, {"ROUTER_PASSWORD": "test-password"})
-        self.assertIn("passwd root", script)
+        with patch('scripts.build.password_hash', return_value='$6$test$' + 'a'*86):
+            script = defaults_script(normalized, {"ROUTER_PASSWORD": "test-password"})
+        self.assertIn("/etc/shadow", script)
+        self.assertNotIn("test-password", script)
         self.assertNotIn("test-password", json.dumps(normalized))
 
     def test_output_filter_respects_filesystem_and_boot_mode(self):

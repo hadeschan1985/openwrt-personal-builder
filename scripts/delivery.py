@@ -17,8 +17,8 @@ def policy(config, env):
         return
     require(env.get("REPOSITORY_PRIVATE") == "true", "正式模式只能使用私有构建仓库。")
     password = env.get("ROUTER_PASSWORD", "")
-    require(config["system"]["password_secret"] and len(password) >= 12 and not any(c in password for c in "\r\n\x00"),
-            "正式模式需要仓库 ROUTER_PASSWORD，至少 12 个字符。不要把密码写进配置或聊天。")
+    require(config["system"]["password_secret"] and len(password) >= 12 and len(password.encode("utf-8")) <= 128 and not any(c in password for c in ":\r\n\x00"),
+            "正式模式需要仓库 ROUTER_PASSWORD：至少 12 个字符、最多 128 UTF-8 字节，不能含冒号或换行。不要把密码写进配置或聊天。")
     require(config["system"]["https"], "正式模式必须启用 HTTPS。")
     require(config["target"] == "x86/64" and (config["output"]["efi"] or config["output"]["legacy"]),
             "正式模式目前只支持可自动启动验收的 x86/64 EFI/Legacy 磁盘。其他架构或仅 ROOTFS 请使用实验模式。")

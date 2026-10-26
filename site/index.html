@@ -6,8 +6,8 @@
   <meta name="description" content="个人 OpenWrt 固件定制工作台，使用 GitHub Pages 与 Actions，无会员。">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' https://api.github.com https://downloads.openwrt.org https://sysupgrade.openwrt.org; style-src 'self'; script-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'self'">
   <title>Personal Builder · 固件定制工作台</title>
-  <link rel="stylesheet" href="styles.css?v=20261026-6">
-  <script type="module" src="app.js?v=20261026-6"></script>
+  <link rel="stylesheet" href="styles.css?v=20261026-7">
+  <script type="module" src="app.js?v=20261026-7"></script>
 </head>
 <body>
   <a class="skip" href="#main">跳到主要内容</a>
@@ -18,7 +18,7 @@
     <div class="sidebar-foot"><span class="status-dot"></span> Pages + Actions<p>为自己构建。<br>不需要会员，也不需要 VPS。</p><a href="https://github.com/openwrt/openwrt" target="_blank" rel="noreferrer">基于 OpenWrt ↗</a></div>
   </aside>
   <div class="shell">
-    <header class="topbar"><span>工作台 <span class="separator">/</span> 新建固件</span><button class="button subtle" id="connect-button"><span class="status-dot" id="connection-dot"></span><span id="connection-label">连接 GitHub</span></button></header>
+    <header class="topbar"><span>工作台 <span class="separator">/</span> 新建固件</span><div class="connection-actions"><button class="button subtle" id="connect-button"><span class="status-dot" id="connection-dot"></span><span id="connection-label">连接 GitHub</span></button><button class="button subtle" id="disconnect-button" type="button" hidden>断开授权</button></div></header>
     <main id="main">
       <div class="heading-row"><div><div class="eyebrow">YOUR DEVICE. YOUR FIRMWARE.</div><h1>让固件，刚好适合你。</h1><p class="lede">选择设备，装入需要的软件。其余交给 GitHub Actions。</p></div><span class="pill">个人版 · 无会员限制</span></div>
       <div id="notice" class="notice" role="status">正在载入官方设备目录…</div>

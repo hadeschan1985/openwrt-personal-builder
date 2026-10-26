@@ -30,7 +30,7 @@ jobs:
       - name: Install isolated build, VM and client tools
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends build-essential libncurses-dev libssl-dev zlib1g-dev gawk gettext unzip zip file rsync wget curl zstd qemu-utils qemu-system-x86 ovmf openssh-client sshpass smbclient 7zip
+          sudo apt-get install -y --no-install-recommends build-essential libncurses-dev libssl-dev zlib1g-dev gawk gettext unzip zip file rsync wget curl zstd qemu-utils qemu-system-x86 ovmf openssh-client sshpass smbclient 7zip openssl
       - name: Prepare test password without using user secrets
         run: python -m scripts.delivery_qa --source "$QA_SOURCE"
         env:

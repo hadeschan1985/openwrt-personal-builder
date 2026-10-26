@@ -1,5 +1,7 @@
 # OpenWrt Personal Builder
 
+最新安全完善：后台密码加盐集成、完整组件与网络验收、网页主动断开授权及迟到请求隔离。说明见 [RELEASE-8.md](docs/RELEASE-8.md)，不改变 GitHub 托管方案或现有账号权限。
+
 个人固件定制工作台，使用 GitHub Pages 展示配置表单、GitHub Actions 运行 ImageBuilder，无会员、无 VPS。
 
 网页已上线：[打开个人固件工作台](https://hadeschan1985.github.io/openwrt-personal-builder/)。使用方法见 `docs/USAGE.md`，功能地图与自建分析见 `docs/FEATURE-MAP.md`，验证记录见 `docs/TESTING.md` 和 `docs/WORKLOG.md`。

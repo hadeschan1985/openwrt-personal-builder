@@ -1,0 +1,62 @@
+name: Verify password privacy and expanded delivery gates
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['configs/hardening-qa-trigger.txt']
+permissions:
+  contents: read
+concurrency:
+  group: hardening-qa-${{ github.repository }}
+  cancel-in-progress: false
+jobs:
+  verify:
+    if: github.event.repository.private
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        source: [official, kwrt]
+    env:
+      REPOSITORY_PRIVATE: 'true'
+      CONFIG_PATH: configs/qa-generated.json
+      CONFIG_JSON: ''
+      QA_SOURCE: ${{ matrix.source }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Install build and isolated verification tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends openssl build-essential libncurses-dev libssl-dev zlib1g-dev gawk gettext unzip zip file rsync wget curl zstd qemu-utils qemu-system-x86 ovmf openssh-client sshpass smbclient 7zip
+      - name: Prepare disposable side-router with Nginx or Lighttpd
+        run: python -m scripts.delivery_qa --source "$QA_SOURCE" --scenario hardening
+      - run: python -m scripts.delivery policy
+      - name: Verify generated script has no plaintext router password
+        run: |
+          python - <<'PY'
+          import os
+          from scripts.delivery import config
+          from scripts.build import defaults_script, require
+          script=defaults_script(config())
+          require(os.environ['ROUTER_PASSWORD'] not in script, 'Generated script retained plaintext password')
+          print('Generated password integration uses a salted hash, not plaintext.')
+          PY
+      - name: Build exact disposable image
+        run: python -m scripts.build --config configs/qa-generated.json
+      - name: Verify password login, complete settings and selected services
+        run: python -m scripts.delivery_vm
+      - run: python -m scripts.delivery record
+      - name: Save safe reports only
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: hardening-qa-${{ matrix.source }}
+          path: |
+            outputs/vm-report.json
+            outputs/build-summary.json
+          if-no-files-found: ignore
+          retention-days: 7

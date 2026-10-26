@@ -1,4 +1,4 @@
-import {safePreset,validate} from './model.js?v=20261026-6';
+import {safePreset,validate} from './model.js?v=20261026-7';
 export function internalRun(run){return / · qa-internal-[A-Za-z0-9-]+$/.test(run?.display_title||'');}
 export function firmwareArtifact(artifact){return /^firmware-\d+(?:-(efi|legacy|vmdk|rootfs))?$/.test(artifact.name||'');}
 export function deliveryLabel(record){

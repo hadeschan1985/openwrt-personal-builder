@@ -1,0 +1,1 @@
+2026-10-26: salted router password integration, full plan and side-router/webserver verification.

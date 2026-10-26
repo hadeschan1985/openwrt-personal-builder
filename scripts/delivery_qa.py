@@ -7,7 +7,7 @@ from scripts import smoke
 from scripts.build import normalize
 
 
-def prepare(source):
+def prepare(source, scenario='standard'):
     smoke.prepare(source)
     config = json.loads(Path("configs/qa-generated.json").read_text())
     # The delivery gate authenticates by ephemeral password only. Unlike the
@@ -24,6 +24,14 @@ def prepare(source):
     if source == "kwrt":
         config["proxies"] = ["luci-app-passwall2"]
     config["output"]["rootfs_size_mb"] = 768
+    if scenario == 'hardening':
+        config['system'].update(ip='192.168.27.129/25', ipv6=False, webserver='nginx' if source=='official' else 'lighttpd')
+        config['network'].update(mode='side', gateway='192.168.27.254', dhcp=False, wan_port='eth0', lan_ports='eth2')
+        config['output'].update(efi=False, legacy=True, vmdk=False, rootfs=False, filesystem='ext4', rootfs_size_mb=1024)
+        if source=='kwrt':
+            config['proxies']=[]
+            config['firewall']='iptables'
+            config['features'].update(docker=True,usb_net=True)
     config = normalize(config)
     Path("configs/qa-generated.json").write_text(json.dumps(config), encoding="utf-8")
     print("Prepared release-mode QA with ephemeral password; real image verification follows.")
@@ -32,4 +40,6 @@ def prepare(source):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--source", choices=["official", "kwrt"], required=True)
-    prepare(parser.parse_args().source)
+    parser.add_argument('--scenario',choices=['standard','hardening'],default='standard')
+    args=parser.parse_args()
+    prepare(args.source,args.scenario)

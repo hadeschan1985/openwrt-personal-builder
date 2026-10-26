@@ -1,8 +1,8 @@
-import {COMMON,CORE,NFT_ONLY,PROXIES,THEMES,defaultConfig,tokenize,validate,privateContent,safePreset} from './lib/model.js?v=20261026-6';
-import {GitHub,repositoryName} from './lib/github.js?v=20261026-6';
-import {internalRun,firmwareArtifact,deliveryLabel,buildRecord,privateArchives} from './lib/delivery.js?v=20261026-6';
+import {COMMON,CORE,NFT_ONLY,PROXIES,THEMES,defaultConfig,tokenize,validate,privateContent,safePreset} from './lib/model.js?v=20261026-7';
+import {GitHub,repositoryName} from './lib/github.js?v=20261026-7';
+import {internalRun,firmwareArtifact,deliveryLabel,buildRecord,privateArchives} from './lib/delivery.js?v=20261026-7';
 import {SOFTWARE_PROFILES,applySoftwareProfile,softwareAdvice} from './lib/software.js?v=20261026-3';
-import {runStatus,stepStatus,active,requestRun,stageName,failureHelp,artifactInfo,verifyDownload} from './lib/progress.js?v=20261026-6';
+import {runStatus,stepStatus,active,requestRun,stageName,failureHelp,artifactInfo,verifyDownload} from './lib/progress.js?v=20261026-7';
 import {mergeApproved} from './lib/upstream.js?v=20261026-3';
 
 const $=id=>document.getElementById(id);
@@ -12,6 +12,7 @@ const verifiedFiles=new Map();
 let toastTimer,pollTimer;
 let upstreamBusy=false,upstreamAt=0,approvedFingerprint='';
 let deferredConfig=null;
+let connectAttempt=null;
 function toast(message){$('toast').textContent=message;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,4500);}
 function notice(message,kind=''){const n=$('notice');n.textContent=message;n.className='notice '+kind;}
 async function json(url){const r=await fetch(url);if(!r.ok)throw new Error(`资料读取失败（${r.status}）`);return r.json();}
@@ -235,7 +236,7 @@ function renderDelivery(run,data,container){
     const saved=state.archives.find(a=>a.runId===String(run.id));
     if(saved){container.append(document.createTextNode(' '),externalLink('已私有收藏 ↗',saved.url));return;}
     const button=node('button',state.archiving.has(run.id)?'私有收藏处理中…':'收藏到私有仓库','button secondary');button.type='button';button.disabled=state.archiving.has(run.id)||!data.artifacts.some(a=>firmwareArtifact(a)&&!artifactInfo(a).expired)||state.archives.length>=5;
-    button.addEventListener('click',async()=>{const git=state.git;button.disabled=true;state.archiving.set(run.id,Date.now());try{await git.archive(run.id);if(git!==state.git)return;button.textContent='私有收藏处理中…';toast('已提交私有收藏。不会公开或删除固件，请在下方查看收藏任务。');await refreshArchives();}catch(error){state.archiving.delete(run.id);toast(error.message);button.disabled=false;}});container.append(document.createTextNode(' '),button);
+    button.addEventListener('click',async()=>{const git=state.git;button.disabled=true;state.archiving.set(run.id,Date.now());try{await git.archive(run.id);if(git!==state.git)return;button.textContent='私有收藏处理中…';toast('已提交私有收藏。不会公开或删除固件，请在下方查看收藏任务。');await refreshArchives();}catch(error){if(git!==state.git)return;state.archiving.delete(run.id);toast(error.message);button.disabled=false;}});container.append(document.createTextNode(' '),button);
   }
 }
 async function recordFor(git,run){try{return {record:buildRecord(await git.buildRecord(run.id),run)};}catch(error){return error.status===404?{}:{recordError:`逐项清单读取失败：${error.message}`};}}
@@ -248,7 +249,7 @@ async function refreshArchives(){
     const latest=runs.workflow_runs?.[0];if(latest){body.append(externalLink(`最近收藏任务：${runStatus(latest)} ↗`,latest.html_url));if(latest.conclusion==='failure')body.append(node('p','收藏未完成，原构建产物不受影响。请查看任务原因；不会自动重复提交。','error'));}
     for(const [id,sentAt] of state.archiving){const tracked=(runs.workflow_runs||[]).find(r=>r.display_title?.endsWith(` · ${id}`)&&Date.parse(r.created_at)>=sentAt-10000);if(tracked&&!active(tracked)||!tracked&&Date.now()-sentAt>120000)state.archiving.delete(id);}
     renderLatestResults();
-  }catch(error){if(git===state.git)body.replaceChildren(node('p',`收藏读取失败：${error.message}`,'error'));}finally{$('refresh-archives').disabled=false;}
+  }catch(error){if(git===state.git)body.replaceChildren(node('p',`收藏读取失败：${error.message}`,'error'));}finally{if(git===state.git)$('refresh-archives').disabled=false;}
 }
 function renderRunDetails(run,container){
   container.replaceChildren();const data=state.details.get(run.id);
@@ -284,7 +285,7 @@ function renderArtifact(run,artifact){
 function renderRuns(){
   $('history-page').textContent=`第 ${state.historyPage} 页 · 共 ${state.totalRuns} 次`;$('history-prev').disabled=state.historyPage<=1;$('history-next').disabled=state.historyPage*12>=state.totalRuns;
   $('run-list').replaceChildren();$('run-list').classList.toggle('empty',!state.runs.length);
-  if(!state.runs.length){$('run-list').textContent='这个仓库还没有构建记录。';return;}
+  if(!state.runs.length){$('run-list').textContent=state.git?'这个仓库还没有构建记录。':'连接仓库后查看记录；断开授权不会删除任何历史。';return;}
   for(const run of state.runs){
     const detail=node('details',undefined,'run-card'),summary=node('summary',undefined,'run');detail.open=state.expanded===run.id;
     const main=node('div',`构建 #${run.run_number}${internalRun(run)?' · 内部验收测试':''}`);main.append(node('small',new Date(run.created_at).toLocaleString()));summary.append(main,node('span',runStatus(run),'pill'));detail.append(summary);
@@ -312,9 +313,22 @@ async function refreshRuns(manual=true){
     const opened=runs.find(run=>run.id===state.expanded);if(opened)await loadRunDetails(opened);
     if(git!==state.git)return;renderRuns();pendingPanel();buildAvailability();$('poll-status').textContent=`自动更新中 · 最近更新 ${new Date().toLocaleTimeString()}（切换到后台时暂停）`;
   }catch(error){if(git===state.git){state.runError=error.message;$('poll-status').textContent=`刷新失败：${error.message} 原记录保留；不会自动重提交构建。`;}}
-  finally{state.refreshing=false;$('refresh-runs').disabled=false;renderLatestResults();schedulePoll();if(state.archiving.size)refreshArchives();if(Date.now()-upstreamAt>300000)refreshUpstream();renderConnection();}
+  finally{if(git===state.git){state.refreshing=false;$('refresh-runs').disabled=false;renderLatestResults();schedulePoll();if(state.archiving.size)refreshArchives();if(Date.now()-upstreamAt>300000)refreshUpstream();renderConnection();}}
 }
-function renderConnection(){const git=state.git;$('connection-info').textContent=git?`授权仅保存在此页内存，刷新后需重新连接。${git.tokenExpiresAt?`令牌到期：${git.tokenExpiresAt}。`:''}${Number.isFinite(git.rateRemaining)&&git.rateRemaining<100?`GitHub 本时段剩余请求 ${git.rateRemaining}，请减少手动刷新。`:''}`:'';}
+function renderConnection(){const git=state.git;$('disconnect-button').hidden=!git;$('connection-info').textContent=git?`授权仅保存在此页内存，可随时断开；不会取消 GitHub 已受理的任务。${git.tokenExpiresAt?`令牌到期：${git.tokenExpiresAt}。`:''}${Number.isFinite(git.rateRemaining)&&git.rateRemaining<100?`GitHub 本时段剩余请求 ${git.rateRemaining}，请减少手动刷新。`:''}`:'尚未连接。刷新或关闭此页会清除网页授权，不影响 GitHub 定时任务和已保存固件。';}
+function disconnect(){
+  const uncertain=state.busy||state.archiving.size;
+  state.git?.close();connectAttempt?.close();connectAttempt=null;state.git=null;clearTimeout(pollTimer);
+  state.runs=[];state.latestRuns=[];state.success=null;state.historyPage=1;state.totalRuns=0;state.archives=[];state.archiving.clear();state.details.clear();verifiedFiles.clear();state.expanded=null;state.resultsLoaded=false;state.result=null;state.runError='';state.refreshing=false;state.busy=false;upstreamBusy=false;upstreamAt=0;
+  $('github-token').value='';$('connection-label').textContent='连接 GitHub';$('connection-dot').classList.remove('connected');
+  for(const id of ['refresh-runs','refresh-results','refresh-archives','refresh-upstream'])$(id).disabled=false;
+  $('archive-list').replaceChildren(node('p','已清除本页的私有收藏显示；重新连接后可读取，仓库中内容没有删除。','help'));
+  $('upstream-body').replaceChildren(node('p','已断开网页授权；GitHub 定时检查照常运行，重新连接后查看。','help'));
+  $('poll-status').textContent='网页授权已断开，本页查询已停止。未提交的表单和文件选择保留。';
+  $('build-button').replaceChildren(document.createTextNode('构建新固件 '),node('span','↗'));
+  renderRuns();renderLatestResults();renderConnection();pendingPanel();buildAvailability();
+  notice(uncertain?'已断开此页授权。请求可能已被 GitHub 受理；重连后先检查构建 / 收藏记录，不要立即重复提交。':'已断开此页授权，私有结果显示已清除；未提交配置和文件选择保留。不会撤销 GitHub 令牌或取消已受理的构建。');
+}
 async function refreshUpstream(){
   const git=state.git;if(!git||upstreamBusy||!state.catalog)return;
   upstreamBusy=true;upstreamAt=Date.now();$('refresh-upstream').disabled=true;
@@ -348,18 +362,19 @@ async function refreshUpstream(){
     else parts.push(node('p',`更新资料读取失败：${data.reason.message} 已加载的版本仍保留。`,'error'));
     parts.push(externalLink('查看上游检查与测试记录 ↗',`https://github.com/${git.repo}/actions/workflows/upstream.yml`));
     body.replaceChildren(...parts);
-  }catch(error){body.replaceChildren(node('p',error.message,'error'));}
-  finally{upstreamBusy=false;$('refresh-upstream').disabled=false;}
+  }catch(error){if(git===state.git)body.replaceChildren(node('p',error.message,'error'));}
+  finally{if(git===state.git){upstreamBusy=false;$('refresh-upstream').disabled=false;}}
 }
 async function connect(){
   $('connect-error').textContent='';$('confirm-connect').disabled=true;
-  try{const git=new GitHub(val('repository').trim(),val('github-token').trim(),val('branch').trim());const data=await git.connect();state.git=git;state.runs=[];state.latestRuns=[];state.success=null;state.historyPage=1;state.archives=[];state.archiving.clear();state.details.clear();state.expanded=null;state.resultsLoaded=false;state.result=null;state.runError='';renderLatestResults();$('github-token').value='';
+  let git;
+  try{if(state.busy)throw new Error('请等本次提交完成，或先断开当前授权再连接。');git=new GitHub(val('repository').trim(),val('github-token').trim(),val('branch').trim());if(connectAttempt&&connectAttempt!==state.git)connectAttempt.close();connectAttempt=git;const data=await git.connect();if(git.closed||connectAttempt!==git)return;state.git?.close();state.git=git;state.refreshing=false;upstreamBusy=false;upstreamAt=0;state.runs=[];state.latestRuns=[];state.success=null;state.historyPage=1;state.totalRuns=0;state.archives=[];state.archiving.clear();state.details.clear();verifiedFiles.clear();state.expanded=null;state.resultsLoaded=false;state.result=null;state.runError='';renderLatestResults();renderConnection();$('github-token').value='';
     // Store only the repository and branch. GitHub credentials remain in RAM.
     localStorage.setItem('pb-repository',git.repo);localStorage.setItem('pb-branch',git.ref);
     $('connection-label').textContent=`${git.repo.split('/')[1]} · ${data.private?'私有':'公开'}`;
     $('connection-dot').classList.add('connected');$('connect-dialog').close();toast('仓库已连接。令牌仅保存在本页内存中。');notice(`已连接${data.private?'私有':'公开'}构建仓库 ${git.repo}。`);await Promise.all([refreshRuns(),refreshUpstream(),refreshArchives()]);
-    $('history-link').href=`https://github.com/${git.repo}/actions/workflows/build.yml`;
-  }catch(error){$('connect-error').textContent=error.message;}finally{$('confirm-connect').disabled=false;}
+    if(git===state.git)$('history-link').href=`https://github.com/${git.repo}/actions/workflows/build.yml`;
+  }catch(error){if(!git?.closed)$('connect-error').textContent=error.message;if(git!==state.git)git?.close();}finally{if(connectAttempt===git)connectAttempt=null;$('confirm-connect').disabled=false;}
 }
 async function startBuild(){
   if(state.pending&&state.pending.repo===state.git?.repo){toast('上次请求仍在登记或执行，请先查看构建记录。');return;}
@@ -369,9 +384,9 @@ async function startBuild(){
   if((privateContent(state.config)||state.file)&&!state.git.private){toast('初始化脚本、密码引用和文件包须使用私有构建仓库。');return;}
   const config=structuredClone(state.config),file=state.file,git=state.git;
   const button=$('build-button');state.busy=true;button.disabled=true;button.textContent='正在提交…';
-  try{if(file){config.overlay=await git.upload(file);if(state.file===file){state.config.overlay=config.overlay;$('overlay-path').value=config.overlay;}}
-    const requestId=crypto.randomUUID();state.pending={id:requestId,at:Date.now(),repo:git.repo};savePending();pendingPanel();await git.dispatch(config,requestId);toast('GitHub 已接受构建请求，进度会自动更新。');notice(`构建请求已提交：${config.version} / ${config.profile}。可关闭页面，构建仍会继续；返回时需重新连接授权。`);await refreshRuns(false);
-  }catch(error){if(error.status>=400&&error.status<500){state.pending=null;savePending();pendingPanel();}notice(error.message,'error');schedulePoll();}finally{state.busy=false;buildAvailability();button.replaceChildren(document.createTextNode('构建新固件 '),node('span','↗'));}
+  try{if(file){config.overlay=await git.upload(file);if(git!==state.git)return;if(state.file===file){state.config.overlay=config.overlay;$('overlay-path').value=config.overlay;}}
+    if(git!==state.git)return;const requestId=crypto.randomUUID();state.pending={id:requestId,at:Date.now(),repo:git.repo};savePending();pendingPanel();await git.dispatch(config,requestId);if(git!==state.git)return;toast('GitHub 已接受构建请求，进度会自动更新。');notice(`构建请求已提交：${config.version} / ${config.profile}。可关闭页面，构建仍会继续；返回时需重新连接授权。`);await refreshRuns(false);
+  }catch(error){if(git!==state.git)return;if(error.status>=400&&error.status<500){state.pending=null;savePending();pendingPanel();}notice(error.message,'error');schedulePoll();}finally{if(git===state.git){state.busy=false;buildAvailability();button.replaceChildren(document.createTextNode('构建新固件 '),node('span','↗'));}}
 }
 async function restore(config){
   const clean=safePreset(config),errors=validate(clean,null,state.catalog?.versions);if(errors.length)throw new Error(errors[0]);
@@ -393,6 +408,8 @@ async function init(){
   $('package-search').addEventListener('input',()=>{const query=val('package-search').toLowerCase().trim();$('package-results').replaceChildren();if(query)for(const pkg of [...state.available].filter(p=>p.includes(query)).slice(0,12))$('package-results').append(chip(pkg,pkg,'packages'));update();});
   $('preview-button').addEventListener('click',showConfig);$('build-button').addEventListener('click',startBuild);
   $('connect-button').addEventListener('click',()=>$('connect-dialog').showModal());$('confirm-connect').addEventListener('click',connect);
+  $('disconnect-button').addEventListener('click',disconnect);
+  $('connect-dialog').addEventListener('close',()=>{$('github-token').value='';if(connectAttempt&&connectAttempt!==state.git)connectAttempt.close();});
   $('refresh-runs').addEventListener('click',()=>refreshRuns());
   $('history-prev').addEventListener('click',()=>{if(state.historyPage>1&&!state.refreshing){state.historyPage--;state.expanded=null;refreshRuns();}});
   $('history-next').addEventListener('click',()=>{if(state.historyPage*12<state.totalRuns&&!state.refreshing){state.historyPage++;state.expanded=null;refreshRuns();}});

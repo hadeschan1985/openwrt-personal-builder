@@ -22,7 +22,7 @@ import time
 import urllib.parse
 import zipfile
 
-from scripts.build import require
+from scripts.build import require, package_plan, PACKAGE, q
 from scripts.delivery import config as load_config, policy
 
 
@@ -84,6 +84,43 @@ def command_check(name, command, password, timeout=60):
     return name
 
 
+def configuration_checks(config):
+    plan = package_plan(config)
+    requested = sorted(p for p in plan if not p.startswith('-'))
+    removed = sorted(p[1:] for p in plan if p.startswith('-'))
+    interface = ipaddress.IPv4Interface(config['system']['ip'] if '/' in config['system']['ip'] else config['system']['ip']+'/24')
+    checks = f'test "$(uci -q get system.@system[0].hostname)" = {q(config["system"]["hostname"])}\n'
+    checks += f'test "$(uci -q get network.lan.ipaddr)" = {q(interface.ip)}\n'
+    checks += f'test "$(uci -q get network.lan.netmask)" = {q(interface.netmask)}\n'
+    for package in requested:
+        require(PACKAGE.fullmatch(package), "Invalid package name")
+        checks += f"if command -v apk >/dev/null; then apk info -e {package} >/dev/null; else opkg status {package} | grep -q 'Status: install ok installed'; fi\n"
+    for package in removed:
+        require(PACKAGE.fullmatch(package), "Invalid removed package name")
+        checks += f"if command -v apk >/dev/null; then ! apk info -e {package} >/dev/null 2>&1; else ! opkg status {package} 2>/dev/null | grep -q 'Status: install ok installed'; fi\n"
+    network=config['network']
+    checks += f'test "$(uci -q get dhcp.lan.ignore)" = {"0" if network["dhcp"] else "1"}\n'
+    if network['wan_port']:
+        checks += f'test "$(uci -q get network.wan.device)" = {q(network["wan_port"])}\n'
+    if network['lan_ports']:
+        checks += "found_bridge=0\nfor section in $(uci show network | sed -n 's/^network\\.\\([^=]*\\)=device$/\\1/p'); do\n"
+        checks += 'if [ "$(uci -q get network.$section.name)" = br-lan ]; then\n'
+        checks += f'test "$(uci -q get network.$section.ports)" = {q(network["lan_ports"])}\nfound_bridge=1\nfi\ndone\ntest "$found_bridge" = 1\n'
+    if network['mode']=='side':
+        checks += f'test "$(uci -q get network.lan.gateway)" = {q(network["gateway"])}\n'
+        checks += "if uci -q get network.wan >/dev/null; then test \"$(uci -q get network.wan.auto)\" = 0; fi\n"
+    if not config['system']['ipv6']:
+        for field in ['ra','dhcpv6','ndp']:
+            checks += f'test "$(uci -q get dhcp.lan.{field})" = disabled\n'
+    if config['system']['password_secret']:
+        checks += '''case "$(awk -F: '$1=="root" {print $2}' /etc/shadow)" in '$6$'*) ;; *) exit 1;; esac\n'''
+    if config['firewall']=='iptables':
+        checks += "iptables -V | grep -q legacy\n"
+    else:
+        checks += "for attempt in 1 2 3 4 5 6 7 8 9 10; do nft list table inet fw4 >/dev/null 2>&1 && break; sleep 1; done\nnft list table inet fw4 >/dev/null\n"
+    return checks, requested, removed
+
+
 def services(packages, password, temporary):
     results = []
     if "xray-core" in packages:
@@ -91,7 +128,7 @@ def services(packages, password, temporary):
     if "sing-box" in packages:
         results.append(command_check("sing-box 配置检查", "printf '%s' '{\"inbounds\":[],\"outbounds\":[{\"type\":\"direct\",\"tag\":\"direct\"}]}' > /tmp/pb-sing-box.json\nsing-box check -c /tmp/pb-sing-box.json", password))
     if "luci-app-aria2" in packages or "aria2" in packages:
-        results.append(command_check("Aria2 本地 HTTP 下载", "mkdir -p /tmp/pb-http /tmp/pb-download\nprintf 'personal-builder-download-test' > /tmp/pb-http/payload\nuhttpd -p 127.0.0.1:18081 -h /tmp/pb-http\naria2c --no-conf --file-allocation=none --max-tries=1 --timeout=10 --connect-timeout=5 --dir=/tmp/pb-download --out=payload http://127.0.0.1:18081/payload >/dev/null 2>&1\ncmp /tmp/pb-http/payload /tmp/pb-download/payload", password))
+        results.append(command_check("Aria2 本地 HTTPS 下载", "mkdir -p /tmp/pb-download\nprintf 'personal-builder-download-test' > /www/pb-qa-payload.txt\naria2c --no-conf --check-certificate=false --file-allocation=none --max-tries=1 --timeout=10 --connect-timeout=5 --dir=/tmp/pb-download --out=payload https://127.0.0.1/pb-qa-payload.txt >/dev/null 2>&1\ncmp /www/pb-qa-payload.txt /tmp/pb-download/payload", password))
     if "luci-app-smartdns" in packages or "smartdns" in packages:
         # Test DNS inside the disposable guest: this isolates service behavior
         # from slirp UDP forwarding. Never change DNS on a physical device.
@@ -145,19 +182,16 @@ def boot(image, mode, config, temporary):
                 time.sleep(5)
             else:
                 raise ValueError("本次固件未在五分钟内完成启动和 SSH 密码认证；不会标记验收成功。")
-            from scripts.build import PACKAGE
-            requested = sorted(set(config["packages"] + config["themes"] + config["proxies"]))
-            checks = f"test \"$(uci -q get system.@system[0].hostname)\" = {config['system']['hostname']}\n"
-            checks += f"test \"$(uci -q get network.lan.ipaddr)\" = {ip}\n"
-            for package in requested:
-                require(PACKAGE.fullmatch(package), "Invalid package name")
-                checks += f"if command -v apk >/dev/null; then apk info -e {package} >/dev/null; else opkg status {package} | grep -q 'Status: install ok installed'; fi\n"
-            for package in config["remove_packages"]:
-                require(PACKAGE.fullmatch(package), "Invalid removed package name")
-                checks += f"if command -v apk >/dev/null; then ! apk info -e {package} >/dev/null 2>&1; else ! opkg status {package} 2>/dev/null | grep -q 'Status: install ok installed'; fi\n"
-            checks += f"test \"$(uci -q get dhcp.lan.ignore)\" = {'0' if config['network']['dhcp'] else '1'}\n"
-            command_check("本次配置和软件安装清单", checks, password)
-            result = {"mode": mode, "status": "passed", "checks": ["boot", "root-password", "hostname", "management-ip", "requested-packages"], **web(config, password)}
+            checks, requested, removed = configuration_checks(config)
+            command_check("本次配置和完整软件安装清单", checks, password, timeout=90)
+            verified = ["boot", "root-password", "salted-password-hash", "hostname", "management-ip", "netmask", "dhcp", "firewall", "all-planned-packages", "all-planned-removals"]
+            if config['network']['wan_port'] or config['network']['lan_ports']: verified.append('port-mapping')
+            if config['network']['mode']=='side': verified.append('side-gateway')
+            if not config['system']['ipv6']: verified.append('ipv6-disabled-policy')
+            result = {"mode": mode, "status": "passed", "checks": verified, **web(config, password)}
+            if config['features']['docker']:
+                command_check('Docker daemon', 'for attempt in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do docker info >/dev/null 2>&1 && break; sleep 2; done\ndocker info >/dev/null 2>&1', password, timeout=90)
+                result['checks'].append('docker-daemon')
             result["services"] = services(set(requested), password, temporary)
             result["seconds"] = round(time.monotonic() - started, 1)
             return result

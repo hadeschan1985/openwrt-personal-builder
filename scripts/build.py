@@ -209,6 +209,21 @@ def q(value):
     return shlex.quote(str(value))
 
 
+def password_hash(password):
+    """Use the platform crypto tool; never pass plaintext via argv or a file."""
+    require(1 <= len(password.encode("utf-8")) <= 128 and not any(c in password for c in "\x00\r\n"),
+            "ROUTER_PASSWORD must contain 1–128 UTF-8 bytes without line breaks")
+    try:
+        answer = subprocess.run(["openssl", "passwd", "-6", "-stdin"], input=password + "\n",
+                                text=True, capture_output=True, timeout=15)
+    except (OSError, subprocess.TimeoutExpired):
+        raise ConfigError("Cannot securely hash ROUTER_PASSWORD; install OpenSSL on the build host. No plaintext fallback is allowed.") from None
+    hashed = answer.stdout.strip()
+    require(answer.returncode == 0 and re.fullmatch(r"\$6\$[./A-Za-z0-9]{1,16}\$[./A-Za-z0-9]{86}", hashed),
+            "Password hashing failed; no plaintext fallback is allowed")
+    return hashed
+
+
 def defaults_script(config, env=None):
     env = os.environ if env is None else env
     system, net = config["system"], config["network"]
@@ -282,7 +297,12 @@ def defaults_script(config, env=None):
     if system["password_secret"]:
         password = secret("ROUTER_PASSWORD")
         require(":" not in password, "ROUTER_PASSWORD cannot contain a colon")
-        lines.append(f"printf '%s\\n%s\\n' {q(password)} {q(password)} | passwd root >/dev/null 2>&1")
+        hashed = password_hash(password)
+        # The read-only firmware must not retain the plaintext router password.
+        # Only replace root's hash; preserve every other shadow field/account.
+        lines += ["test -f /etc/shadow", f"sed -i {q('s|^root:[^:]*:|root:' + hashed + ':|')} /etc/shadow",
+                  "chmod 600 /etc/shadow",
+                  f"test \"$(awk -F: '$1==\"root\" {{print $2}}' /etc/shadow)\" = {q(hashed)}"]
     if net["pppoe_secret"]:
         uci("network.wan.proto", "pppoe")
         uci("network.wan.username", secret("PPPOE_USERNAME"))
