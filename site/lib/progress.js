@@ -9,6 +9,8 @@ export function latestBuildResults(runs){
 }
 export function requestRun(runs,id){return runs.find(run=>typeof run.display_title==='string'&&run.display_title.endsWith(` · ${id}`));}
 export function stageName(name){
+  if(name==='Upload EFI VMDK disk')return '保存 EFI VMDK 单独下载';
+  if(name==='Upload Legacy VMDK disk')return '保存 Legacy VMDK 单独下载';
   const delivery={'Verify actual images and selected local services':'验收本次映像启动与本地服务','Prepare delivery manifest':'生成逐文件交付清单','Upload EFI disk':'保存 EFI 映像','Upload Legacy disk':'保存 Legacy 映像','Upload VMDK disks':'保存 VMDK 映像','Upload ROOTFS':'保存 ROOTFS','Upload logs and manifests':'保存日志与校验报告','Upload private record for trusted recorder':'准备私有构建记录','Save private build record without executing upstream code':'保存私有配置与映像记录'};
   if(delivery[name])return delivery[name];
   const translations={'Checkout':'读取构建代码','Python':'准备运行环境','Validate configuration':'检查配置与隐私限制','Install ImageBuilder dependencies':'准备构建工具','Restore verified ImageBuilder download cache':'恢复并校验构建缓存','Build firmware':'检查依赖并生成固件','Upload firmware, manifests and checksums':'保存固件和校验值','Upload failure log':'保存失败日志','Run summary':'生成结果摘要','Set up job':'准备 GitHub 构建环境','Complete job':'收尾'};
@@ -28,9 +30,4 @@ export function artifactInfo(artifact,now=Date.now()){
   return {expired,days:Number.isFinite(expires)?Math.max(0,Math.ceil((expires-now)/86400000)):null,
     digest:/^sha256:[a-f0-9]{64}$/i.test(artifact.digest||'')?artifact.digest.slice(7).toLowerCase():null};
 }
-export async function verifyDownload(file,expected){
-  if(!/^[a-f0-9]{64}$/i.test(expected||''))throw new Error('此产物没有可用的 GitHub SHA256；请使用包内 SHA256SUMS 校验固件。');
-  if(file.size>256*1024*1024)throw new Error('文件超过 256 MiB，请用系统 SHA256 工具校验，避免浏览器占用过多内存。');
-  const hash=[...new Uint8Array(await crypto.subtle.digest('SHA-256',await file.arrayBuffer()))].map(n=>n.toString(16).padStart(2,'0')).join('');
-  return {hash,ok:hash===expected.toLowerCase()};
-}
+export {verifyDownload} from './verification.js?v=20261026-8';

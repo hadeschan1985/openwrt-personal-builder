@@ -1,0 +1,53 @@
+name: Verify four independent downloads (synthetic only)
+on:
+  workflow_dispatch:
+  push:
+    paths: ['configs/download-qa-trigger.txt']
+permissions:
+  contents: read
+jobs:
+  package:
+    if: github.event.repository.private
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      matrix:
+        variant: [native, converted]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Prepare and verify synthetic independent downloads
+        run: python -m scripts.download_qa "$QA_VARIANT"
+        env:
+          QA_VARIANT: ${{ matrix.variant }}
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: QA-NOT-FIRMWARE-${{ matrix.variant }}-efi
+          path: work/downloads-separated/efi/*
+          if-no-files-found: error
+          retention-days: 1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: QA-NOT-FIRMWARE-${{ matrix.variant }}-legacy
+          path: work/downloads-separated/legacy/*
+          if-no-files-found: error
+          retention-days: 1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: QA-NOT-FIRMWARE-${{ matrix.variant }}-efi-vmdk
+          path: work/downloads-separated/efi-vmdk/*
+          if-no-files-found: error
+          retention-days: 1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: QA-NOT-FIRMWARE-${{ matrix.variant }}-legacy-vmdk
+          path: work/downloads-separated/legacy-vmdk/*
+          if-no-files-found: error
+          retention-days: 1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: QA-packaging-report-${{ matrix.variant }}
+          path: work/download-qa-report.json
+          if-no-files-found: error
+          retention-days: 3

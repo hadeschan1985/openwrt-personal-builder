@@ -1,0 +1,1 @@
+2026-10-26: four independent image downloads, including both VMDK boot modes.

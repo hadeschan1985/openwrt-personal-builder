@@ -1,5 +1,7 @@
 # OpenWrt Personal Builder
 
+下载完善：四种 x86 映像分别下载、旧总包无重编译拆分、首页单文件入口，以及带进度和停止操作的大文件本机校验。说明见 [RELEASE-9.md](docs/RELEASE-9.md)。
+
 最新安全完善：后台密码加盐集成、完整组件与网络验收、网页主动断开授权及迟到请求隔离。说明见 [RELEASE-8.md](docs/RELEASE-8.md)，不改变 GitHub 托管方案或现有账号权限。
 
 个人固件定制工作台，使用 GitHub Pages 展示配置表单、GitHub Actions 运行 ImageBuilder，无会员、无 VPS。

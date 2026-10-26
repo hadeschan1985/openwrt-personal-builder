@@ -1,6 +1,16 @@
-import {safePreset,validate} from './model.js?v=20261026-7';
+import {safePreset,validate} from './model.js?v=20261026-8';
 export function internalRun(run){return / · qa-internal-[A-Za-z0-9-]+$/.test(run?.display_title||'');}
-export function firmwareArtifact(artifact){return /^firmware-\d+(?:-(efi|legacy|vmdk|rootfs))?$/.test(artifact.name||'');}
+export function firmwareArtifact(artifact){return /^firmware-\d+(?:-(efi|legacy|vmdk|efi-vmdk|legacy-vmdk|rootfs))?$/.test(artifact.name||'');}
+export function firmwareFile(name){return /(?:\.img\.gz|\.vmdk(?:\.zip)?|\.bin|rootfs\.tar\.gz)$/.test(name||'');}
+export function downloadLabel(name){
+  if(/efi-vmdk$|combined-efi\.vmdk/.test(name))return 'EFI VMDK · 虚拟机';
+  if(/legacy-vmdk$|combined\.vmdk/.test(name))return 'Legacy VMDK · 虚拟机';
+  if(/-vmdk$|\.vmdk(?:\.zip)?$/.test(name))return 'VMDK · 虚拟机';
+  if(/-efi$|combined-efi\.img\.gz$/.test(name))return 'EFI · 磁盘映像';
+  if(/-legacy$|combined\.img\.gz$/.test(name))return 'Legacy · 磁盘映像';
+  if(/-rootfs$|rootfs\.tar\.gz$/.test(name))return 'ROOTFS · 根文件系统';
+  return firmwareFile(name)?'设备固件':'下载包 / 文件';
+}
 export function deliveryLabel(record){
   return record?.config?.build_mode==='release'&&record?.vm?.status==='passed'?'本次映像已通过虚拟机验收 · 未做实体硬件验证':'实验 / 旧版构建 · 未通过本流程启动验收';
 }

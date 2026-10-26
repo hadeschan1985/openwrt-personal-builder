@@ -1,6 +1,9 @@
 name: Archive selected firmware privately
-run-name: Private archive · ${{ inputs.run_id }}
+run-name: Private archive · ${{ inputs.run_id || 'one-time split request' }}
 on:
+  push:
+    branches: [main]
+    paths: ['requests/split-download.json']
   workflow_dispatch:
     inputs:
       run_id:

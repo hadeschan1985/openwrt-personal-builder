@@ -48,12 +48,10 @@ test('expiry and ZIP digest have bounded, explicit meanings',()=>{
   assert.equal(artifactInfo({...a,expires_at:'2026-10-24T00:00:00Z'},now).expired,true);
   assert.equal(artifactInfo({...a,digest:'javascript:alert(1)'},now).digest,null);
 });
-test('local ZIP verification detects mismatch and bounds memory without reading large files',async()=>{
-  const file={size:3,arrayBuffer:async()=>new TextEncoder().encode('abc').buffer};
+test('local verification rejects oversized files or invalid digests before starting a worker',async()=>{
+  const file={size:3,slice:()=>{throw Error('must not read');}};
   const expected='ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad';
-  assert.equal((await verifyDownload(file,expected)).ok,true);
-  assert.equal((await verifyDownload(file,'0'.repeat(64))).ok,false);
-  await assert.rejects(verifyDownload({...file,size:257*1024*1024},expected),/256 MiB/);
+  await assert.rejects(verifyDownload({...file,size:4*1024*1024*1024+1},expected),/4 GiB/);
   await assert.rejects(verifyDownload(file,'bad'),/没有可用/);
 });
 test('all five profiles are valid, additive, idempotent and preserve private/network fields',()=>{

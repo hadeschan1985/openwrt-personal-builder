@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {defaultConfig,safePreset,validate} from '../site/lib/model.js';
 import {GitHub} from '../site/lib/github.js';
-import {buildRecord,firmwareArtifact,internalRun,privateArchives,deliveryLabel} from '../site/lib/delivery.js';
+import {buildRecord,firmwareArtifact,firmwareFile,downloadLabel,internalRun,privateArchives,deliveryLabel} from '../site/lib/delivery.js';
 const run={id:123,run_number:8,head_sha:'a'.repeat(40)};
 function record(){return {schema_version:1,run_id:'123',run_number:'8',source_commit:run.head_sha,config:defaultConfig(),vm:{status:'passed'},files:[{name:'test-combined.img.gz',bytes:10,sha256:'b'.repeat(64),group:'legacy'}]};}
 test('new x86 defaults enforce release gates; old presets remain explicit experiments',()=>{
@@ -18,10 +18,16 @@ test('manifest identity and per-file integrity are bounded',()=>{
   assert.match(deliveryLabel(null),/未通过/);
 });
 test('new format artifacts and legacy downloads are distinct from reports',()=>{
-  for(const name of ['firmware-5','firmware-6-efi','firmware-6-vmdk','firmware-6-rootfs'])assert.equal(firmwareArtifact({name}),true);
+  for(const name of ['firmware-5','firmware-6-efi','firmware-6-vmdk','firmware-6-efi-vmdk','firmware-6-legacy-vmdk','firmware-6-rootfs'])assert.equal(firmwareArtifact({name}),true);
   for(const name of ['firmware-6-reports','build-record-123','failed-build-log-6'])assert.equal(firmwareArtifact({name}),false);
   assert.equal(internalRun({display_title:'Personal firmware · qa-internal-20261026-test'}),true);
   assert.equal(internalRun({display_title:'Personal firmware · user-request'}),false);
+});
+test('individual disk choices distinguish both boot modes and do not mistake reports for firmware',()=>{
+  const names=['a-combined-efi.img.gz','a-combined.img.gz','a-combined-efi.vmdk.zip','a-combined.vmdk'];
+  assert.deepEqual(names.map(downloadLabel),['EFI · 磁盘映像','Legacy · 磁盘映像','EFI VMDK · 虚拟机','Legacy VMDK · 虚拟机']);
+  for(const name of names)assert.equal(firmwareFile(name),true);
+  for(const name of ['build.log','SHA256SUMS','build-summary.json','all-files.zip'])assert.equal(firmwareFile(name),false);
 });
 test('history is paginated and latest success queried independently',async()=>{
   const paths=[],git=new GitHub('owner/repo','ram','main',async(url)=>{paths.push(url);return {ok:true,status:200,json:async()=>({size:2,encoding:'base64',content:'e30='})};});

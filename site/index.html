@@ -4,10 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="个人 OpenWrt 固件定制工作台，使用 GitHub Pages 与 Actions，无会员。">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' https://api.github.com https://downloads.openwrt.org https://sysupgrade.openwrt.org; style-src 'self'; script-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'self'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' https://api.github.com https://downloads.openwrt.org https://sysupgrade.openwrt.org; style-src 'self'; script-src 'self'; worker-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'self'">
   <title>Personal Builder · 固件定制工作台</title>
-  <link rel="stylesheet" href="styles.css?v=20261026-7">
-  <script type="module" src="app.js?v=20261026-7"></script>
+  <link rel="stylesheet" href="styles.css?v=20261026-8">
+  <script type="module" src="app.js?v=20261026-8"></script>
 </head>
 <body>
   <a class="skip" href="#main">跳到主要内容</a>
@@ -91,6 +91,16 @@
     <p class="help">在新页面点击 Run workflow，将刚才复制的内容粘贴到 config_json，然后点击绿色 Run workflow。不要留空，否则会构建示例配置。</p>
     <details class="subsection"><summary>查看配置明细（高级）</summary><label class="sr-only" for="config-json">构建配置 JSON</label><textarea id="config-json" class="code" rows="16" readonly></textarea></details>
     <p class="fine">密码由私有仓库 Secrets 引用，不出现在此配置中。自订脚本和文件路径可能含私人内容，请勿转发。构建完成后，从 GitHub 任务的 Artifacts 下载固件。</p>
+  </form></dialog>
+  <dialog id="verify-dialog" aria-labelledby="verify-title"><form method="dialog">
+    <div class="dialog-head"><h2 id="verify-title">本机文件校验</h2><button value="cancel" class="icon-button" aria-label="关闭">×</button></div>
+    <p class="help">文件仅在本机分块读取，不上传。支持最大 4 GiB；关闭此窗口或断开授权会停止校验。</p>
+    <p id="verify-kind" class="notice"></p><p id="verify-target" class="verify-target"></p><code id="verify-expected" class="verify-hash"></code>
+    <div class="field"><label for="verify-file">选择对应的已下载文件</label><input id="verify-file" type="file"></div>
+    <p id="verify-selected" class="help"></p><progress id="verify-progress" max="100" value="0" aria-label="文件校验进度" hidden></progress>
+    <p id="verify-status" class="help" role="status" aria-live="polite"></p>
+    <button id="verify-cancel" class="button secondary" type="button" disabled>停止校验</button>
+    <p class="fine">大小和 SHA256 一致说明文件内容与对应记录相符，不代表通过实体硬件或实际线路测试。</p>
   </form></dialog>
   <div id="toast" class="toast" role="status" hidden></div>
 </body>

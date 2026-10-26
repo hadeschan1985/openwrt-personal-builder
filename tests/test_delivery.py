@@ -17,6 +17,24 @@ def configuration():
 
 
 class DeliveryTests(unittest.TestCase):
+    def test_four_downloads_are_one_image_each_for_native_and_converted_vmdk(self):
+        for extension in ['.vmdk','.vmdk.zip']:
+            with tempfile.TemporaryDirectory() as folder:
+                root=Path(folder);output=root/'out';output.mkdir()
+                names=['test-combined-efi.img.gz','test-combined.img.gz','test-combined-efi'+extension,'test-combined'+extension,'SHA256SUMS']
+                files=[]
+                for name in names:
+                    (output/name).write_bytes(name.encode());files.append({'name':name,'group':d.file_group(name)})
+                groups=d.prepare_downloads(files,output,root/'separate')
+                self.assertEqual(groups,['efi','efi-vmdk','legacy','legacy-vmdk','reports'])
+                for group in groups:
+                    paths=list((root/'separate'/group).iterdir());self.assertEqual(len(paths),1);self.assertEqual(paths[0].read_bytes(),paths[0].name.encode())
+
+    def test_ambiguous_multi_image_group_fails_instead_of_silently_bundling(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);files=[{'name':n,'group':'efi'} for n in ['a-combined-efi.img.gz','b-combined-efi.img.gz']]
+            with self.assertRaisesRegex(ValueError,'exactly one'):d.prepare_downloads(files,root,root/'out')
+
     def test_release_requires_private_repository_and_strong_password_and_https(self):
         c = configuration()
         good = {"REPOSITORY_PRIVATE": "true", "ROUTER_PASSWORD": "test-only-password"}

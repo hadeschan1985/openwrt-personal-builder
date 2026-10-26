@@ -96,7 +96,8 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: firmware-${{ github.run_number }}-efi
-          path: outputs/*combined-efi.img.gz
+          path: work/downloads-separated/efi/*
+          if-no-files-found: error
           retention-days: 7
           compression-level: 0
       - name: Upload Legacy disk
@@ -104,15 +105,26 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: firmware-${{ github.run_number }}-legacy
-          path: outputs/*combined.img.gz
+          path: work/downloads-separated/legacy/*
+          if-no-files-found: error
           retention-days: 7
           compression-level: 0
-      - name: Upload VMDK disks
-        if: steps.delivery.outputs.vmdk == 'true'
+      - name: Upload EFI VMDK disk
+        if: contains(fromJSON(steps.delivery.outputs.download_groups), 'efi-vmdk')
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
-          name: firmware-${{ github.run_number }}-vmdk
-          path: outputs/*.vmdk*
+          name: firmware-${{ github.run_number }}-efi-vmdk
+          path: work/downloads-separated/efi-vmdk/*
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+      - name: Upload Legacy VMDK disk
+        if: contains(fromJSON(steps.delivery.outputs.download_groups), 'legacy-vmdk')
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: firmware-${{ github.run_number }}-legacy-vmdk
+          path: work/downloads-separated/legacy-vmdk/*
+          if-no-files-found: error
           retention-days: 7
           compression-level: 0
       - name: Upload ROOTFS
@@ -120,7 +132,8 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: firmware-${{ github.run_number }}-rootfs
-          path: outputs/*rootfs.tar.gz
+          path: work/downloads-separated/rootfs/*
+          if-no-files-found: error
           retention-days: 7
           compression-level: 0
       - name: Upload other-platform firmware
@@ -166,7 +179,7 @@ jobs:
           data = json.loads(Path('outputs/build-summary.json').read_text())
           with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as f:
               f.write('## Firmware built\n\n')
-              f.write('Download the firmware artifact below. Verify SHA256SUMS before use.\n\n')
+              f.write('Each x86 download contains one image only: EFI, Legacy, EFI VMDK and Legacy VMDK are separate. Download only the format you need. Verify SHA256SUMS before use.\n\n')
               mode = '${{ steps.config.outputs.build_mode }}'
               f.write('Status: **exact-image VM verified; hardware NOT tested**.\n\n' if mode == 'release' else 'Status: **EXPERIMENTAL; NOT boot/hardware tested**.\n\n')
               f.write('| File | Bytes | SHA256 |\n|---|---:|---|\n')

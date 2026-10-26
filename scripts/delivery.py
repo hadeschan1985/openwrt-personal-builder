@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 
 from scripts.build import normalize, require, sha256
 
@@ -52,6 +53,29 @@ def file_group(name):
     return "reports"
 
 
+def prepare_downloads(files, output, destination):
+    """One disk file per download. Keep VMDK boot variants separate too."""
+    groups = {}
+    for item in files:
+        group = item['group']
+        if group == 'vmdk':
+            require(re.search(r'combined(?:-efi)?\.vmdk(?:\.zip)?$', item['name']), 'Unknown VMDK download layout')
+            group = 'efi-vmdk' if '-efi.vmdk' in item['name'] else 'legacy-vmdk'
+        groups.setdefault(group, []).append(item)
+    for group, items in groups.items():
+        require(group == 'reports' or len(items) == 1, 'Each firmware download must contain exactly one image')
+        directory = destination / group
+        directory.mkdir(parents=True, exist_ok=True)
+        for item in items:
+            source, target = output / item['name'], directory / item['name']
+            require(source.is_file() and not source.is_symlink() and not target.exists(), 'Invalid or duplicate download payload')
+            try:
+                os.link(source, target)
+            except OSError:
+                shutil.copyfile(source, target)
+    return sorted(groups)
+
+
 def record(config, root=Path(".")):
     output = root / "outputs"
     summary = json.loads((output / "build-summary.json").read_text(encoding="utf-8"))
@@ -71,11 +95,13 @@ def record(config, root=Path(".")):
     path = root / "work" / "build-record.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(result, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    groups = prepare_downloads(files, output, root / 'work' / 'downloads-separated') if config['target'].startswith('x86/') else []
     if os.environ.get("GITHUB_OUTPUT"):
         with open(os.environ["GITHUB_OUTPUT"], "a") as stream:
             for group in ("efi", "legacy", "vmdk", "rootfs"):
                 stream.write(f"{group}={str(any(f['group'] == group for f in files)).lower()}\n")
             stream.write("x86=" + str(config["target"].startswith("x86/")).lower() + "\n")
+            stream.write('download_groups=' + json.dumps(groups, separators=(',', ':')) + '\n')
     return result
 
 
