@@ -25,3 +25,12 @@ Aria2 改为从本次已配置的 HTTPS 后台下载本地测试文件，不另�
 没有新增服务器、会员、付费资源、长期令牌或权限范围。页面按 Sites 本地预览和响应式流程验收，生产仍是 GitHub Pages + Actions。
 
 技术依据：[OpenSSL 密码哈希工具](https://docs.openssl.org/3.0/man1/openssl-passwd/)。
+
+## 实测结果 · 2026-10-26
+
+- [安全与扩展验收 40275329944](https://github.com/hadeschan1985/openwrt-personal-builds/actions/runs/40275329944) 两个来源全部成功。本轮新增两次实际 Legacy/Ext4 隔离启动：官方 Nginx；Kwrt Lighttpd + iptables + Docker / USB 组件。均通过加盐密码实际登录、HTTPS/RPC、/25 掩码、旁路由、网口和完整软件计划检查。报告只保存 VM 结果与构建摘要，不保存固件、密码、密钥或原始串口输出。
+- [完整代码检查 40276801128](https://github.com/hadeschan1985/openwrt-personal-builds/actions/runs/40276801128) 通过 JS 45 + Python 73，共 118 项，包含真实 OpenSSL 两次生成盐不同的哈希。本机 Windows 缺 OpenSSL CLI / 7-Zip 时跳过两项；Linux 云端全部执行。
+- 网页使用明确标识的本地模拟数据测试：连接、取消弹窗后清空输入、断开后清空私有结果、保留未提交主机名与已选 ZIP、查询未完成时断开、旧响应不重新显示、手机连接/断开布局。390 像素视口下，内容与滚动宽均为 375，无横向溢出；没有新的控制台错误。模拟网页测试不冒充新建的真实 GitHub 私人令牌。
+- [Pages 部署 40276809185](https://github.com/hadeschan1985/openwrt-personal-builder/actions/runs/40276809185) 成功，页面资产版本 20261026-7。原有构建、收藏、Secrets 及上游批准记录未删除或覆盖。未创建新的长期令牌，不改变费用设置。
+
+此前八种磁盘引导结果见 RELEASE-7.md；本轮不把它们重复计为新增测试。实体硬件、实际代理线路及任意 Docker 应用仍不属于本轮已验证范围。两份云端报告已保存在 Actions，其 ZIP SHA256 只按 GitHub 元数据记录；本轮未额外完成报告 ZIP 的下载字节校验。浏览器工具的附件获取受到来源安全检查限制，没有绕过该检查，也没有将获取尝试计作校验通过。
