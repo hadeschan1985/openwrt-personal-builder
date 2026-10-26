@@ -29,3 +29,18 @@
 收藏不受普通产物 7 天过期影响，但不是永久保存承诺、系统分区回滚或整个软件源快照。平台仍依赖 GitHub 账户、策略及上游可用性。必要时自行另存重要固件与配置；本项目不自动删除任何收藏。
 
 无需新建长期访问令牌、扩大现有网页令牌权限、使用 VPS 或启用付费服务。收藏任务只在运行时使用仓库自己的短期令牌。
+
+## 本轮已观察到的验收
+
+- 云端 [代码检查 40268900535](https://github.com/hadeschan1985/openwrt-personal-builds/actions/runs/40268900535) 完整执行并通过 JavaScript 41 项、Python 65 项，共 106 项；Windows 本地缺少 7-Zip 时仍按既有规则跳过一项。
+- [真实交付任务 40225612249](https://github.com/hadeschan1985/openwrt-personal-builds/actions/runs/40225612249) 的构建及独立私有记录任务均成功。它是无密码实验样品 #6，不是可直接刷入的生产固件；使用网页实际读取了分格式产物、逐文件 SHA256，并验证配置重用不会自动提交。首页仍保留原有个人构建 #5。
+- [真实私有收藏 40225944380](https://github.com/hadeschan1985/openwrt-personal-builds/actions/runs/40225944380) 成功；6 个保存文件的 GitHub SHA256 与原文件一致，映像为 12,587,454 字节。测试只保存到私有仓库，不删除或改动原构建。
+- 官方无测试 SSH 密钥的四种磁盘（EFI、Legacy、VMDK-UEFI、VMDK-BIOS）在 [40226500735 的官方子任务](https://github.com/hadeschan1985/openwrt-personal-builds/actions/runs/40226500735/job/121268873172) 全部启动、密码/HTTPS/RPC、Samba 临时共享读写与 Aria2 本地下载通过。该次工作流的 Kwrt 子任务失败，不能将整次工作流写为全部通过；其定向修复结果另记。
+- 每日上游任务 [40241217096](https://github.com/hadeschan1985/openwrt-personal-builds/actions/runs/40241217096) 的触发类型确认为 schedule，已成功。实际开始为 2026-10-26 06:39（UTC+8）；GitHub 定时任务可能延迟，04:23 不是准点保证。
+- 正式 Pages [部署 40268908713](https://github.com/hadeschan1985/openwrt-personal-builder/actions/runs/40268908713) 已成功。手机宽 390、内容与滚动宽 375；展开长文件名/哈希后发现的横向溢出已修复。分页超过 12 条、较新失败保留旧成功、展开清单、收藏警告等边界通过明确标识的本地模拟数据复测，不冒充新的真实云端构建。
+
+页面沿用 Sites 的本地准备与响应式验收流程，生产托管始终是 GitHub Pages + Actions。浏览器会话结束会清除网页内存授权，不影响私有仓库中既有固件、记录及收藏；重新连接即可读取。
+
+Kwrt 最终定向回归 [40268432828](https://github.com/hadeschan1985/openwrt-personal-builds/actions/runs/40268432828) 全部成功：EFI、Legacy、原生 VMDK-UEFI、原生 VMDK-BIOS 四种实际映像均完成启动、密码/HTTPS/RPC、软件清单、Aria2 本地下载、SmartDNS 虚拟机内本地域名解析，以及 Xray / sing-box 最小配置检查。SmartDNS 检查只在临时快照中暂停其他 DNS、绑定回环地址，不改生产固件或家庭网络；避免把 QEMU 的 UDP 转发行为误判成软件故障。
+
+最终官方四次与 Kwrt 四次，共八次隔离启动验收通过，不是八台实体设备验收。早期失败记录保留供追溯；未通过的尝试不计入通过数量。日常完整回归仍默认检查两个来源，定向排错未减少今后的默认测试矩阵。收藏样品 #6 已明确标注“内部验收样品（勿刷机）”。
