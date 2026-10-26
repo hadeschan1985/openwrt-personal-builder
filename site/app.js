@@ -1,8 +1,8 @@
-import {COMMON,CORE,NFT_ONLY,PROXIES,THEMES,defaultConfig,tokenize,validate,privateContent,safePreset,deviceOutput,deviceMatches,upgradeAutofill} from './lib/model.js?v=20261026-9';
-import {GitHub,repositoryName} from './lib/github.js?v=20261026-9';
-import {internalRun,firmwareArtifact,firmwareFile,downloadLabel,deliveryLabel,buildRecord,privateArchives} from './lib/delivery.js?v=20261026-9';
+import {COMMON,CORE,NFT_ONLY,PROXIES,THEMES,defaultConfig,tokenize,validate,privateContent,safePreset,deviceOutput,deviceMatches,upgradeAutofill} from './lib/model.js?v=20261027-1';
+import {GitHub,repositoryName} from './lib/github.js?v=20261027-1';
+import {internalRun,firmwareArtifact,firmwareFile,downloadLabel,deliveryLabel,buildRecord,privateArchives,artifactFile} from './lib/delivery.js?v=20261027-1';
 import {SOFTWARE_PROFILES,applySoftwareProfile,softwareAdvice} from './lib/software.js?v=20261026-3';
-import {runStatus,stepStatus,active,requestRun,stageName,failureHelp,artifactInfo} from './lib/progress.js?v=20261026-9';
+import {runStatus,stepStatus,active,requestRun,stageName,failureHelp,artifactInfo} from './lib/progress.js?v=20261027-1';
 import {verifyDownload,verificationTarget} from './lib/verification.js?v=20261026-8';
 import {mergeApproved} from './lib/upstream.js?v=20261026-3';
 
@@ -279,7 +279,7 @@ function renderLatestResults(){
   button.textContent=git?'刷新结果 ↻':'连接查看结果';button.disabled=state.refreshing;
   $('results-privacy').textContent=git?(git.private?'已授权读取私有仓库 · 不公开固件':'当前连接的是公开仓库，请勿放入私人配置'):'固件保持私有，不会发布到公开网页';
   if(!git){body.append(node('p','你的固件保存在私有仓库。连接 GitHub 后，这里会显示最近成功的编译结果；登录 GitHub 本站不等于已授权此网页。','help'));return;}
-  if(state.runError){body.append(node('p',`暂时无法读取编译结果：${state.runError}`,'error'));const reconnect=node('button','重新连接 GitHub','button secondary');reconnect.type='button';reconnect.addEventListener('click',()=>$('connect-dialog').showModal());body.append(reconnect);return;}
+  if(state.runError){body.append(node('p',`暂时无法读取编译结果：${state.runError}`,'error'));const reconnect=node('button','重新连接 GitHub','button secondary');reconnect.type='button';reconnect.addEventListener('click',()=>$('connect-dialog').showModal());body.append(reconnect);if(!state.resultsLoaded)return;}
   if(!state.resultsLoaded){body.append(node('p','正在读取你的编译结果…','help'));return;}
   const latest=state.latestRuns.filter(r=>!internalRun(r))[0],success=state.success;
   if(latest&&latest.id!==success?.id){const message=node('p',`最新任务 #${latest.run_number}：${runStatus(latest)}。${success?'下方保留最近成功的结果。':'成功后会自动显示下载包。'}`,'notice');message.append(document.createTextNode(' '),externalLink('查看任务 ↗',latest.html_url));body.append(message);}
@@ -311,10 +311,11 @@ function renderDelivery(run,data,container){
   container.append(node('p',deliveryLabel(data.record),'notice '+(data.record?.vm?.status==='passed'?'':'warning')));
   if(data.recordError)container.append(node('p',data.recordError,'error'));
   if(data.record){
+    container.append(node('p',`结果设备：${data.record.config.target} · ${data.record.config.profile}`,'help'));
     const wrap=node('div',undefined,'file-table'),table=node('table'),head=node('tr');
     for(const title of ['文件 / 格式','大小','SHA256'])head.append(node('th',title));table.append(head);
     for(const file of data.record.files){const row=node('tr'),name=node('td',file.name);name.append(node('small',file.group),verificationButton({name:file.name,bytes:file.bytes,hash:file.sha256,kind:'image'},'校验此文件'));row.append(name,node('td',`${(file.bytes/1048576).toFixed(2)} MiB`));const hash=node('td');hash.append(node('code',file.sha256));row.append(hash);table.append(row);}wrap.append(table);container.append(wrap);
-    const reuse=node('button','用此配置重新填写','button secondary');reuse.type='button';reuse.addEventListener('click',async()=>{reuse.disabled=true;try{await restore(data.record.config);toast('配置已填写，尚未提交构建；密码仍只引用仓库 Secret。');}catch(error){toast(error.message);}finally{reuse.disabled=false;}});container.append(reuse);
+    const reuse=node('button','用此配置重新填写','button secondary');reuse.type='button';reuse.addEventListener('click',async()=>{reuse.disabled=true;try{await restore(data.record.config);toast('配置已填写，尚未提交构建；后台密码使用所选来源。');}catch(error){toast(error.message);}finally{reuse.disabled=false;}});container.append(reuse);
   }else container.append(node('p','旧任务没有逐项记录，或记录尚在保存。请从 GitHub 任务摘要 / ZIP 内清单查看映像 SHA256；不会将旧固件误标为已验收。','help'));
   if(run.conclusion==='success'&&state.git?.private){
     const saved=state.archives.find(a=>a.runId===String(run.id));
@@ -351,7 +352,9 @@ function renderRunDetails(run,container){
 }
 function renderArtifact(run,artifact){
     const info=artifactInfo(artifact),card=node('div',undefined,'artifact');
-    if(firmwareArtifact(artifact))card.append(node('strong',downloadLabel(artifact.name)));
+    const data=state.result?.runId===run.id?state.result:state.details.get(run.id),file=artifactFile(artifact,data?.record);
+    if(firmwareArtifact(artifact))card.append(node('strong',downloadLabel(file?.name||artifact.name)));
+    if(file)card.append(node('p',file.name,'help'));
     card.append(node('strong',`${artifact.name} · ${(artifact.size_in_bytes/1048576).toFixed(1)} MiB`));
     card.append(node('p',info.expired?'已到期，无法下载':`到期：${new Date(artifact.expires_at).toLocaleString()}${info.days!==null?`（约 ${info.days} 天）`:''}`,'help'));
     if(info.digest)card.append(node('code',`ZIP 下载包 SHA256：${info.digest}`));

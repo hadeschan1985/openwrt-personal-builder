@@ -2,7 +2,7 @@
 
 本文是当前使用入口。历史报告中的设备范围、测试数量和旧链接以本文及 [当前交付范围](DELIVERY.md) 为准。
 
-[打开工作台](https://hadeschan1985.github.io/openwrt-personal-builder/?v=20261026-9) · [私有构建记录](https://github.com/hadeschan1985/openwrt-personal-builds/actions/workflows/build.yml)
+[打开工作台](https://hadeschan1985.github.io/openwrt-personal-builder/?v=20261027-1) · [私有构建记录](https://github.com/hadeschan1985/openwrt-personal-builds/actions/workflows/build.yml)
 
 ## 选择设备和软件
 

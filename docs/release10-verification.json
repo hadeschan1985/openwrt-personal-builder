@@ -1,0 +1,159 @@
+{
+  "schema_version": 1,
+  "completed_date": "2026-10-27",
+  "web_version": "20261027-1",
+  "configuration_audit": {
+    "profiles": 865,
+    "platforms": 24,
+    "status": "passed",
+    "blocked": 2,
+    "rootfs_only": 2
+  },
+  "non_x86_platform_representatives_passed": 21,
+  "x86": {
+    "run_id": 40376998386,
+    "source_commit": "4a69fce5545e30a0ca74df0f6c0d6cc9d746c74f",
+    "status": "passed",
+    "modes": [
+      {
+        "mode": "uefi",
+        "status": "passed",
+        "https_login": "passed",
+        "board_rpc": "passed"
+      },
+      {
+        "mode": "bios",
+        "status": "passed",
+        "https_login": "passed",
+        "board_rpc": "passed"
+      },
+      {
+        "mode": "vmdk-uefi",
+        "status": "passed",
+        "https_login": "passed",
+        "board_rpc": "passed"
+      },
+      {
+        "mode": "vmdk-bios",
+        "status": "passed",
+        "https_login": "passed",
+        "board_rpc": "passed"
+      }
+    ],
+    "files": [
+      {
+        "name": "kwrt-x86-64-generic-squashfs-combined-efi.img.gz",
+        "bytes": 74030289,
+        "sha256": "dd9ba390dc81bd0ac5f179ae506dbfc1f5b149528f9251536151c1bc374aae59",
+        "group": "efi"
+      },
+      {
+        "name": "kwrt-x86-64-generic-squashfs-combined-efi.vmdk.zip",
+        "bytes": 74033413,
+        "sha256": "0424cb1dd5ec282b7c783fcef7fa18d1349379dd6f992d4345486220def30213",
+        "group": "vmdk"
+      },
+      {
+        "name": "kwrt-x86-64-generic-squashfs-combined.img.gz",
+        "bytes": 73815863,
+        "sha256": "5a606f9b4dcbc069773d022be6e2bbf5212b606752c3b98fd5ccc6cfa5a35120",
+        "group": "legacy"
+      },
+      {
+        "name": "kwrt-x86-64-generic-squashfs-combined.vmdk.zip",
+        "bytes": 73816816,
+        "sha256": "58176f6b19a80660a4a0cb55c5a5c5b2d5f8bd5df83a59950f3f244fe91baad6",
+        "group": "vmdk"
+      }
+    ],
+    "artifacts": [
+      {
+        "id": 12677770110,
+        "name": "firmware-8-legacy",
+        "bytes": 73816065,
+        "sha256": "1e633a57f14d809305f7433de8b3a19bb4e97b7d9266de70dc22af43ead90196"
+      },
+      {
+        "id": 12677735133,
+        "name": "firmware-8-efi-vmdk",
+        "bytes": 74033627,
+        "sha256": "a24344e5e86f4f3501b539eed6dd3801c07e65f347d6ec11b5d81461094fa922"
+      },
+      {
+        "id": 12675511901,
+        "name": "firmware-8-legacy-vmdk",
+        "bytes": 73817022,
+        "sha256": "32af052ac60fea7a01f9230e5eba88c2863aeb8274ed3071eb11723167cbd12f"
+      },
+      {
+        "id": 12674264737,
+        "name": "firmware-8-efi",
+        "bytes": 74030499,
+        "sha256": "a52514a887108c2a28f3f2e100fa6d3aa94edf1ccb8ab3e0b5fd1a88b79a1305"
+      }
+    ]
+  },
+  "arm64": {
+    "run_id": 40377441873,
+    "source_commit": "f067429243ef9a12f31be411c592aa7a21b3562b",
+    "target": "mediatek/filogic",
+    "profile": "xiaomi_redmi-router-ax6000",
+    "proxies": [
+      "luci-app-homeproxy"
+    ],
+    "validation": {
+      "schema_version": 1,
+      "status": "passed",
+      "verification_level": "build-and-integrity-only",
+      "boot_tested": false,
+      "hardware_tested": false,
+      "version": "kwrt-25.12-20261012",
+      "target": "mediatek/filogic",
+      "profile": "xiaomi_redmi-router-ax6000",
+      "files": [
+        {
+          "name": "kwrt-mediatek-filogic-xiaomi_redmi-router-ax6000-squashfs-factory.bin",
+          "bytes": 33423360,
+          "sha256": "ee90bbc45b16644846ec4082654ea912e0ff4faec9976bc70867f671c46a2255",
+          "check": "binary-output"
+        },
+        {
+          "name": "kwrt-mediatek-filogic-xiaomi_redmi-router-ax6000-squashfs-sysupgrade.bin",
+          "bytes": 31355169,
+          "sha256": "84eeb28bb11f148dc372a42b634b90116f5b60e66c9ab49c230cddde9889a94b",
+          "check": "tar-header-checked"
+        }
+      ]
+    },
+    "artifacts": [
+      {
+        "id": 12679085170,
+        "name": "firmware-9-device-02",
+        "bytes": 31355427,
+        "sha256": "9464d4e91e4b50b805d1fbe9ca7132b4b018a7c583378bf89bc24ca38c4fb0d2"
+      },
+      {
+        "id": 12677620707,
+        "name": "firmware-9-device-01",
+        "bytes": 33423612,
+        "sha256": "3ed8536d2bfc1a3215dff24a3e26bf38d7284dd66cda6bf5a5da0bf569d8e995"
+      }
+    ]
+  },
+  "upstream_run_id": 40337451276,
+  "ui": {
+    "production_catalog_and_search": "passed",
+    "chinese_brand_search": "passed",
+    "device_output_selection": "passed",
+    "rootfs_only_and_blocked_devices": "passed",
+    "expired_authorization_stops_requests": "passed-local-api-fixture",
+    "rate_limit_stops_requests": "passed-local-api-fixture",
+    "real_run_metadata_replay": {
+      "arm_downloads": 2,
+      "x86_downloads": 4,
+      "preserves_existing_downloads_after_401": true
+    },
+    "real_authenticated_browser_download_not_repeated": true
+  },
+  "hardware_tested": false
+}

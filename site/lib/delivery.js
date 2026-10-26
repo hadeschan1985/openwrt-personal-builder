@@ -1,8 +1,11 @@
-import {safePreset,validate} from './model.js?v=20261026-9';
+import {safePreset,validate} from './model.js?v=20261027-1';
 export function internalRun(run){return / · qa-internal-[A-Za-z0-9-]+$/.test(run?.display_title||'');}
 export function firmwareArtifact(artifact){return /^firmware-\d+(?:-(efi|legacy|vmdk|efi-vmdk|legacy-vmdk|rootfs|device-(?:0[1-9]|[12][0-9]|3[0-2])))?$/.test(artifact.name||'');}
 export function firmwareFile(name){return /(?:\.img(?:\.gz)?|\.vmdk(?:\.zip)?|\.bin|\.trx|\.itb|\.ubi|\.chk|\.tar(?:\.gz)?)$/.test(name||'');}
 export function downloadLabel(name){
+  if(/-device-\d{2}$/.test(name))return '设备固件 · 文件 '+name.slice(-2);
+  if(/-sysupgrade(?:[_.-]|$)/.test(name))return 'sysupgrade · 设备固件';
+  if(/-factory(?:[_.-]|$)/.test(name))return 'factory · 设备固件';
   if(/efi-vmdk$|combined-efi\.vmdk/.test(name))return 'EFI VMDK · 虚拟机';
   if(/legacy-vmdk$|combined\.vmdk/.test(name))return 'Legacy VMDK · 虚拟机';
   if(/-vmdk$|\.vmdk(?:\.zip)?$/.test(name))return 'VMDK · 虚拟机';
@@ -10,6 +13,11 @@ export function downloadLabel(name){
   if(/-legacy$|combined\.img\.gz$/.test(name))return 'Legacy · 磁盘映像';
   if(/-rootfs$|rootfs\.tar\.gz$/.test(name))return 'ROOTFS · 根文件系统';
   return firmwareFile(name)?'设备固件':'下载包 / 文件';
+}
+export function artifactFile(artifact,record){
+  const match=artifact?.name?.match(/^firmware-(\d+)-device-(0[1-9]|[12][0-9]|3[0-2])$/);
+  if(!match||String(record?.run_number)!==match[1]||!Array.isArray(record.files))return null;
+  return record.files.filter(f=>f.group==='device')[Number(match[2])-1]||null;
 }
 export function deliveryLabel(record){
   if(record?.config?.build_mode==='device'&&record?.image_validation?.status==='passed')return '本次设备固件已编译和文件校验 · 未验证开机和实体硬件';
@@ -27,7 +35,7 @@ export function privateArchives(releases,repo){
   return releases.filter(r=>!r.draft&&/^personal-build-\d+-\d+$/.test(r.tag_name||'')).map(r=>{
     const match=r.tag_name.match(/^personal-build-(\d+)-(\d+)$/),prefix=`https://github.com/${repo}/releases/download/${r.tag_name}/`;
     return {id:r.id,runNumber:Number(match[1]),runId:match[2],name:r.name||`收藏 #${match[1]}`,date:r.published_at,
-      status:(r.body||'').includes('已通过本次映像虚拟机验收')?'本次映像已通过虚拟机验收 · 实体硬件未测':'实验 / 旧版 · 未通过本流程启动验收，请勿直接刷机',
+      status:(r.body||'').includes('已通过本次映像虚拟机验收')?'本次映像已通过虚拟机验收 · 实体硬件未测':(r.body||'').includes('已编译和文件校验')?'已编译和文件校验 · 未验证开机和实体硬件':'实验 / 旧版 · 未通过本流程启动验收，请勿直接刷机',
       url:`https://github.com/${repo}/releases/tag/${r.tag_name}`,assets:(r.assets||[]).filter(a=>typeof a.browser_download_url==='string'&&a.browser_download_url.startsWith(prefix)&&/^[A-Za-z0-9_.+-]{1,180}$/.test(a.name||'')).map(a=>({name:a.name,size:a.size,url:a.browser_download_url,digest:/^sha256:[a-f0-9]{64}$/.test(a.digest||'')?a.digest.slice(7):null}))};
   });
 }

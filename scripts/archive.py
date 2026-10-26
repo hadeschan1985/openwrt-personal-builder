@@ -190,7 +190,7 @@ def archive(run_id):
         metadata = directory / "build-record.json"
         metadata.write_text(json.dumps(record, ensure_ascii=False, indent=2), encoding="utf-8")
         assets.append(metadata)
-    status = "已通过本次映像虚拟机验收；不是实体硬件验收。" if record and record["vm"]["status"] == "passed" else "实验/旧版固件，未通过本流程启动验收，不应直接刷机。"
+    status = "已通过本次映像虚拟机验收；不是实体硬件验收。" if record and record["vm"]["status"] == "passed" else "已编译和文件校验；未验证开机和实体硬件。" if record and record.get('image_validation',{}).get('status')=='passed' else "实验/旧版固件，未通过本流程启动验收，不应直接刷机。"
     body = f"个人私有收藏 · 构建 #{number}\n\n{status}\n\n按文件单独下载，无需下载所有映像；每个上传文件均核对原始 SHA256。没有重新编译、执行固件或改写原始下载包。\n\n来源任务：https://github.com/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{run_id}\n\n固件原始代码提交：`{run['head_sha']}`。收藏标签用于保存下载，指向归档时的 main；不是重新构建的固件来源。\n\n固件可能包含私人配置，请勿转发。"
     if not release:
         label = "内部验收样品（勿刷机）" if re.search(r" · qa-internal-[A-Za-z0-9-]+$", run.get("display_title", "")) else "私有固件"
