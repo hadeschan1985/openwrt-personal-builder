@@ -1,4 +1,4 @@
-import {safePreset,validate} from './model.js?v=20261026-5';
+import {safePreset,validate} from './model.js?v=20261026-6';
 export function internalRun(run){return / · qa-internal-[A-Za-z0-9-]+$/.test(run?.display_title||'');}
 export function firmwareArtifact(artifact){return /^firmware-\d+(?:-(efi|legacy|vmdk|rootfs))?$/.test(artifact.name||'');}
 export function deliveryLabel(record){
@@ -15,6 +15,7 @@ export function privateArchives(releases,repo){
   return releases.filter(r=>!r.draft&&/^personal-build-\d+-\d+$/.test(r.tag_name||'')).map(r=>{
     const match=r.tag_name.match(/^personal-build-(\d+)-(\d+)$/),prefix=`https://github.com/${repo}/releases/download/${r.tag_name}/`;
     return {id:r.id,runNumber:Number(match[1]),runId:match[2],name:r.name||`收藏 #${match[1]}`,date:r.published_at,
+      status:(r.body||'').includes('已通过本次映像虚拟机验收')?'本次映像已通过虚拟机验收 · 实体硬件未测':'实验 / 旧版 · 未通过本流程启动验收，请勿直接刷机',
       url:`https://github.com/${repo}/releases/tag/${r.tag_name}`,assets:(r.assets||[]).filter(a=>typeof a.browser_download_url==='string'&&a.browser_download_url.startsWith(prefix)&&/^[A-Za-z0-9_.+-]{1,180}$/.test(a.name||'')).map(a=>({name:a.name,size:a.size,url:a.browser_download_url,digest:/^sha256:[a-f0-9]{64}$/.test(a.digest||'')?a.digest.slice(7):null}))};
   });
 }

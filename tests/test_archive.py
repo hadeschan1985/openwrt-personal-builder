@@ -40,6 +40,11 @@ class ArchiveTests(unittest.TestCase):
             with self.assertRaises(ValueError):a.archive('123')
             download.assert_not_called()
 
+    def test_completed_archive_is_idempotent_and_never_overwritten(self):
+        responses=[{'private':True},{'path':'.github/workflows/build.yml','conclusion':'success','run_number':6},[{'tag_name':'personal-build-6-123','draft':False}]]
+        with patch.dict(a.os.environ,{'GH_TOKEN':'test'}),patch.object(a,'api',side_effect=responses) as api,patch.object(a,'download') as download:
+            a.archive('123');self.assertEqual(api.call_count,3);download.assert_not_called()
+
     def test_expired_or_digestless_artifact_never_downloaded(self):
         item={'id':1,'expired':True,'size_in_bytes':10}
         with patch.dict(a.os.environ,{'GITHUB_REPOSITORY':'owner/repo'}),patch.object(a.urllib.request,'build_opener') as opener:

@@ -33,7 +33,7 @@ test('private archive rejects other downloads, drafts and unowned tags',()=>{
   const repo='owner/repo',prefix=`https://github.com/${repo}/releases/download/personal-build-8-123/`;
   const good={id:1,tag_name:'personal-build-8-123',draft:false,assets:[{name:'disk.img.gz',browser_download_url:prefix+'disk.img.gz',size:10},{name:'bad',browser_download_url:'https://evil.test'}]};
   const result=privateArchives([good,{...good,draft:true},{...good,tag_name:'other'}],repo);
-  assert.equal(result.length,1);assert.equal(result[0].assets.length,1);assert.equal(result[0].runId,'123');
+  assert.equal(result.length,1);assert.equal(result[0].assets.length,1);assert.equal(result[0].runId,'123');assert.match(result[0].status,/请勿直接刷机/);
 });
 test('archive dispatch uses only private repository and existing Actions scope',async()=>{
   let request;const git=new GitHub('owner/repo','ram','main',async(url,options)=>{request={url,...options};return {ok:true,status:204};});

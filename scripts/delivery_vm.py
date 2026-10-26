@@ -93,14 +93,10 @@ def services(packages, password, temporary):
     if "luci-app-aria2" in packages or "aria2" in packages:
         results.append(command_check("Aria2 本地 HTTP 下载", "mkdir -p /tmp/pb-http /tmp/pb-download\nprintf 'personal-builder-download-test' > /tmp/pb-http/payload\nuhttpd -p 127.0.0.1:18081 -h /tmp/pb-http\naria2c --no-conf --file-allocation=none --max-tries=1 --timeout=10 --connect-timeout=5 --dir=/tmp/pb-download --out=payload http://127.0.0.1:18081/payload >/dev/null 2>&1\ncmp /tmp/pb-http/payload /tmp/pb-download/payload", password))
     if "luci-app-smartdns" in packages or "smartdns" in packages:
-        results.append(command_check("SmartDNS 本地域名服务启动", "printf '%s\\n' 'bind 0.0.0.0:1053' 'address /qa.invalid/192.0.2.123' > /tmp/pb-smartdns.conf\nsmartdns -f -c /tmp/pb-smartdns.conf -p /tmp/pb-smartdns.pid >/tmp/pb-smartdns.log 2>&1 &\nsleep 2", password))
-        query = b"\x13\x37\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00\x02qa\x07invalid\x00\x00\x01\x00\x01"
-        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
-            sock.settimeout(8)
-            sock.sendto(query, ("127.0.0.1", 15353))
-            answer = sock.recv(4096)
-        require(answer[:2] == b"\x13\x37" and b"\xc0\x00\x02\x7b" in answer, "SmartDNS 本地域名解析错误")
-        results.append("SmartDNS 本地域名解析")
+        # Test DNS inside the disposable guest: this isolates service behavior
+        # from slirp UDP forwarding. Never change DNS on a physical device.
+        command_check("SmartDNS 本地域名服务启动", "/etc/init.d/dnsmasq stop\n/etc/init.d/smartdns stop\nprintf '%s\\n' 'bind 127.0.0.1:53' 'address /qa.invalid/192.0.2.123' 'server 127.0.0.1:9' 'cache-size 0' 'speed-check-mode none' 'dualstack-ip-selection no' > /tmp/pb-smartdns.conf\nsmartdns -c /tmp/pb-smartdns.conf -p /tmp/pb-smartdns.pid >/tmp/pb-smartdns.log 2>&1\nfor attempt in 1 2 3 4 5 6 7 8 9 10; do test ! -s /tmp/pb-smartdns.pid || break; sleep 1; done\ntest -s /tmp/pb-smartdns.pid\nkill -0 \"$(cat /tmp/pb-smartdns.pid)\"", password)
+        results.append(command_check("SmartDNS 本地域名解析", "nslookup qa.invalid 127.0.0.1 2>/dev/null | grep -F '192.0.2.123' >/dev/null\nkill -0 \"$(cat /tmp/pb-smartdns.pid)\"", password))
     if "luci-app-samba4" in packages or "samba4-server" in packages:
         command_check("Samba 临时共享启动", "mkdir -p /tmp/pb-share\nchmod 777 /tmp/pb-share\nuci set samba4.pbqa=sambashare\nuci set samba4.pbqa.name=pbqa\nuci set samba4.pbqa.path=/tmp/pb-share\nuci set samba4.pbqa.read_only=no\nuci set samba4.pbqa.guest_ok=yes\nuci set samba4.pbqa.force_root=1\nuci commit samba4\n/etc/init.d/samba4 restart\nsleep 4", password)
         payload = temporary / "smb-payload"
@@ -117,7 +113,7 @@ def services(packages, password, temporary):
 
 
 def boot(image, mode, config, temporary):
-    for port, kind in ((2222, socket.SOCK_STREAM), (18443, socket.SOCK_STREAM), (1445, socket.SOCK_STREAM), (15353, socket.SOCK_DGRAM)):
+    for port, kind in ((2222, socket.SOCK_STREAM), (18443, socket.SOCK_STREAM), (1445, socket.SOCK_STREAM)):
         with socket.socket(socket.AF_INET, kind) as sock:
             sock.bind(("127.0.0.1", port))
     ip = config["system"]["ip"].split("/")[0]
@@ -131,7 +127,7 @@ def boot(image, mode, config, temporary):
     for n in range(count):
         network = f"user,id=n{n},restrict=on"
         if n == lan:
-            network += f",net={subnet},host={host},hostfwd=tcp:127.0.0.1:2222-{ip}:22,hostfwd=tcp:127.0.0.1:18443-{ip}:443,hostfwd=tcp:127.0.0.1:1445-{ip}:445,hostfwd=udp:127.0.0.1:15353-{ip}:1053"
+            network += f",net={subnet},host={host},hostfwd=tcp:127.0.0.1:2222-{ip}:22,hostfwd=tcp:127.0.0.1:18443-{ip}:443,hostfwd=tcp:127.0.0.1:1445-{ip}:445"
         command += ["-netdev", network, "-device", f"virtio-net-pci,netdev=n{n}"]
     if mode.endswith("uefi"):
         shutil.copyfile("/usr/share/OVMF/OVMF_VARS_4M.fd", temporary / "OVMF_VARS.fd")

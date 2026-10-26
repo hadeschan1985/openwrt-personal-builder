@@ -1,1 +1,1 @@
-2026-10-26 revision 2: use installed uhttpd for isolated download test.
+2026-10-26 revision 4: targeted Kwrt DNS guest-loopback regression; official four-disk gate already passed.

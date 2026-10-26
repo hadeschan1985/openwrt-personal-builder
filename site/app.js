@@ -1,12 +1,12 @@
-import {COMMON,CORE,NFT_ONLY,PROXIES,THEMES,defaultConfig,tokenize,validate,privateContent,safePreset} from './lib/model.js?v=20261026-5';
-import {GitHub,repositoryName} from './lib/github.js?v=20261026-5';
-import {internalRun,firmwareArtifact,deliveryLabel,buildRecord,privateArchives} from './lib/delivery.js?v=20261026-5';
+import {COMMON,CORE,NFT_ONLY,PROXIES,THEMES,defaultConfig,tokenize,validate,privateContent,safePreset} from './lib/model.js?v=20261026-6';
+import {GitHub,repositoryName} from './lib/github.js?v=20261026-6';
+import {internalRun,firmwareArtifact,deliveryLabel,buildRecord,privateArchives} from './lib/delivery.js?v=20261026-6';
 import {SOFTWARE_PROFILES,applySoftwareProfile,softwareAdvice} from './lib/software.js?v=20261026-3';
-import {runStatus,stepStatus,active,requestRun,stageName,failureHelp,artifactInfo,verifyDownload} from './lib/progress.js?v=20261026-5';
+import {runStatus,stepStatus,active,requestRun,stageName,failureHelp,artifactInfo,verifyDownload} from './lib/progress.js?v=20261026-6';
 import {mergeApproved} from './lib/upstream.js?v=20261026-3';
 
 const $=id=>document.getElementById(id);
-const state={catalog:null,device:null,target:null,available:new Set(),config:defaultConfig(),git:null,file:null,loadId:0,loading:false,metadataReady:false,busy:false,pending:null,runs:[],latestRuns:[],success:null,historyPage:1,totalRuns:0,archives:[],archiving:new Set(),expanded:null,details:new Map(),refreshing:false,resultsLoaded:false,result:null,runError:''};
+const state={catalog:null,device:null,target:null,available:new Set(),config:defaultConfig(),git:null,file:null,loadId:0,loading:false,metadataReady:false,busy:false,pending:null,runs:[],latestRuns:[],success:null,historyPage:1,totalRuns:0,archives:[],archiving:new Map(),expanded:null,details:new Map(),refreshing:false,resultsLoaded:false,result:null,runError:''};
 const targetCache=new Map();
 const verifiedFiles=new Map();
 let toastTimer,pollTimer;
@@ -235,7 +235,7 @@ function renderDelivery(run,data,container){
     const saved=state.archives.find(a=>a.runId===String(run.id));
     if(saved){container.append(document.createTextNode(' '),externalLink('已私有收藏 ↗',saved.url));return;}
     const button=node('button',state.archiving.has(run.id)?'私有收藏处理中…':'收藏到私有仓库','button secondary');button.type='button';button.disabled=state.archiving.has(run.id)||!data.artifacts.some(a=>firmwareArtifact(a)&&!artifactInfo(a).expired)||state.archives.length>=5;
-    button.addEventListener('click',async()=>{const git=state.git;button.disabled=true;try{await git.archive(run.id);if(git!==state.git)return;state.archiving.add(run.id);button.textContent='私有收藏处理中…';toast('已提交私有收藏。不会公开或删除固件，请在下方查看收藏任务。');await refreshArchives();}catch(error){toast(error.message);button.disabled=false;}});container.append(document.createTextNode(' '),button);
+    button.addEventListener('click',async()=>{const git=state.git;button.disabled=true;state.archiving.set(run.id,Date.now());try{await git.archive(run.id);if(git!==state.git)return;button.textContent='私有收藏处理中…';toast('已提交私有收藏。不会公开或删除固件，请在下方查看收藏任务。');await refreshArchives();}catch(error){state.archiving.delete(run.id);toast(error.message);button.disabled=false;}});container.append(document.createTextNode(' '),button);
   }
 }
 async function recordFor(git,run){try{return {record:buildRecord(await git.buildRecord(run.id),run)};}catch(error){return error.status===404?{}:{recordError:`逐项清单读取失败：${error.message}`};}}
@@ -243,9 +243,10 @@ async function refreshArchives(){
   const git=state.git,body=$('archive-list');if(!git){body.textContent='连接私有仓库后查看收藏。';return;}
   $('refresh-archives').disabled=true;
   try{const [releases,runs]=await Promise.all([git.releases(),git.archiveRuns().catch(error=>error.status===404?{workflow_runs:[]}:Promise.reject(error))]);if(git!==state.git)return;state.archives=privateArchives(releases,git.repo);body.replaceChildren();
-    for(const archive of state.archives){state.archiving.delete(Number(archive.runId));const card=node('div',undefined,'artifact');card.append(externalLink(archive.name+' ↗',archive.url),node('p',`私有收藏 · ${new Date(archive.date).toLocaleString()}`,'help'));for(const asset of archive.assets){const row=node('div',undefined,'download-item');row.append(externalLink(`${asset.name} · ${(asset.size/1048576).toFixed(1)} MiB ↗`,asset.url));if(asset.digest)row.append(node('code',asset.digest));card.append(row);}body.append(card);}
+    for(const archive of state.archives){state.archiving.delete(Number(archive.runId));const card=node('div',undefined,'artifact');card.append(externalLink(archive.name+' ↗',archive.url),node('p',archive.status,'notice warning'),node('p',`私有收藏 · ${new Date(archive.date).toLocaleString()}`,'help'));for(const asset of archive.assets){const row=node('div',undefined,'download-item');row.append(externalLink(`${asset.name} · ${(asset.size/1048576).toFixed(1)} MiB ↗`,asset.url));if(asset.digest)row.append(node('code',asset.digest));card.append(row);}body.append(card);}
     if(!state.archives.length)body.append(node('p','还没有私有收藏。成功构建后可手动收藏；不会自动占用空间。','help'));
-    const latest=runs.workflow_runs?.[0];if(latest){body.append(externalLink(`最近收藏任务：${runStatus(latest)} ↗`,latest.html_url));if(latest.conclusion==='failure')body.append(node('p','收藏未完成，原构建产物不受影响。请查看任务原因；不会自动重复提交。','error'));if(!active(latest))state.archiving.clear();}
+    const latest=runs.workflow_runs?.[0];if(latest){body.append(externalLink(`最近收藏任务：${runStatus(latest)} ↗`,latest.html_url));if(latest.conclusion==='failure')body.append(node('p','收藏未完成，原构建产物不受影响。请查看任务原因；不会自动重复提交。','error'));}
+    for(const [id,sentAt] of state.archiving){const tracked=(runs.workflow_runs||[]).find(r=>r.display_title?.endsWith(` · ${id}`)&&Date.parse(r.created_at)>=sentAt-10000);if(tracked&&!active(tracked)||!tracked&&Date.now()-sentAt>120000)state.archiving.delete(id);}
     renderLatestResults();
   }catch(error){if(git===state.git)body.replaceChildren(node('p',`收藏读取失败：${error.message}`,'error'));}finally{$('refresh-archives').disabled=false;}
 }
