@@ -8,4 +8,4 @@
 *.html text eol=lf
 *.css text eol=lf
 *.md text eol=lf
-site/vendor/** -text
+site/vendor/** -text -whitespace
