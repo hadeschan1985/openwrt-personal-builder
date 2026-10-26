@@ -26,20 +26,41 @@ export const COMMON = [
 ].map(([group,pkg,name])=>({group,pkg,name}));
 
 export function defaultConfig(version='25.12.6',target='x86/64',profile='generic') {
-  return {schema_version:1,build_mode:target==='x86/64'?'release':'experiment',builder:version.startsWith('kwrt-')?'kwrt':'official',version,target,profile,packages:[],remove_packages:[],themes:['luci-theme-bootstrap'],proxies:[],firewall:'nftables',
-    system:{hostname:'OpenWrt',ip:'192.168.1.1',webserver:'uhttpd',https:true,ipv6:true,signature:'',default_theme:'bootstrap',theme_mode:'auto',password_secret:target==='x86/64'},
+  return {schema_version:1,build_mode:target==='x86/64'?'release':'device',builder:version.startsWith('kwrt-')?'kwrt':'official',version,target,profile,packages:[],remove_packages:[],themes:['luci-theme-bootstrap'],proxies:[],firewall:'nftables',
+    system:{hostname:'OpenWrt',ip:'192.168.1.1',webserver:'uhttpd',https:true,ipv6:true,signature:'',default_theme:'bootstrap',theme_mode:'auto',password_secret:true,password_source:'root'},
     network:{mode:'router',gateway:'',dhcp:true,wan_port:'',lan_ports:'',wifi_ssid:'',pppoe_secret:false,wifi_password_secret:false},
     features:{docker:false,usb_net:false,usb_wireless:false,wwan:false,istoreos:false,routerdog:false,remove_links:false},
     output:{filesystem:'squashfs',rootfs_size_mb:256,efi:true,legacy:true,vmdk:false,rootfs:false},defaults:'',overlay:''};
 }
 export function tokenize(value) { return [...new Set(value.trim().split(/\s+/).filter(Boolean))]; }
+export function deviceMatches(device,query){
+  const aliases={'红米':'redmi','小米':'xiaomi','华硕':'asus','斐讯':'phicomm','网件':'netgear','友善':'friendlyarm','树莓派':'raspberry','玩客云':'onecloud'};
+  let normalized=query.trim().toLowerCase();for(const [from,to]of Object.entries(aliases))normalized=normalized.replaceAll(from,to);
+  const haystack=[device.name,device.target,device.id,...(device.aliases||[])].join(' ').toLowerCase().replaceAll(/[_-]/g,' ');
+  return normalized.replaceAll(/[_-]/g,' ').split(/\s+/).every(term=>haystack.includes(term));
+}
+export function upgradeAutofill(config){
+  const clean=safePreset(config);
+  // Automatic drafts adopt the requested temporary default. Imported historical
+  // records keep their original semantics; explicit password choices survive.
+  if(clean.system.password_source===undefined){clean.system.password_source='root';clean.system.password_secret=true;}
+  return clean;
+}
+export function deviceOutput(images){
+  const priority=['sysupgrade','sdcard','sdcard-sysupgrade','combined-efi','combined','emmc_burn','factory','bin','trx','firmware','nand-sysupgrade'];
+  const usable=images.filter(i=>['squashfs','ext4'].includes(i.filesystem)&&!i.name?.endsWith('.vmdk.zip'));
+  usable.sort((a,b)=>(priority.includes(a.type)?priority.indexOf(a.type):100)-(priority.includes(b.type)?priority.indexOf(b.type):100)||Number(a.filesystem!=='squashfs')-Number(b.filesystem!=='squashfs'));
+  if(!usable.length&&images.some(i=>i.filesystem==='targz'))return {filesystem:'squashfs',image_types:[],rootfs:true};
+  if(!usable.length)throw new Error('此设备尚无可用的 SquashFS 或 Ext4 映像资料。');
+  return {filesystem:usable[0].filesystem,image_types:[usable[0].type]};
+}
 export function privateContent(c) { return Boolean(c.overlay||c.defaults||c.system.password_secret||c.network.pppoe_secret||c.network.wifi_password_secret); }
 export function validate(c,available=null,versions=null) {
   const errors=[];
   if(c?.schema_version!==1) return ['配置版本不受支持。'];
   if(!['official','kwrt'].includes(c.builder)) errors.push('构建环境无效。');
   const pinnedKwrt=/^kwrt-25\.12-\d{8}(?:-[a-f0-9]{8})?$/.test(c.version||'')&&(versions||['kwrt-25.12-20261012']).includes(c.version);
-  if(c.builder==='kwrt'?(!pinnedKwrt||c.target!=='x86/64'):!/^\d{2}\.\d{2}\.\d+(?:-rc\d+)?$/.test(c.version||'')) errors.push('请选择已校验的固定构建版本。');
+  if(c.builder==='kwrt'?!pinnedKwrt:!/^\d{2}\.\d{2}\.\d+(?:-rc\d+)?$/.test(c.version||'')) errors.push('请选择已校验的固定构建版本。');
   if(versions&&!versions.includes(c.version))errors.push('此版本尚未通过上游更新校验。');
   if(!/^[a-z0-9_-]+\/[a-z0-9_-]+$/.test(c.target||'')||!/^[A-Za-z0-9_,.+-]+$/.test(c.profile||'')) errors.push('请选择有效设备。');
   for(const key of ['packages','remove_packages','themes','proxies']) {
@@ -47,9 +68,11 @@ export function validate(c,available=null,versions=null) {
   }
   for(const key of ['system','network','features','output'])if(!c[key]||typeof c[key]!=='object'||Array.isArray(c[key]))errors.push(`${key} 设置格式不正确。`);
   if(errors.length) return errors;
-  if(!['release','experiment'].includes(c.build_mode??'experiment'))errors.push('构建模式无效。');
+  if(!['release','device','experiment'].includes(c.build_mode??'experiment'))errors.push('构建模式无效。');
+  if(c.system.password_source!==undefined&&!['root','secret'].includes(c.system.password_source))errors.push('后台密码来源无效。');
+  if(['release','device'].includes(c.build_mode)&&(!c.system.password_secret||!c.system.https))errors.push('此模式需要后台密码和 HTTPS。');
   if(c.build_mode==='release'){
-    if(!c.system.password_secret)errors.push('正式模式必须设置后台密码（仓库 ROUTER_PASSWORD，至少 12 字符）。');
+    if(!c.system.password_secret)errors.push('启动验收模式必须设置后台密码。');
     if(!c.system.https)errors.push('正式模式必须启用 HTTPS 后台。');
     if(c.target!=='x86/64'||!c.output.efi&&!c.output.legacy)errors.push('正式模式目前要求 x86/64 EFI 或 Legacy 磁盘，以便自动启动验收；其他输出请明确选择实验模式。');
     if([c.network.wan_port,...(c.network.lan_ports||'').split(' ')].filter(Boolean).some(p=>Number(p.slice(3))>7))errors.push('正式模式的自动验收最多支持 eth0–eth7。');
@@ -92,6 +115,7 @@ export function validate(c,available=null,versions=null) {
   if(c.output.vmdk&&!c.output.efi&&!c.output.legacy)errors.push('VMDK 需要 EFI 或 Legacy 磁盘映像。');
   if(c.target.startsWith('x86/')&&!c.output.efi&&!c.output.legacy&&!c.output.rootfs) errors.push('至少选择一种输出。');
   if(!['squashfs','ext4'].includes(c.output.filesystem)) errors.push('文件系统无效。');
+  if(c.output.image_types!==undefined&&(!Array.isArray(c.output.image_types)||c.output.image_types.length>32||c.output.image_types.some(t=>typeof t!=='string'||!/^[A-Za-z0-9_.+-]{1,64}$/.test(t))))errors.push('设备映像类型无效。');
   if(new TextEncoder().encode(c.defaults||'').length>20000) errors.push('初始化脚本不能超过 20 KB。');
   if(c.overlay&&!/^overlays\/[A-Za-z0-9_.-]+\.(zip|tar\.gz|tgz|7z)$/.test(c.overlay)) errors.push('文件包须位于 overlays/，使用 ZIP/TAR.GZ/TGZ/7Z。');
   if(c.network.mode==='side'&&c.network.pppoe_secret) errors.push('旁路由模式不使用 PPPoE。');
@@ -120,5 +144,7 @@ export function safePreset(c) {
   for(const key of ['system','network','features','output']) {
     for(const field of Object.keys(base[key])) if(c[key]?.[field]!==undefined) base[key][field]=c[key][field];
   }
+  if(c.system?.password_source===undefined)delete base.system.password_source;
+  if(c.output?.image_types!==undefined)base.output.image_types=structuredClone(c.output.image_types);
   return base;
 }

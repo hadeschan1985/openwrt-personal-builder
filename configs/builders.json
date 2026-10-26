@@ -1,13 +1,308 @@
 {
   "kwrt-25.12-20261012": {
-    "label": "Kwrt 25.12 · 2026-10-12（x86/64）",
+    "label": "Kwrt 25.12 · 全设备固定构建器",
     "target": "x86/64",
     "base": "https://dl.openwrt.ai/releases/targets/x86/64",
     "archive": "kwrt-imagebuilder-x86-64.Linux-x86_64.tar.zst",
     "sha256": "906099902698e5a95f5efef6f83f0803a220fa6567134011be97669e3a60e374",
     "feeds": "https://dl.openwrt.ai/releases/25.12/packages/x86_64",
     "kernel_feed": "https://dl.openwrt.ai/releases/25.12/targets/x86/64/6.12.112",
-    "exclude_defaults": ["kmod-i40evf", "kmod-usb-net-rtl8152-vendor", "luci-app-fan"],
-    "replacement_packages": ["kmod-iavf", "kmod-usb-net-rtl8152"]
+    "exclude_defaults": [
+      "kmod-i40evf",
+      "kmod-usb-net-rtl8152-vendor",
+      "luci-app-fan"
+    ],
+    "replacement_packages": [
+      "kmod-iavf",
+      "kmod-usb-net-rtl8152"
+    ],
+    "targets": {
+      "airoha/an7581": {
+        "target": "airoha/an7581",
+        "base": "https://dl.openwrt.ai/releases/targets/airoha/an7581",
+        "archive": "kwrt-imagebuilder-airoha-an7581.Linux-x86_64.tar.zst",
+        "sha256": "edc4bda79d6e4d8a4ad8a33ae54b5eed5c8ec714676bb0c4c3c3479cd06f1420",
+        "feeds": "https://dl.openwrt.ai/releases/25.12/packages/aarch64_cortex-a53",
+        "kernel_feed": "https://dl.openwrt.ai/releases/25.12/targets/airoha/an7581/6.12.112",
+        "exclude_defaults": [],
+        "replacement_packages": [],
+        "metadata_source": "selector",
+        "metadata_fingerprint": "6d2e13e9258e2b42c3bbaa111bd667c442dac2bd99c9030ff9bf188d703f083e"
+      },
+      "amlogic/meson": {
+        "target": "amlogic/meson",
+        "base": "https://dl.openwrt.ai/releases/targets/amlogic/meson",
+        "archive": "kwrt-imagebuilder-amlogic-meson.Linux-x86_64.tar.zst",
+        "sha256": "24e890ad8c371d6a2c2987e1706dec013057dd4a5dd61bc5a50435d9b45139a7",
+        "feeds": "https://dl.openwrt.ai/releases/25.12/packages/aarch64_cortex-a53",
+        "kernel_feed": "https://dl.openwrt.ai/releases/25.12/targets/amlogic/meson/6.12.112",
+        "exclude_defaults": [],
+        "replacement_packages": [],
+        "metadata_source": "selector",
+        "blocked_reason": "上游 N1 默认无线校准包 brcmfmac-nvram-43455-sdio-generic 已缺失，暂停构建，避免交付缺少无线校准数据的固件。",
+        "metadata_fingerprint": "2c663eb6346147e9a3efe9b8221593736d2dcf50e13b869ceac9641ab324338c"
+      },
+      "amlogic/meson8b": {
+        "target": "amlogic/meson8b",
+        "base": "https://dl.openwrt.ai/releases/25.12/targets/amlogic/meson8b",
+        "archive": "kwrt-imagebuilder-amlogic-meson8b.Linux-x86_64.tar.zst",
+        "sha256": "e29abe52fea3bdaf77a0af313ccb5c6f06c6564a4f7cdb27d41fd9215d6926b5",
+        "feeds": "https://dl.openwrt.ai/releases/25.12/packages/arm_cortex-a5_vfpv4",
+        "kernel_feed": "https://dl.openwrt.ai/releases/25.12/targets/amlogic/meson8b/6.12.112",
+        "exclude_defaults": [],
+        "replacement_packages": [],
+        "metadata_source": "selector",
+        "profiles_file": "profiles.json.b",
+        "blocked_reason": "上游 ImageBuilder 实际 SHA256 与公布值不一致，已暂停构建；不能跳过校验。",
+        "metadata_fingerprint": "c4752c369d4041734a28cbe36f28832fa1ec7ce09daf213ba15c0ae9b30547ec"
+      },
+      "armsr/armv8": {
+        "target": "armsr/armv8",
+        "base": "https://dl.openwrt.ai/releases/targets/armsr/armv8",
+        "archive": "kwrt-imagebuilder-armsr-armv8.Linux-x86_64.tar.zst",
+        "sha256": "c20a24dbb8c0243a98fb9480e5c2d4f8b076286564493065f540588ea9d859b5",
+        "feeds": "https://dl.openwrt.ai/releases/25.12/packages/aarch64_generic",
+        "kernel_feed": "https://dl.openwrt.ai/releases/25.12/targets/armsr/armv8/6.12.112",
+        "exclude_defaults": [],
+        "replacement_packages": [],
+        "metadata_source": "selector",
+        "metadata_fingerprint": "a0ad5517a28a138e8f64ee6a01f4717b3b76e0677b563a3fb4051d83f5538973"
+      },
+      "ath79/nand": {
+        "target": "ath79/nand",
+        "base": "https://dl.openwrt.ai/releases/targets/ath79/nand",
+        "archive": "kwrt-imagebuilder-ath79-nand.Linux-x86_64.tar.zst",
+        "sha256": "8d4c554c988adfa5554acc2c2835cdae7e33aba042eafd7f73c770c456ed532d",
+        "feeds": "https://dl.openwrt.ai/releases/25.12/packages/mips_24kc",
+        "kernel_feed": "https://dl.openwrt.ai/releases/25.12/targets/ath79/nand/6.12.112",
+        "exclude_defaults": [
+          "autocore"
+        ],
+        "replacement_packages": [],
+        "metadata_source": "selector",
+        "metadata_fingerprint": "a5c635c57a3c651de022d3dc78f367410a5dd4aa4e58e8c59f31485b4d95b9b2"
+      },
+      "bcm27xx/bcm2709": {
+        "target": "bcm27xx/bcm2709",
+        "base": "https://dl.openwrt.ai/releases/targets/bcm27xx/bcm2709",
+        "archive": "kwrt-imagebuilder-bcm27xx-bcm2709.Linux-x86_64.tar.zst",
+        "sha256": "7efff00caee30be14a94c400f8294dd61cf7da8b3bf01dc99000a0509669dece",
+        "feeds": "https://dl.openwrt.ai/releases/25.12/packages/arm_cortex-a7_neon-vfpv4",
+        "kernel_feed": "https://dl.openwrt.ai/releases/25.12/targets/bcm27xx/bcm2709/6.12.112",
+        "exclude_defaults": [],
+        "replacement_packages": [],
+        "metadata_source": "selector",
+        "metadata_fingerprint": "3502696f12ed28a715750c913ebcc010c1edf2ae3a3320a5c7e6dbcbf932fe69"
+      },
+      "bcm27xx/bcm2710": {
+        "target": "bcm27xx/bcm2710",
+        "base": "https://dl.openwrt.ai/releases/targets/bcm27xx/bcm2710",
+        "archive": "kwrt-imagebuilder-bcm27xx-bcm2710.Linux-x86_64.tar.zst",
+        "sha256": "11e7366088b98c609467f48c57b08246cd4ce6ccc75566fb33578a8233d40498",
+        "feeds": "https://dl.openwrt.ai/releases/25.12/packages/aarch64_cortex-a53",
+        "kernel_feed": "https://dl.openwrt.ai/releases/25.12/targets/bcm27xx/bcm2710/6.12.112",
+        "exclude_defaults": [],
+        "replacement_packages": [],
+        "metadata_source": "selector",
+        "metadata_fingerprint": "24ef0a14811f8130c35ceedd424b45abbed4d583e1594fa4f24e04ea6b6cc373"
+      },
+      "bcm27xx/bcm2711": {
+        "target": "bcm27xx/bcm2711",
+        "base": "https://dl.openwrt.ai/releases/targets/bcm27xx/bcm2711",
+        "archive": "kwrt-imagebuilder-bcm27xx-bcm2711.Linux-x86_64.tar.zst",
+        "sha256": "5d42e481a8bf6ac3763771e3081a021a50e89b3513b30a3346ab329f2e24e297",
+        "feeds": "https://dl.openwrt.ai/releases/25.12/packages/aarch64_cortex-a72",
+        "kernel_feed": "https://dl.openwrt.ai/releases/25.12/targets/bcm27xx/bcm2711/6.12.112",
+        "exclude_defaults": [],
+        "replacement_packages": [],
+        "metadata_source": "selector",
+        "metadata_fingerprint": "d09e785431e88f0ca9c95c93729be800ee9b1bb9a14a42fb59f3ca71dd46fcc1"
+      },
+      "bcm27xx/bcm2712": {
+        "target": "bcm27xx/bcm2712",
+        "base": "https://dl.openwrt.ai/releases/targets/bcm27xx/bcm2712",
+        "archive": "kwrt-imagebuilder-bcm27xx-bcm2712.Linux-x86_64.tar.zst",
+        "sha256": "e355ef9129420079e9d639b13f17123007363307626b7d7d5f83fd590c31505f",
+        "feeds": "https://dl.openwrt.ai/releases/25.12/packages/aarch64_cortex-a76",
+        "kernel_feed": "https://dl.openwrt.ai/releases/25.12/targets/bcm27xx/bcm2712/6.12.112",
+        "exclude_defaults": [],
+        "replacement_packages": [],
+        "metadata_source": "selector",
+        "metadata_fingerprint": "06617c008480034936adf9d792b993fa187f45fa11dee2b54bac6dfd3b0d140e"
+      },
+      "bcm53xx/generic": {
+        "target": "bcm53xx/generic",
+        "base": "https://dl.openwrt.ai/releases/targets/bcm53xx/generic",
+        "archive": "kwrt-imagebuilder-bcm53xx-generic.Linux-x86_64.tar.zst",
+        "sha256": "8f59d7ec6dd3fa471686bba7c6e6eb3291917a7ac8e1ea9f4ba3b2cc7ada6ab9",
+        "feeds": "https://dl.openwrt.ai/releases/25.12/packages/arm_cortex-a9",
+        "kernel_feed": "https://dl.openwrt.ai/releases/25.12/targets/bcm53xx/generic/6.12.112",
+        "exclude_defaults": [],
+        "replacement_packages": [],
+        "metadata_source": "selector",
+        "metadata_fingerprint": "78705b942cdd11b22fe59920019519f314341b2b12b462cc135c7e45f89d8173"
+      },
+      "ipq40xx/generic": {
+        "target": "ipq40xx/generic",
+        "base": "https://dl.openwrt.ai/releases/targets/ipq40xx/generic",
+        "archive": "kwrt-imagebuilder-ipq40xx-generic.Linux-x86_64.tar.zst",
+        "sha256": "2a63bf89e120838b5c87b04abb8e21703204e1033279648e8d09cf4829f879de",
+        "feeds": "https://dl.openwrt.ai/releases/25.12/packages/arm_cortex-a7_neon-vfpv4",
+        "kernel_feed": "https://dl.openwrt.ai/releases/25.12/targets/ipq40xx/generic/6.12.112",
+        "exclude_defaults": [],
+        "replacement_packages": [],
+        "metadata_source": "selector",
+        "metadata_fingerprint": "0d335b6e568f81f5e86afc10677b3d26df4bd45ee1ce529d32e2118a6f5fef81"
+      },
+      "ipq806x/generic": {
+        "target": "ipq806x/generic",
+        "base": "https://dl.openwrt.ai/releases/targets/ipq806x/generic",
+        "archive": "kwrt-imagebuilder-ipq806x-generic.Linux-x86_64.tar.zst",
+        "sha256": "d4f3e98bae95019d23ccb4bfdf467d2e9c48bec966bb10c8b081f008e581c33d",
+        "feeds": "https://dl.openwrt.ai/releases/25.12/packages/arm_cortex-a15_neon-vfpv4",
+        "kernel_feed": "https://dl.openwrt.ai/releases/25.12/targets/ipq806x/generic/6.12.112",
+        "exclude_defaults": [],
+        "replacement_packages": [],
+        "metadata_source": "selector",
+        "metadata_fingerprint": "5259d6b70fda3701beef4b78a32a086dcf17ee9e69eff605a4203a4cadbab99a"
+      },
+      "mediatek/filogic": {
+        "target": "mediatek/filogic",
+        "base": "https://dl.openwrt.ai/releases/targets/mediatek/filogic",
+        "archive": "kwrt-imagebuilder-mediatek-filogic.Linux-x86_64.tar.zst",
+        "sha256": "c17e67d2e21531c1cea7f47de2a83f107eda07b0495b171344672b80659bdbcc",
+        "feeds": "https://dl.openwrt.ai/releases/25.12/packages/aarch64_cortex-a53",
+        "kernel_feed": "https://dl.openwrt.ai/releases/25.12/targets/mediatek/filogic/6.12.112",
+        "exclude_defaults": [],
+        "replacement_packages": [],
+        "metadata_source": "selector",
+        "metadata_fingerprint": "0aa75b6bd37013668bc8969d392a823d6a2ef22d2c1adfcbb863bac3e598c47a"
+      },
+      "mediatek/mt7622": {
+        "target": "mediatek/mt7622",
+        "base": "https://dl.openwrt.ai/releases/targets/mediatek/mt7622",
+        "archive": "kwrt-imagebuilder-mediatek-mt7622.Linux-x86_64.tar.zst",
+        "sha256": "313bc5268f43e047578a49480a9e8a017ff15da370672ecf1120a45a7539946f",
+        "feeds": "https://dl.openwrt.ai/releases/25.12/packages/aarch64_cortex-a53",
+        "kernel_feed": "https://dl.openwrt.ai/releases/25.12/targets/mediatek/mt7622/6.12.112",
+        "exclude_defaults": [],
+        "replacement_packages": [],
+        "metadata_source": "selector",
+        "metadata_fingerprint": "7ed7fbb9a8795a46f18eda24ebfa7b511d6354d3151f6d62a12a6186c14fa1b8"
+      },
+      "mvebu/cortexa9": {
+        "target": "mvebu/cortexa9",
+        "base": "https://dl.openwrt.ai/releases/targets/mvebu/cortexa9",
+        "archive": "kwrt-imagebuilder-mvebu-cortexa9.Linux-x86_64.tar.zst",
+        "sha256": "afbf518dd0df3d8cdcea9ce0b57dd1c664276d2e2a4bbf1ae8bd90bb16065c00",
+        "feeds": "https://dl.openwrt.ai/releases/25.12/packages/arm_cortex-a9_vfpv3-d16",
+        "kernel_feed": "https://dl.openwrt.ai/releases/25.12/targets/mvebu/cortexa9/6.12.112",
+        "exclude_defaults": [],
+        "replacement_packages": [],
+        "metadata_source": "selector",
+        "metadata_fingerprint": "03fbc1f47213c3a78d6ff348862fa4defb87991b2055edf37de8336b212289b6"
+      },
+      "qualcommax/ipq50xx": {
+        "target": "qualcommax/ipq50xx",
+        "base": "https://dl.openwrt.ai/releases/targets/qualcommax/ipq50xx",
+        "archive": "kwrt-imagebuilder-qualcommax-ipq50xx.Linux-x86_64.tar.zst",
+        "sha256": "84d5419982e5af33e6f95e4fb1551a169f50994a3fec652eff858c28fd14d03c",
+        "feeds": "https://dl.openwrt.ai/releases/25.12/packages/aarch64_cortex-a53",
+        "kernel_feed": "https://dl.openwrt.ai/releases/25.12/targets/qualcommax/ipq50xx/6.12.112",
+        "exclude_defaults": [],
+        "replacement_packages": [],
+        "metadata_source": "selector",
+        "metadata_fingerprint": "09c236c1550c0b115269958aa0fa308bf252e0035ee1ff38f7225c9f45388b16"
+      },
+      "qualcommax/ipq60xx": {
+        "target": "qualcommax/ipq60xx",
+        "base": "https://dl.openwrt.ai/releases/targets/qualcommax/ipq60xx",
+        "archive": "kwrt-imagebuilder-qualcommax-ipq60xx.Linux-x86_64.tar.zst",
+        "sha256": "ae4cd3fdcabc70b10fba19968ad140a2d46e8bc64eb76c0176d1072e5c54e5a7",
+        "feeds": "https://dl.openwrt.ai/releases/25.12/packages/aarch64_cortex-a53",
+        "kernel_feed": "https://dl.openwrt.ai/releases/25.12/targets/qualcommax/ipq60xx/6.12.108",
+        "exclude_defaults": [],
+        "replacement_packages": [],
+        "metadata_source": "selector",
+        "metadata_fingerprint": "381eb63d1b6bc503c23d64c389951c587759debb40d017d5a61c416202734848"
+      },
+      "qualcommax/ipq807x": {
+        "target": "qualcommax/ipq807x",
+        "base": "https://dl.openwrt.ai/releases/targets/qualcommax/ipq807x",
+        "archive": "kwrt-imagebuilder-qualcommax-ipq807x.Linux-x86_64.tar.zst",
+        "sha256": "b437289f39a9ce5e4feed9d97979efb16fa7c47bc8cbd4a2b3457af2016a823a",
+        "feeds": "https://dl.openwrt.ai/releases/25.12/packages/aarch64_cortex-a53",
+        "kernel_feed": "https://dl.openwrt.ai/releases/25.12/targets/qualcommax/ipq807x/6.12.112",
+        "exclude_defaults": [],
+        "replacement_packages": [],
+        "metadata_source": "selector",
+        "metadata_fingerprint": "e3742082b23061a2746d58b44788fd54eafef884f4ab7a0d4e1157eb9080a9ff"
+      },
+      "ramips/mt7621": {
+        "target": "ramips/mt7621",
+        "base": "https://dl.openwrt.ai/releases/targets/ramips/mt7621",
+        "archive": "kwrt-imagebuilder-ramips-mt7621.Linux-x86_64.tar.zst",
+        "sha256": "2ac6bf86e60dc99392dd500cd794b84e0442ced52bfd55e5492035470e5f5fc7",
+        "feeds": "https://dl.openwrt.ai/releases/25.12/packages/mipsel_24kc",
+        "kernel_feed": "https://dl.openwrt.ai/releases/25.12/targets/ramips/mt7621/6.12.112",
+        "exclude_defaults": [
+          "autocore"
+        ],
+        "replacement_packages": [],
+        "metadata_source": "selector",
+        "metadata_fingerprint": "9b7c38db10e9d5f79d2ae8e2571680be31d4a3e3f15277bfa3c1e5e165c275f3"
+      },
+      "rockchip/armv8": {
+        "target": "rockchip/armv8",
+        "base": "https://dl.openwrt.ai/releases/targets/rockchip/armv8",
+        "archive": "kwrt-imagebuilder-rockchip-armv8.Linux-x86_64.tar.zst",
+        "sha256": "2c6b9ea56ca914f25d1af1242c012a0bb3e60a1709a2d3258835848f901d583d",
+        "feeds": "https://dl.openwrt.ai/releases/25.12/packages/aarch64_generic",
+        "kernel_feed": "https://dl.openwrt.ai/releases/25.12/targets/rockchip/armv8/6.12.112",
+        "exclude_defaults": [],
+        "replacement_packages": [],
+        "metadata_source": "selector",
+        "metadata_fingerprint": "3de31654982ad7a4b47c5b62c5ee93307f9af31f1d20400c37b9f25da8e4276c"
+      },
+      "siflower/sf21": {
+        "target": "siflower/sf21",
+        "base": "https://dl.openwrt.ai/releases/targets/siflower/sf21",
+        "archive": "kwrt-imagebuilder-siflower-sf21.Linux-x86_64.tar.zst",
+        "sha256": "5598122582e31e657c714785dce5f5f30b8f091b797378cb49828e419dead217",
+        "feeds": "https://dl.openwrt.ai/releases/25.12/packages/riscv64_generic",
+        "kernel_feed": "https://dl.openwrt.ai/releases/25.12/targets/siflower/sf21/6.12.112",
+        "exclude_defaults": [
+          "autocore",
+          "luci-app-fan"
+        ],
+        "replacement_packages": [],
+        "metadata_source": "selector",
+        "metadata_fingerprint": "eb925a86c41518c84b91c95b89f14442ba4404412b80e51ee40fc1e2ce37ce7c"
+      },
+      "sunxi/cortexa53": {
+        "target": "sunxi/cortexa53",
+        "base": "https://dl.openwrt.ai/releases/targets/sunxi/cortexa53",
+        "archive": "kwrt-imagebuilder-sunxi-cortexa53.Linux-x86_64.tar.zst",
+        "sha256": "2491f229a710f1affabae5db9ca43f35361c8790b063e5e100bb38e207e2b70c",
+        "feeds": "https://dl.openwrt.ai/releases/25.12/packages/aarch64_cortex-a53",
+        "kernel_feed": "https://dl.openwrt.ai/releases/25.12/targets/sunxi/cortexa53/6.12.112",
+        "exclude_defaults": [],
+        "replacement_packages": [],
+        "metadata_source": "selector",
+        "metadata_fingerprint": "b773a7967b58c95f13c820bb84b197206f82174737f3f07d805a06bb6fc5ed82"
+      },
+      "sunxi/cortexa7": {
+        "target": "sunxi/cortexa7",
+        "base": "https://dl.openwrt.ai/releases/targets/sunxi/cortexa7",
+        "archive": "kwrt-imagebuilder-sunxi-cortexa7.Linux-x86_64.tar.zst",
+        "sha256": "364d080f3e8fb25c4194cb1b58d5aef2332c01cdc6d08b563741faa37fdc8e55",
+        "feeds": "https://dl.openwrt.ai/releases/25.12/packages/arm_cortex-a7_neon-vfpv4",
+        "kernel_feed": "https://dl.openwrt.ai/releases/25.12/targets/sunxi/cortexa7/6.12.112",
+        "exclude_defaults": [],
+        "replacement_packages": [],
+        "metadata_source": "selector",
+        "metadata_fingerprint": "678980f60f3e37e9c2590af48d9ccab32f9fa629bf055ec34e2d902de5755df6"
+      }
+    }
   }
 }

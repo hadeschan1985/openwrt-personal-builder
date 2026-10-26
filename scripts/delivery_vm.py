@@ -169,7 +169,8 @@ def boot(image, mode, config, temporary):
     if mode.endswith("uefi"):
         shutil.copyfile("/usr/share/OVMF/OVMF_VARS_4M.fd", temporary / "OVMF_VARS.fd")
         command += ["-drive", "if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd", "-drive", f"if=pflash,format=raw,file={temporary / 'OVMF_VARS.fd'}"]
-    password = os.environ["ROUTER_PASSWORD"]
+    from scripts.build import router_password
+    password = router_password(config)
     started = time.monotonic()
     with (temporary / "qemu.log").open("wb") as log:
         process = subprocess.Popen(command, stdout=log, stderr=log)

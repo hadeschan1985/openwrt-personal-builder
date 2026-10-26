@@ -1,1 +1,1 @@
-2026-10-26: verify unchanged-upstream fast path and normal-build feed guards.
+2026-10-26: validate changed kiddin9 feed with the complete pinned device registry preserved.

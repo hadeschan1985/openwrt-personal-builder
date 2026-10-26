@@ -80,7 +80,7 @@ def prepare(source="official", variant="standard"):
         config["system"]["default_theme"] = "argon"
         config["features"].update(istoreos=True, routerdog=True)
         config["system"]["theme_mode"] = "nas"
-    config["system"].update(hostname="Personal-QA", signature="Personal QA marker", password_secret=True)
+    config["system"].update(hostname="Personal-QA", signature="Personal QA marker", password_secret=True,password_source='secret')
     config["features"]["remove_links"] = True
     config["network"].update(wan_port="eth1", lan_ports="eth0")
     config["output"].update(rootfs_size_mb=512, vmdk=True, rootfs=True)

@@ -1,0 +1,1 @@
+{"targets":["armsr/armv8","ath79/nand","bcm27xx/bcm2709","bcm27xx/bcm2710","bcm27xx/bcm2711","bcm27xx/bcm2712","ramips/mt7621","rockchip/armv8","siflower/sf21"]}

@@ -1,8 +1,8 @@
-import {COMMON,CORE,NFT_ONLY,PROXIES,THEMES,defaultConfig,tokenize,validate,privateContent,safePreset} from './lib/model.js?v=20261026-8';
-import {GitHub,repositoryName} from './lib/github.js?v=20261026-8';
-import {internalRun,firmwareArtifact,firmwareFile,downloadLabel,deliveryLabel,buildRecord,privateArchives} from './lib/delivery.js?v=20261026-8';
+import {COMMON,CORE,NFT_ONLY,PROXIES,THEMES,defaultConfig,tokenize,validate,privateContent,safePreset,deviceOutput,deviceMatches,upgradeAutofill} from './lib/model.js?v=20261026-9';
+import {GitHub,repositoryName} from './lib/github.js?v=20261026-9';
+import {internalRun,firmwareArtifact,firmwareFile,downloadLabel,deliveryLabel,buildRecord,privateArchives} from './lib/delivery.js?v=20261026-9';
 import {SOFTWARE_PROFILES,applySoftwareProfile,softwareAdvice} from './lib/software.js?v=20261026-3';
-import {runStatus,stepStatus,active,requestRun,stageName,failureHelp,artifactInfo} from './lib/progress.js?v=20261026-8';
+import {runStatus,stepStatus,active,requestRun,stageName,failureHelp,artifactInfo} from './lib/progress.js?v=20261026-9';
 import {verifyDownload,verificationTarget} from './lib/verification.js?v=20261026-8';
 import {mergeApproved} from './lib/upstream.js?v=20261026-3';
 
@@ -33,12 +33,16 @@ function readForm(){
   for(const [group,fields] of Object.entries(bindings))for(const [key,id]of Object.entries(fields))c[group][key]=val(id);
   for(const [group,fields] of Object.entries(checks))for(const [key,id]of Object.entries(fields))c[group][key]=checked(id);
   c.build_mode=val('build-mode');c.output.rootfs_size_mb=Number(val('rootfs-size'));
+  c.system.password_source=val('password-source');
+  if(!c.target.startsWith('x86/'))c.output.image_types=[...$('image-types').selectedOptions].map(o=>o.value);
   c.packages=tokenize(val('custom-packages'));c.firewall=val('firewall');c.defaults=val('defaults');c.overlay=val('overlay-path').trim();
   for(const key of ['docker','usb_net','usb_wireless','wwan','istoreos','routerdog','remove_links'])c.features[key]=checked(`feature-${key}`);
   return c;
 }
 function applyForm(c){
   $('build-mode').value=c.build_mode||'experiment';
+  $('password-source').value=c.system.password_source||'secret';
+  for(const option of $('image-types').options)option.selected=c.output.image_types?.includes(option.value)||false;
   for(const [group,fields]of Object.entries(bindings))for(const [key,id]of Object.entries(fields))$(id).value=c[group][key];
   for(const [group,fields]of Object.entries(checks))for(const [key,id]of Object.entries(fields))$(id).checked=c[group][key];
   $('rootfs-size').value=c.output.rootfs_size_mb;$('custom-packages').value=c.packages.join(' ');$('firewall').value=c.firewall;$('defaults').value=c.defaults;$('overlay-path').value=c.overlay;
@@ -56,14 +60,15 @@ function update(){
   if(!state.device)return;
   state.config=readForm();
   const c=state.config,errors=validate(c,state.available,state.catalog?.versions);
-  $('delivery-help').textContent=c.build_mode==='release'?'正式模式：要求私有仓库、至少 12 位后台密码 Secret、HTTPS；本次 x86/64 磁盘映像均须启动和登录验收通过。仍需你验证实体硬件。':'实验模式：可以不设置密码，不执行本次映像启动验收。请勿直接接入实际网络。';
+  $('delivery-help').textContent=c.build_mode==='release'?'x86 启动验收：本次所选磁盘均须通过虚拟机启动和登录测试。使用私有仓库、密码和 HTTPS；实体硬件仍未验证。':c.build_mode==='device'?'设备编译校验：检查包依赖、固件文件和 SHA256。没有替你验证这台设备能否开机；首次刷机须核对型号和恢复方法。':'实验模式：不执行启动验收。';
   $('summary-device').textContent=state.device.name;$('summary-version').textContent=c.version;
   $('summary-packages').textContent=`${new Set([...c.packages,...c.themes,...c.proxies]).size} 个`;
   $('summary-removed').textContent=`${c.remove_packages.length} 个`;
-  $('summary-output').textContent=[c.output.efi?'EFI':'',c.output.legacy?'Legacy':'',c.output.vmdk?'VMDK':'',c.output.rootfs?'ROOTFS':''].filter(Boolean).join(' / ')||c.output.filesystem;
+  $('summary-output').textContent=c.target.startsWith('x86/')?[c.output.efi?'EFI':'',c.output.legacy?'Legacy':'',c.output.vmdk?'VMDK':'',c.output.rootfs?'ROOTFS':''].filter(Boolean).join(' / ')||c.output.filesystem:[...(c.output.image_types||[]),c.output.rootfs?'ROOTFS':''].filter(Boolean).join(' / ')||c.output.filesystem;
   const panel=$('validation');panel.replaceChildren();panel.classList.toggle('invalid',errors.length>0);
   if(errors.length){const list=node('ul');errors.forEach(e=>list.append(node('li',e)));panel.append(list);}else panel.textContent=privateContent(c)||state.file?'配置已通过基础检查。含私人内容，须在私有仓库构建。':'配置已通过基础检查。构建时会再次检查依赖和映像支持。';
   if(!errors.length&&!c.system.password_secret)panel.textContent+=' 尚未设置后台密码：仅建议用于实验，实际使用前请启用密码设置。';
+  if(c.system.password_secret&&c.system.password_source==='root')panel.textContent+=' 后台账号 root，临时密码 root。';
   $('software-advice').replaceChildren(...softwareAdvice(c).map(note=>node('p',note,'help')));
   for(const e of document.querySelectorAll('[data-package]')){
     const group=e.dataset.group,pkg=e.dataset.package;
@@ -93,7 +98,18 @@ function conditionalFields(){
   $('pppoe-secret').disabled=side;if(side)$('pppoe-secret').checked=false;
   $('dhcp-help').textContent=side?'旁路由开启 DHCP 时，须关闭主路由 DHCP；关闭时需要终端正确指定网关和 DNS。':'主路由模式下通常开启 DHCP。';
   for(const id of ['wan-port','lan-ports','rootfs-size','efi','legacy','vmdk'])$(id).disabled=!x86;
-  if(!x86){$('wan-port').value='';$('lan-ports').value='';$('rootfs-size').value=256;$('vmdk').checked=false;}
+  $('device-output-field').hidden=x86;
+  $('password-source').disabled=!checked('password-secret');
+  if(!x86&&state.target){
+    const images=state.target.profiles.profiles[state.device.id].images;
+    const types=[...new Set(images.filter(i=>i.filesystem===val('filesystem')).map(i=>i.type))];
+    if([...$('image-types').options].map(o=>o.value).join('|')!==types.join('|')){
+      const old=[...$('image-types').selectedOptions].map(o=>o.value);$('image-types').replaceChildren();
+      for(const type of types){const option=new Option(type,type);option.selected=old.includes(type);$('image-types').add(option);}
+      if(types.length&&!$('image-types').selectedOptions.length)$('image-types').options[0].selected=true;
+    }
+  }
+  if(!x86){$('wan-port').value='';$('lan-ports').value='';$('rootfs-size').value=256;for(const id of ['vmdk','efi','legacy'])$(id).checked=false;}
   for(const b of document.querySelectorAll('#proxy-packages button')){
     const nft=NFT_ONLY.has(b.dataset.package);
     const blocked=nft&&val('firewall')==='iptables';
@@ -116,7 +132,9 @@ function renderDefaultThemes(){
 }
 function renderPackages(){
   const meta=state.target.profiles,profile=meta.profiles[state.device.id];
-  const factory=[...new Set([...(meta.default_packages||[]),...(profile.device_packages||[])])].sort();
+  const tokens=[...(meta.default_packages||[]),...(profile.device_packages||[])];
+  const excluded=new Set(tokens.filter(p=>p.startsWith('-')).map(p=>p.slice(1)));
+  const factory=[...new Set(tokens.filter(p=>!p.startsWith('-')&&!excluded.has(p)))].sort();
   $('factory-count').textContent=`${factory.length} 个`;$('factory-packages').replaceChildren(...factory.map(pkg=>chip(pkg,pkg,'remove_packages',{disabled:CORE.has(pkg)||(state.config.builder==='kwrt'&&pkg==='my-default-settings')})));
   $('package-count').textContent=`${state.available.size.toLocaleString()} 个可用包`;
   const groups=new Map();for(const item of COMMON){if(!groups.has(item.group))groups.set(item.group,[]);groups.get(item.group).push(item);}
@@ -149,6 +167,7 @@ async function targetData(device){
 async function selectDevice(device,config=null){
   const requestId=++state.loadId;notice('正在读取设备详情和可用软件包…');$('device-results').hidden=true;$('device-search').setAttribute('aria-expanded','false');
   state.loading=true;state.metadataReady=false;$('build-button').disabled=true;$('preview-button').disabled=true;
+  $('device-search').disabled=true;
   try{
     const data=await targetData(device);if(requestId!==state.loadId)return;
     state.device=device;state.target=data;state.available=new Set(data.packages);state.config=config||defaultConfig(device.version,device.target,device.id);
@@ -160,19 +179,30 @@ async function selectDevice(device,config=null){
     $('builder-label').textContent=device.builder==='kwrt'?'Kwrt ImageBuilder':'官方 ImageBuilder';
     $('kernel-label').textContent=data.profiles.linux_kernel?.version||'查看构建环境';
     const images=data.profiles.profiles[device.id]?.images||[];
+    $('image-types').replaceChildren();
+    if(!device.target.startsWith('x86/')){
+      if(!config)Object.assign(state.config.output,deviceOutput(images),{efi:false,legacy:false});
+      for(const type of new Set(images.filter(i=>i.filesystem===state.config.output.filesystem&&!i.name?.endsWith('.vmdk.zip')).map(i=>i.type)))$('image-types').add(new Option(type,type));
+    }
+    const fs=new Set(images.map(i=>i.filesystem));
+    for(const option of $('filesystem').options)option.disabled=!fs.has(option.value)&&!(device.target==='x86/64'&&option.value==='ext4');
+    const rootfsOnly=!fs.has('squashfs')&&!fs.has('ext4')&&fs.has('targz');
+    if(rootfsOnly){$('filesystem').disabled=true;state.config.output.rootfs=true;}else $('filesystem').disabled=false;
+    $('rootfs').disabled=rootfsOnly||!fs.has('targz');
+    $('device-test-status').textContent=data.build_blocked|| (rootfsOnly?'此档案仅提供 ROOTFS 根文件系统，不提供可直接刷机的整机映像。':device.target==='x86/64'?'可对本次映像执行虚拟机启动验收；实体硬件未测试。':'提供此型号的构建档案。构建成功与文件校验不等于此型号已做实体开机测试。');
     $('official-images').replaceChildren();
     const imageBase=data.image_base||`https://downloads.openwrt.org/releases/${device.version}/targets/${device.target}`;
     for(const image of images){const row=node('div',undefined,'download-item');const link=node('a',`${image.type} · ${image.filesystem} · ${(image.size/1048576).toFixed(1)} MiB ↗`);link.href=`${imageBase}/${encodeURIComponent(image.name)}`;link.target='_blank';link.rel='noreferrer';row.append(link,node('code',`SHA256 ${image.sha256}`));$('official-images').append(row);}
     renderPackages();renderSoftwareProfiles();applyForm(state.config);update();
     const source=device.builder==='kwrt'?'Kwrt 固定构建包':'OpenWrt 官方';
-    notice(data.package_metadata_errors.length?'设备资料已载入，但部分包索引不可用；请刷新后再构建。':`${source}资料已载入。`+(state.git?`已连接构建仓库 ${state.git.repo}。`:'可导出配置，在 GitHub 手动构建；连接仓库授权后也可直接提交。'),data.package_metadata_errors.length?'warning':'');
+    notice(data.build_blocked|| (data.package_metadata_errors.length?'设备资料已载入，但部分包索引不可用；请刷新后再构建。':`${source}资料已载入。`+(state.git?`已连接构建仓库 ${state.git.repo}。`:'可导出配置，在 GitHub 手动构建；连接仓库授权后也可直接提交。')),data.build_blocked||data.package_metadata_errors.length?'warning':'');
     state.metadataReady=!data.package_metadata_errors.length;return true;
   }catch(error){if(requestId===state.loadId)notice(`设备资料载入失败：${error.message}。可重新选择或刷新。`,'error');return false;
-  }finally{if(requestId===state.loadId){state.loading=false;buildAvailability();$('preview-button').disabled=!state.metadataReady;}}
+  }finally{if(requestId===state.loadId){state.loading=false;$('device-search').disabled=false;buildAvailability();$('preview-button').disabled=!state.metadataReady;}}
 }
 function showDevices(){
   const value=val('device-search').toLowerCase().trim(),version=val('version');
-  const devices=state.catalog.devices.filter(d=>d.version===version&&[d.name,d.target,d.id,...d.aliases].some(s=>s.toLowerCase().includes(value))).sort((a,b)=>Number(b.target==='x86/64')-Number(a.target==='x86/64')).slice(0,40);
+  const devices=state.catalog.devices.filter(d=>d.version===version&&deviceMatches(d,value)).sort((a,b)=>Number(b.target==='x86/64')-Number(a.target==='x86/64')).slice(0,40);
   $('device-results').replaceChildren();
   for(const d of devices){const b=node('button',d.name);b.type='button';b.setAttribute('role','option');b.append(node('small',`${d.target} · ${d.id}`));b.addEventListener('click',()=>selectDevice(d));$('device-results').append(b);}
   if(!devices.length)$('device-results').append(node('p','未找到匹配设备。','help'));
@@ -235,7 +265,7 @@ async function startVerification(){
   finally{if(current()){$('verify-file').disabled=false;$('verify-cancel').disabled=true;verificationController=null;}}
 }
 function savePending(){try{if(state.pending)sessionStorage.setItem('pb-pending',JSON.stringify(state.pending));else sessionStorage.removeItem('pb-pending');}catch{}}
-function buildAvailability(){$('build-button').disabled=state.busy||state.loading||!state.metadataReady||Boolean(state.pending&&state.git?.repo===state.pending.repo);}
+function buildAvailability(){$('build-button').disabled=state.busy||state.loading||!state.metadataReady||Boolean(state.target?.build_blocked)||Boolean(state.pending&&state.git?.repo===state.pending.repo);}
 function pendingPanel(){
   const p=state.pending,box=$('pending-build');box.hidden=!p||p.repo!==state.git?.repo;
   if(box.hidden)return;
@@ -350,9 +380,10 @@ async function loadRunDetails(run,container){
   catch(error){if(git!==state.git)return;state.details.set(run.id,{error:error.message});}
   if(container?.isConnected)renderRunDetails(run,container);
 }
-function schedulePoll(){clearTimeout(pollTimer);if(state.git&&!document.hidden)pollTimer=setTimeout(()=>refreshRuns(false),state.pending||state.runs.some(active)?20000:60000);}
+function schedulePoll(){clearTimeout(pollTimer);const delay=state.git?.pollDelay;if(state.git&&!document.hidden&&Number.isFinite(delay))pollTimer=setTimeout(()=>refreshRuns(false),Math.min(2147483647,Math.max(delay,state.pending||state.runs.some(active)?20000:60000)));}
 async function refreshRuns(manual=true){
   if(!state.git){if(manual)toast('先连接你的 GitHub 构建仓库。');return;}
+  if(!state.git.canQuery){$('poll-status').textContent=state.git.pauseError().message;schedulePoll();if(manual)toast(state.git.pauseError().message);return;}
   if(state.refreshing)return;state.refreshing=true;const git=state.git;$('refresh-runs').disabled=true;$('refresh-results').disabled=true;
   try{const [history,first,successful]=await Promise.all([git.runs(state.historyPage),state.historyPage>1?git.runs():null,git.latestSuccess()]);if(git!==state.git)return;
     const runs=history.workflow_runs||[];state.runs=runs;state.totalRuns=history.total_count||0;state.latestRuns=(first||history).workflow_runs||[];state.success=(successful.workflow_runs||[]).find(r=>!internalRun(r))||null;state.resultsLoaded=true;state.runError='';const tracked=state.pending?.repo===git.repo?requestRun(state.latestRuns,state.pending.id):null;
@@ -362,9 +393,13 @@ async function refreshRuns(manual=true){
     const opened=runs.find(run=>run.id===state.expanded);if(opened)await loadRunDetails(opened);
     if(git!==state.git)return;renderRuns();pendingPanel();buildAvailability();$('poll-status').textContent=`自动更新中 · 最近更新 ${new Date().toLocaleTimeString()}（切换到后台时暂停）`;
   }catch(error){if(git===state.git){state.runError=error.message;$('poll-status').textContent=`刷新失败：${error.message} 原记录保留；不会自动重提交构建。`;}}
-  finally{if(git===state.git){state.refreshing=false;$('refresh-runs').disabled=false;renderLatestResults();schedulePoll();if(state.archiving.size)refreshArchives();if(Date.now()-upstreamAt>300000)refreshUpstream();renderConnection();}}
+  finally{if(git===state.git){state.refreshing=false;$('refresh-runs').disabled=false;renderLatestResults();schedulePoll();if(git.canQuery){if(state.archiving.size)refreshArchives();if(Date.now()-upstreamAt>300000)refreshUpstream();}renderConnection();}}
 }
-function renderConnection(){const git=state.git;$('disconnect-button').hidden=!git;$('connection-info').textContent=git?`授权仅保存在此页内存，可随时断开；不会取消 GitHub 已受理的任务。${git.tokenExpiresAt?`令牌到期：${git.tokenExpiresAt}。`:''}${Number.isFinite(git.rateRemaining)&&git.rateRemaining<100?`GitHub 本时段剩余请求 ${git.rateRemaining}，请减少手动刷新。`:''}`:'尚未连接。刷新或关闭此页会清除网页授权，不影响 GitHub 定时任务和已保存固件。';}
+function renderConnection(){
+  const git=state.git;$('disconnect-button').hidden=!git;
+  if(git){$('connection-label').textContent=git.blocked?'授权已暂停 · 重新连接':!git.canQuery?'GitHub 暂停读取':`${git.repo.split('/')[1]} · ${git.private?'私有':'公开'}`;$('connection-dot').classList.toggle('connected',git.canQuery);}
+  $('connection-info').textContent=git?`${!git.canQuery?git.pauseError().message+' ':''}授权仅保存在此页内存，可随时断开；不会取消 GitHub 已受理的任务。${git.tokenExpiresAt?`令牌到期：${git.tokenExpiresAt}。`:''}${Number.isFinite(git.rateRemaining)&&git.rateRemaining<100?`GitHub 本时段剩余请求 ${git.rateRemaining}。`:''}`:'尚未连接。刷新或关闭此页会清除网页授权，不影响 GitHub 定时任务和已保存固件。';
+}
 function disconnect(){
   const uncertain=state.busy||state.archiving.size;
   clearVerification();
@@ -483,7 +518,7 @@ async function init(){
     $('metadata-date').textContent=`资料更新 ${new Date(state.catalog.updated).toLocaleDateString()}`;
     const devices=state.catalog.devices.filter(d=>d.version===val('version'));$('device-count').textContent=`${devices.length.toLocaleString()} 个设备档案`;
     let saved=null;try{if(checked('autofill'))saved=JSON.parse(localStorage.getItem('pb-current')||'null');}catch{}
-    if(saved)try{await restore(saved);return;}catch{if(saved.version&&!state.catalog.versions.includes(saved.version)){deferredConfig=saved;toast('上次配置使用自动更新版本，连接私有仓库后可恢复；原保存内容未覆盖。');}else toast('原保存配置不适用于当前目录，已恢复默认。');}
+    if(saved)try{await restore(upgradeAutofill(saved));return;}catch{if(saved.version&&!state.catalog.versions.includes(saved.version)){deferredConfig=upgradeAutofill(saved);toast('上次配置使用自动更新版本，连接私有仓库后可恢复；原保存内容未覆盖。');}else toast('原保存配置不适用于当前目录，已恢复默认。');}
     await selectDevice(devices.find(d=>d.target==='x86/64'&&d.id==='generic')||devices[0]);
   }catch(error){notice(`设备目录读取失败：${error.message}。请用 HTTP 服务器打开此网页，不要直接双击 HTML。`,'error');}
 }

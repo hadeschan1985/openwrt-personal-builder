@@ -2,6 +2,9 @@ name: Build personal firmware
 run-name: Personal firmware · ${{ inputs.request_id || github.run_number }}
 
 on:
+  push:
+    branches: [main]
+    paths: ['configs/delivery-qa.json']
   workflow_dispatch:
     inputs:
       config_json:
@@ -26,11 +29,12 @@ concurrency:
 
 jobs:
   firmware:
+    if: github.event_name != 'push' || github.event.repository.private
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     env:
       CONFIG_JSON: ${{ inputs.config_json }}
-      CONFIG_PATH: ${{ inputs.config_path }}
+      CONFIG_PATH: ${{ github.event_name == 'push' && 'configs/delivery-qa.json' || inputs.config_path }}
       REPOSITORY_PRIVATE: ${{ github.event.repository.private }}
       ENFORCE_APPROVED_UPSTREAM: 'true'
       ROUTER_PASSWORD: ${{ secrets.ROUTER_PASSWORD }}
@@ -88,6 +92,9 @@ jobs:
       - name: Verify actual images and selected local services
         if: steps.config.outputs.build_mode == 'release'
         run: python -m scripts.delivery_vm
+      - name: Verify device firmware containers and file integrity
+        if: steps.config.outputs.build_mode == 'device'
+        run: python -m scripts.image_verify
       - name: Prepare delivery manifest
         id: delivery
         run: python -m scripts.delivery record
@@ -136,14 +143,12 @@ jobs:
           if-no-files-found: error
           retention-days: 7
           compression-level: 0
-      - name: Upload other-platform firmware
-        if: steps.delivery.outputs.x86 != 'true'
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      - name: Upload each device image separately
+        if: fromJSON(steps.delivery.outputs.device_count) > 0
+        uses: ./.github/actions/upload-device-images
         with:
-          name: firmware-${{ github.run_number }}
-          path: outputs/
-          if-no-files-found: error
-          retention-days: 7
+          run_number: ${{ github.run_number }}
+          count: ${{ steps.delivery.outputs.device_count }}
       - name: Upload logs and manifests
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
@@ -154,6 +159,7 @@ jobs:
             outputs/*.manifest
             outputs/build-summary.json
             outputs/vm-report.json
+            outputs/image-report.json
           retention-days: 7
       - name: Upload private record for trusted recorder
         if: github.event.repository.private
@@ -181,7 +187,8 @@ jobs:
               f.write('## Firmware built\n\n')
               f.write('Each x86 download contains one image only: EFI, Legacy, EFI VMDK and Legacy VMDK are separate. Download only the format you need. Verify SHA256SUMS before use.\n\n')
               mode = '${{ steps.config.outputs.build_mode }}'
-              f.write('Status: **exact-image VM verified; hardware NOT tested**.\n\n' if mode == 'release' else 'Status: **EXPERIMENTAL; NOT boot/hardware tested**.\n\n')
+              status={'release':'exact-image VM verified; hardware NOT tested','device':'device firmware built and integrity checked; NOT boot/hardware tested','experiment':'EXPERIMENTAL; NOT boot/hardware tested'}
+              f.write('Status: **'+status[mode]+'**.\n\n')
               f.write('| File | Bytes | SHA256 |\n|---|---:|---|\n')
               for item in data['files']:
                   f.write(f"| {item['name']} | {item['bytes']} | `{item['sha256']}` |\n")

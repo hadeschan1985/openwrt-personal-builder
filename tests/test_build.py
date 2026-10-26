@@ -148,7 +148,7 @@ class ConfigurationTests(unittest.TestCase):
         config = example()
         config.update(builder="kwrt", version="kwrt-25.12-20261012")
         self.assertEqual(normalize(config)["builder"], "kwrt")
-        for key, value in [("version", "kwrt-latest"), ("target", "mediatek/filogic")]:
+        for key, value in [("version", "kwrt-latest"), ("target", "unknown/not-pinned")]:
             bad = copy.deepcopy(config)
             bad[key] = value
             with self.assertRaises(ConfigError):

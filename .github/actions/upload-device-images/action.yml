@@ -1,0 +1,268 @@
+name: Upload device images separately
+description: One firmware file per artifact, bounded to 32 files
+inputs:
+  count:
+    description: Number of device image files
+    required: true
+  run_number:
+    description: Build number
+    required: true
+runs:
+  using: composite
+  steps:
+    - if: fromJSON(inputs.count) >= 1
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      with:
+        name: firmware-${{ inputs.run_number }}-device-01
+        path: work/downloads-separated/device-01/*
+        if-no-files-found: error
+        retention-days: 7
+        compression-level: 0
+    - if: fromJSON(inputs.count) >= 2
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      with:
+        name: firmware-${{ inputs.run_number }}-device-02
+        path: work/downloads-separated/device-02/*
+        if-no-files-found: error
+        retention-days: 7
+        compression-level: 0
+    - if: fromJSON(inputs.count) >= 3
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      with:
+        name: firmware-${{ inputs.run_number }}-device-03
+        path: work/downloads-separated/device-03/*
+        if-no-files-found: error
+        retention-days: 7
+        compression-level: 0
+    - if: fromJSON(inputs.count) >= 4
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      with:
+        name: firmware-${{ inputs.run_number }}-device-04
+        path: work/downloads-separated/device-04/*
+        if-no-files-found: error
+        retention-days: 7
+        compression-level: 0
+    - if: fromJSON(inputs.count) >= 5
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      with:
+        name: firmware-${{ inputs.run_number }}-device-05
+        path: work/downloads-separated/device-05/*
+        if-no-files-found: error
+        retention-days: 7
+        compression-level: 0
+    - if: fromJSON(inputs.count) >= 6
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      with:
+        name: firmware-${{ inputs.run_number }}-device-06
+        path: work/downloads-separated/device-06/*
+        if-no-files-found: error
+        retention-days: 7
+        compression-level: 0
+    - if: fromJSON(inputs.count) >= 7
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      with:
+        name: firmware-${{ inputs.run_number }}-device-07
+        path: work/downloads-separated/device-07/*
+        if-no-files-found: error
+        retention-days: 7
+        compression-level: 0
+    - if: fromJSON(inputs.count) >= 8
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      with:
+        name: firmware-${{ inputs.run_number }}-device-08
+        path: work/downloads-separated/device-08/*
+        if-no-files-found: error
+        retention-days: 7
+        compression-level: 0
+    - if: fromJSON(inputs.count) >= 9
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      with:
+        name: firmware-${{ inputs.run_number }}-device-09
+        path: work/downloads-separated/device-09/*
+        if-no-files-found: error
+        retention-days: 7
+        compression-level: 0
+    - if: fromJSON(inputs.count) >= 10
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      with:
+        name: firmware-${{ inputs.run_number }}-device-10
+        path: work/downloads-separated/device-10/*
+        if-no-files-found: error
+        retention-days: 7
+        compression-level: 0
+    - if: fromJSON(inputs.count) >= 11
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      with:
+        name: firmware-${{ inputs.run_number }}-device-11
+        path: work/downloads-separated/device-11/*
+        if-no-files-found: error
+        retention-days: 7
+        compression-level: 0
+    - if: fromJSON(inputs.count) >= 12
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      with:
+        name: firmware-${{ inputs.run_number }}-device-12
+        path: work/downloads-separated/device-12/*
+        if-no-files-found: error
+        retention-days: 7
+        compression-level: 0
+    - if: fromJSON(inputs.count) >= 13
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      with:
+        name: firmware-${{ inputs.run_number }}-device-13
+        path: work/downloads-separated/device-13/*
+        if-no-files-found: error
+        retention-days: 7
+        compression-level: 0
+    - if: fromJSON(inputs.count) >= 14
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      with:
+        name: firmware-${{ inputs.run_number }}-device-14
+        path: work/downloads-separated/device-14/*
+        if-no-files-found: error
+        retention-days: 7
+        compression-level: 0
+    - if: fromJSON(inputs.count) >= 15
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      with:
+        name: firmware-${{ inputs.run_number }}-device-15
+        path: work/downloads-separated/device-15/*
+        if-no-files-found: error
+        retention-days: 7
+        compression-level: 0
+    - if: fromJSON(inputs.count) >= 16
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      with:
+        name: firmware-${{ inputs.run_number }}-device-16
+        path: work/downloads-separated/device-16/*
+        if-no-files-found: error
+        retention-days: 7
+        compression-level: 0
+    - if: fromJSON(inputs.count) >= 17
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      with:
+        name: firmware-${{ inputs.run_number }}-device-17
+        path: work/downloads-separated/device-17/*
+        if-no-files-found: error
+        retention-days: 7
+        compression-level: 0
+    - if: fromJSON(inputs.count) >= 18
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      with:
+        name: firmware-${{ inputs.run_number }}-device-18
+        path: work/downloads-separated/device-18/*
+        if-no-files-found: error
+        retention-days: 7
+        compression-level: 0
+    - if: fromJSON(inputs.count) >= 19
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      with:
+        name: firmware-${{ inputs.run_number }}-device-19
+        path: work/downloads-separated/device-19/*
+        if-no-files-found: error
+        retention-days: 7
+        compression-level: 0
+    - if: fromJSON(inputs.count) >= 20
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      with:
+        name: firmware-${{ inputs.run_number }}-device-20
+        path: work/downloads-separated/device-20/*
+        if-no-files-found: error
+        retention-days: 7
+        compression-level: 0
+    - if: fromJSON(inputs.count) >= 21
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      with:
+        name: firmware-${{ inputs.run_number }}-device-21
+        path: work/downloads-separated/device-21/*
+        if-no-files-found: error
+        retention-days: 7
+        compression-level: 0
+    - if: fromJSON(inputs.count) >= 22
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      with:
+        name: firmware-${{ inputs.run_number }}-device-22
+        path: work/downloads-separated/device-22/*
+        if-no-files-found: error
+        retention-days: 7
+        compression-level: 0
+    - if: fromJSON(inputs.count) >= 23
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      with:
+        name: firmware-${{ inputs.run_number }}-device-23
+        path: work/downloads-separated/device-23/*
+        if-no-files-found: error
+        retention-days: 7
+        compression-level: 0
+    - if: fromJSON(inputs.count) >= 24
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      with:
+        name: firmware-${{ inputs.run_number }}-device-24
+        path: work/downloads-separated/device-24/*
+        if-no-files-found: error
+        retention-days: 7
+        compression-level: 0
+    - if: fromJSON(inputs.count) >= 25
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      with:
+        name: firmware-${{ inputs.run_number }}-device-25
+        path: work/downloads-separated/device-25/*
+        if-no-files-found: error
+        retention-days: 7
+        compression-level: 0
+    - if: fromJSON(inputs.count) >= 26
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      with:
+        name: firmware-${{ inputs.run_number }}-device-26
+        path: work/downloads-separated/device-26/*
+        if-no-files-found: error
+        retention-days: 7
+        compression-level: 0
+    - if: fromJSON(inputs.count) >= 27
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      with:
+        name: firmware-${{ inputs.run_number }}-device-27
+        path: work/downloads-separated/device-27/*
+        if-no-files-found: error
+        retention-days: 7
+        compression-level: 0
+    - if: fromJSON(inputs.count) >= 28
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      with:
+        name: firmware-${{ inputs.run_number }}-device-28
+        path: work/downloads-separated/device-28/*
+        if-no-files-found: error
+        retention-days: 7
+        compression-level: 0
+    - if: fromJSON(inputs.count) >= 29
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      with:
+        name: firmware-${{ inputs.run_number }}-device-29
+        path: work/downloads-separated/device-29/*
+        if-no-files-found: error
+        retention-days: 7
+        compression-level: 0
+    - if: fromJSON(inputs.count) >= 30
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      with:
+        name: firmware-${{ inputs.run_number }}-device-30
+        path: work/downloads-separated/device-30/*
+        if-no-files-found: error
+        retention-days: 7
+        compression-level: 0
+    - if: fromJSON(inputs.count) >= 31
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      with:
+        name: firmware-${{ inputs.run_number }}-device-31
+        path: work/downloads-separated/device-31/*
+        if-no-files-found: error
+        retention-days: 7
+        compression-level: 0
+    - if: fromJSON(inputs.count) >= 32
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      with:
+        name: firmware-${{ inputs.run_number }}-device-32
+        path: work/downloads-separated/device-32/*
+        if-no-files-found: error
+        retention-days: 7
+        compression-level: 0

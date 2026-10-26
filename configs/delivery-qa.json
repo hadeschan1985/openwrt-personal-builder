@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "build_mode": "device",
+  "builder": "kwrt",
+  "version": "kwrt-25.12-20261012",
+  "target": "mediatek/filogic",
+  "profile": "xiaomi_redmi-router-ax6000",
+  "packages": [
+    "curl",
+    "luci-app-ddns"
+  ],
+  "remove_packages": [],
+  "themes": [
+    "luci-theme-bootstrap"
+  ],
+  "proxies": [
+    "luci-app-homeproxy"
+  ],
+  "firewall": "nftables",
+  "system": {
+    "hostname": "PersonalQA",
+    "ip": "192.168.1.1",
+    "webserver": "uhttpd",
+    "https": true,
+    "ipv6": true,
+    "signature": "Device delivery regression 20261027",
+    "default_theme": "bootstrap",
+    "password_secret": true,
+    "password_source": "root"
+  },
+  "network": {
+    "mode": "router",
+    "gateway": "",
+    "dhcp": true,
+    "wan_port": "",
+    "lan_ports": "",
+    "wifi_ssid": "",
+    "pppoe_secret": false,
+    "wifi_password_secret": false
+  },
+  "features": {
+    "docker": false,
+    "usb_net": false,
+    "usb_wireless": false,
+    "wwan": false
+  },
+  "output": {
+    "filesystem": "squashfs",
+    "rootfs_size_mb": 256,
+    "efi": false,
+    "legacy": false,
+    "vmdk": false,
+    "rootfs": false,
+    "image_types": [
+      "factory",
+      "sysupgrade"
+    ]
+  },
+  "defaults": "",
+  "overlay": ""
+}

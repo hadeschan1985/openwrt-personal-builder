@@ -23,6 +23,11 @@ import tarfile
 import urllib.request
 import zipfile
 
+if __package__:
+    from .builders import resolve as kwrt_builder
+else:
+    from builders import resolve as kwrt_builder
+
 BASE = "https://downloads.openwrt.org"
 REGISTRY = Path(__file__).resolve().parents[1] / "configs" / "builders.json"
 PACKAGE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9+_.-]{0,120}$")
@@ -71,9 +76,10 @@ def normalize(raw):
     require(isinstance(target, str) and re.fullmatch(r"[a-z0-9_-]+/[a-z0-9_-]+", target), "Invalid target")
     require(isinstance(profile, str) and re.fullmatch(r"[A-Za-z0-9_,.+-]+", profile), "Invalid profile")
     if builder == "kwrt":
-        require(target == json.loads(REGISTRY.read_text(encoding="utf-8"))[version]["target"], "Kwrt builder target mismatch")
+        try:kwrt_builder(version,target,json.loads(REGISTRY.read_text(encoding='utf-8')))
+        except ValueError as error:raise ConfigError(str(error)) from None
     build_mode = raw.get("build_mode", "experiment")
-    require(build_mode in ("release", "experiment"), "Invalid build mode")
+    require(build_mode in ("release", "device", "experiment"), "Invalid build mode")
     result = {"schema_version": 1, "build_mode": build_mode, "builder": builder, "version": version, "target": target, "profile": profile}
     for key in ("packages", "remove_packages", "themes", "proxies"):
         values = raw.get(key, [])
@@ -114,6 +120,9 @@ def normalize(raw):
         "signature": signature, "default_theme": default_theme, "theme_mode": theme_mode,
         "https": boolean(system, "https", True), "ipv6": boolean(system, "ipv6", True),
         "password_secret": boolean(system, "password_secret")}
+    if 'password_source' in system:
+        require(system['password_source'] in ('root','secret'), 'Invalid router password source')
+        result['system']['password_source']=system['password_source']
     net = raw.get("network", {})
     require(isinstance(net, dict), "Invalid network settings")
     mode = net.get("mode", "router")
@@ -167,6 +176,10 @@ def normalize(raw):
     require(not vmdk or efi or legacy, "VMDK requires a bootable disk output")
     require(not target.startswith("x86/") or efi or legacy or rootfs, "Select an output")
     result["output"] = {"filesystem": fs, "rootfs_size_mb": size, "efi": efi, "legacy": legacy, "vmdk": vmdk, "rootfs": rootfs}
+    if 'image_types' in output:
+        types=output['image_types']
+        require(isinstance(types,list) and len(types)<=32 and all(isinstance(t,str) and re.fullmatch(r'[A-Za-z0-9_.+-]{1,64}',t) for t in types), 'Invalid device image types')
+        result['output']['image_types']=sorted(set(types))
     defaults = raw.get("defaults", "")
     require(isinstance(defaults, str) and len(defaults.encode()) <= 20000 and "\x00" not in defaults, "Initialization script is too large or invalid")
     result["defaults"] = defaults
@@ -197,7 +210,7 @@ def package_plan(config):
     if config["features"]["usb_wireless"]:
         remove.update(["wpad-basic-mbedtls", "wpad-basic-wolfssl"])
     if config["builder"] == "kwrt":
-        spec = json.loads(REGISTRY.read_text(encoding="utf-8"))[config["version"]]
+        spec = kwrt_builder(config['version'],config['target'],json.loads(REGISTRY.read_text(encoding='utf-8')))
         require(not packages.intersection(spec["exclude_defaults"]), "Selected Kwrt package has missing upstream dependencies")
         remove.update(spec["exclude_defaults"])
         packages.update(p for p in spec["replacement_packages"] if p not in remove)
@@ -222,6 +235,11 @@ def password_hash(password):
     require(answer.returncode == 0 and re.fullmatch(r"\$6\$[./A-Za-z0-9]{1,16}\$[./A-Za-z0-9]{86}", hashed),
             "Password hashing failed; no plaintext fallback is allowed")
     return hashed
+
+
+def router_password(config,env=None):
+    env=os.environ if env is None else env
+    return 'root' if config['system'].get('password_source')=='root' else env.get('ROUTER_PASSWORD','')
 
 
 def defaults_script(config, env=None):
@@ -295,7 +313,8 @@ def defaults_script(config, env=None):
         require(bool(value) and "\x00" not in value and "\n" not in value and "\r" not in value, f"Missing or invalid repository secret: {name}")
         return value
     if system["password_secret"]:
-        password = secret("ROUTER_PASSWORD")
+        password = router_password(config,env)
+        require(bool(password), 'Missing router password')
         require(":" not in password, "ROUTER_PASSWORD cannot contain a colon")
         hashed = password_hash(password)
         # The read-only firmware must not retain the plaintext router password.
@@ -399,7 +418,7 @@ def extract_overlay(archive: Path, destination: Path, allow_ipk=False):
     require(allow_ipk or not list(destination.rglob("*.ipk")), "Custom IPK packages require the Kwrt/opkg builder")
 
 
-def ipk_control(path):
+def ipk_control(path,architecture='x86_64'):
     raw = path.read_bytes()
     if raw.startswith(b"!<arch>\n"):
         offset, control = 8, None
@@ -425,15 +444,15 @@ def ipk_control(path):
         fields = dict(line.split(": ", 1) for line in inner.extractfile(member).read().decode().splitlines() if ": " in line and not line.startswith(" "))
     require(PACKAGE.fullmatch(fields.get("Package", "")) is not None, "Invalid custom IPK package name")
     require(fields["Package"] not in CORE and not fields["Package"].startswith("kmod-"), "Use the builder's own core and kernel-module packages")
-    require(fields.get("Architecture") in ("all", "x86_64"), "IPK architecture does not match this Kwrt x86 builder")
+    require(fields.get("Architecture") in ("all", architecture), "IPK architecture does not match the selected device builder")
     return fields
 
 
-def prepare_custom_ipks(overlay):
+def prepare_custom_ipks(overlay,architecture='x86_64'):
     """Stage packages for device-side installation, never host-side scripts."""
     packages, dependencies, staged = [], set(), []
     for path in sorted(overlay.rglob("*.ipk")):
-        fields = ipk_control(path)
+        fields = ipk_control(path,architecture)
         name = fields["Package"]
         require(name not in {p["name"] for p in packages}, "Duplicate custom IPK package")
         packages.append({"name": name, "version": fields.get("Version", ""), "sha256": sha256(path),
@@ -486,11 +505,11 @@ def selected_images(images, config):
         if fs == "targz":
             if out["rootfs"]:
                 matches.append(image)
-        elif fs == out["filesystem"]:
+        elif fs == out['filesystem'] or (not config['target'].startswith('x86/') and not fs and kind in out.get('image_types',[])):
             if config["target"].startswith("x86/"):
                 if not image.get("name", "").endswith(".vmdk.zip") and ((kind == "combined" and out["legacy"]) or (kind == "combined-efi" and out["efi"])):
                     matches.append(image)
-            elif kind in ("sysupgrade", "factory", "sdcard", "combined", "combined-efi"):
+            elif kind in (out.get('image_types') or ("sysupgrade", "factory", "sdcard", "sdcard-sysupgrade", "combined", "combined-efi", "emmc_burn", "bin", "trx", "firmware", "nand-sysupgrade", "nand-factory")):
                 matches.append(image)
     return matches
 
@@ -583,9 +602,10 @@ def build(config, root=Path(".")):
     root = root.resolve()
     workspace = root / "work" / "builder"
     require(not workspace.exists(), "Build directory already exists; use a fresh workspace")
-    kwrt = json.loads(REGISTRY.read_text(encoding="utf-8")).get(config["version"]) if config["builder"] == "kwrt" else None
+    kwrt = kwrt_builder(config['version'],config['target'],json.loads(REGISTRY.read_text(encoding='utf-8'))) if config['builder']=='kwrt' else None
+    require(not kwrt or not kwrt.get('blocked_reason'),kwrt.get('blocked_reason','') if kwrt else '')
     base = kwrt["base"] if kwrt else f"{BASE}/releases/{config['version']}/targets/{config['target']}"
-    metadata = get_json(base + "/profiles.json")
+    metadata = get_json(base+'/'+(kwrt.get('profiles_file','profiles.json') if kwrt else 'profiles.json'))
     require(config["profile"] in metadata["profiles"], "Profile not found in the selected target")
     available_images = metadata["profiles"][config["profile"]]["images"]
     require(selected_images(available_images, config) or (kwrt and config["target"] == "x86/64" and config["output"]["filesystem"] == "ext4"), "Requested output is unavailable in this builder")
@@ -622,7 +642,7 @@ def build(config, root=Path(".")):
     overlay = workspace / "personal-files"
     if config["overlay"]:
         extract_overlay(root / config["overlay"], overlay, allow_ipk=bool(kwrt))
-    custom_packages, dependencies = prepare_custom_ipks(overlay) if kwrt else ([], set())
+    custom_packages, dependencies = prepare_custom_ipks(overlay,metadata['arch_packages']) if kwrt else ([], set())
     custom_names = {p["name"] for p in custom_packages}
     factory = set(metadata.get("default_packages", [])) | set(metadata["profiles"][config["profile"]].get("device_packages", []))
     existing = (factory | {p for p in package_plan(config) if not p.startswith("-")}) - set(config["remove_packages"])
@@ -645,6 +665,8 @@ def build(config, root=Path(".")):
             command.append("CONFIG_TARGET_ROOTFS_EXT4FS=y")
         if kwrt and config["output"]["vmdk"]:
             command.append("CONFIG_VMDK_IMAGES=y")
+    elif kwrt:
+        command.append('CONFIG_TARGET_ROOTFS_TARGZ=y')
     # Filesystem filtering is done on produced images as older builders do not
     # necessarily implement ROOTFS_FILESYSTEM. All selected outputs are checked.
     outputs = root / "outputs"

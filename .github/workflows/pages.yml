@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ['site/**', 'scripts/catalog.py', 'configs/builders.json', '.github/workflows/pages.yml']
+    paths: ['site/**', 'scripts/catalog.py', 'scripts/builders.py', 'scripts/device_audit.py', 'configs/builders.json', '.github/workflows/pages.yml']
 
 permissions:
   contents: read
@@ -32,6 +32,10 @@ jobs:
           python-version: '3.12'
       # Publish the checked-in baseline, not untested live upstream releases.
       # Approved newer x86/64 versions are loaded from the private build repo.
+      - name: Extend baseline with every pinned Kwrt device platform
+        run: python -m scripts.catalog --destination site/data --extend-pinned
+      - name: Validate every listed device and output configuration
+        run: python -m scripts.device_audit
       - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:

@@ -159,7 +159,7 @@ def archive(run_id):
             "最多收藏五个版本。请先在 GitHub 手动管理旧收藏；本项目不会自动删除你的固件。")
     artifacts = api(f"/actions/runs/{run_id}/artifacts?per_page=100", token)["artifacts"]
     prefix = f"firmware-{number}"
-    artifacts = [a for a in artifacts if a["name"] == prefix or re.fullmatch(re.escape(prefix) + r"-(efi|legacy|vmdk|efi-vmdk|legacy-vmdk|rootfs|reports)", a["name"])]
+    artifacts = [a for a in artifacts if a["name"] == prefix or re.fullmatch(re.escape(prefix) + r"-(efi|legacy|vmdk|efi-vmdk|legacy-vmdk|rootfs|reports|device-(?:0[1-9]|[12][0-9]|3[0-2]))", a["name"])]
     if any(a["name"] == prefix for a in artifacts):
         artifacts = [a for a in artifacts if a["name"] == prefix]
     require(artifacts and all(not a["expired"] for a in artifacts), "本次构建的下载包缺失或已到期，无法新建收藏。")

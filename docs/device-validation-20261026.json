@@ -1,0 +1,173 @@
+{
+  "schema_version": 1,
+  "device_profiles": 865,
+  "platforms": 24,
+  "configuration_audit": "passed",
+  "blocked": [
+    {
+      "target": "amlogic/meson",
+      "profile": "phicomm_n1",
+      "reason": "上游 N1 默认无线校准包 brcmfmac-nvram-43455-sdio-generic 已缺失，暂停构建，避免交付缺少无线校准数据的固件。"
+    },
+    {
+      "target": "amlogic/meson8b",
+      "profile": "thunder-onecloud",
+      "reason": "上游 ImageBuilder 实际 SHA256 与公布值不一致，已暂停构建；不能跳过校验。"
+    }
+  ],
+  "rootfs_only": [
+    {
+      "target": "armsr/armv8",
+      "profile": "box"
+    },
+    {
+      "target": "mediatek/filogic",
+      "profile": "wavlink_wl-wn573hx3"
+    }
+  ],
+  "hardware_tested": false,
+  "date": "2026-10-26",
+  "source": "https://openwrt.ai/json/v1/releases/25.12/overview.json",
+  "selector_profiles_exact_match": true,
+  "representative_platform_builds": [
+    {
+      "target": "bcm27xx/bcm2709",
+      "run_id": 40337025092,
+      "job_id": 121621306349,
+      "status": "success"
+    },
+    {
+      "target": "ath79/nand",
+      "run_id": 40337025092,
+      "job_id": 121621306384,
+      "status": "success"
+    },
+    {
+      "target": "bcm27xx/bcm2712",
+      "run_id": 40337025092,
+      "job_id": 121621306561,
+      "status": "success"
+    },
+    {
+      "target": "ipq40xx/generic",
+      "run_id": 40334387288,
+      "job_id": 121612015511,
+      "status": "success"
+    },
+    {
+      "target": "bcm27xx/bcm2710",
+      "run_id": 40337025092,
+      "job_id": 121621306449,
+      "status": "success"
+    },
+    {
+      "target": "bcm53xx/generic",
+      "run_id": 40334387288,
+      "job_id": 121612015529,
+      "status": "success"
+    },
+    {
+      "target": "amlogic/meson8b",
+      "run_id": 40334387288,
+      "job_id": 121612015537,
+      "status": "failure"
+    },
+    {
+      "target": "armsr/armv8",
+      "run_id": 40337025092,
+      "job_id": 121621306443,
+      "status": "success"
+    },
+    {
+      "target": "amlogic/meson",
+      "run_id": 40334387288,
+      "job_id": 121612015561,
+      "status": "failure"
+    },
+    {
+      "target": "airoha/an7581",
+      "run_id": 40334387288,
+      "job_id": 121612015572,
+      "status": "success"
+    },
+    {
+      "target": "mediatek/filogic",
+      "run_id": 40334387288,
+      "job_id": 121612015586,
+      "status": "success"
+    },
+    {
+      "target": "bcm27xx/bcm2711",
+      "run_id": 40337025092,
+      "job_id": 121621306387,
+      "status": "success"
+    },
+    {
+      "target": "ipq806x/generic",
+      "run_id": 40334387288,
+      "job_id": 121612015607,
+      "status": "success"
+    },
+    {
+      "target": "mediatek/mt7622",
+      "run_id": 40334387288,
+      "job_id": 121612015619,
+      "status": "success"
+    },
+    {
+      "target": "mvebu/cortexa9",
+      "run_id": 40334387288,
+      "job_id": 121612018088,
+      "status": "success"
+    },
+    {
+      "target": "qualcommax/ipq50xx",
+      "run_id": 40334387288,
+      "job_id": 121612018265,
+      "status": "success"
+    },
+    {
+      "target": "rockchip/armv8",
+      "run_id": 40337025092,
+      "job_id": 121621306693,
+      "status": "success"
+    },
+    {
+      "target": "qualcommax/ipq60xx",
+      "run_id": 40334387288,
+      "job_id": 121612018298,
+      "status": "success"
+    },
+    {
+      "target": "ramips/mt7621",
+      "run_id": 40337025092,
+      "job_id": 121621306400,
+      "status": "success"
+    },
+    {
+      "target": "qualcommax/ipq807x",
+      "run_id": 40334387288,
+      "job_id": 121612018320,
+      "status": "success"
+    },
+    {
+      "target": "sunxi/cortexa53",
+      "run_id": 40334387288,
+      "job_id": 121612018459,
+      "status": "success"
+    },
+    {
+      "target": "siflower/sf21",
+      "run_id": 40337025092,
+      "job_id": 121621306584,
+      "status": "success"
+    },
+    {
+      "target": "sunxi/cortexa7",
+      "run_id": 40334387288,
+      "job_id": 121612018770,
+      "status": "success"
+    }
+  ],
+  "note": "One representative profile per platform; no physical hardware boot tests."
+}

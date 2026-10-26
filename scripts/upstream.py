@@ -17,6 +17,7 @@ import urllib.request
 
 from scripts import catalog
 from scripts.build import require
+from scripts.builders import platforms,resolve
 
 ROOT = Path(__file__).resolve().parents[1]
 APPROVED = "updates/approved.json"
@@ -63,6 +64,8 @@ def validate_candidate(candidate):
     require(isinstance(sources, list) and [s.get("source") for s in sources] == ["official", "kwrt"], "Unexpected upstream sources")
     require(isinstance(registry, dict) and 1 <= len(registry) <= 512, "Invalid or oversized registry; archive old pins before adding more")
     for version, spec in registry.items():
+        for target,pin in platforms(spec):
+            if target!='x86/64':require(SHA.fullmatch(pin.get('metadata_fingerprint','')),'Unpinned device metadata')
         require(KWRT_VERSION.fullmatch(version), "Unexpected Kwrt release family")
         require(spec["target"] == "x86/64" and spec["base"] == KWRT_BASE and spec["archive"] == KWRT_ARCHIVE, "Untrusted builder location")
         require(SHA.fullmatch(spec["sha256"]), "Invalid builder digest")
@@ -129,6 +132,14 @@ def detect(destination):
 
 def guard(config):
     """Normal builds fail closed if a tested rolling feed changes again."""
+    if config['builder']=='kwrt' and config['target']!='x86/64':
+        spec=resolve(config['version'],config['target'])
+        require(not spec.get('blocked_reason'),spec.get('blocked_reason',''))
+        metadata=catalog.kwrt_data(spec)
+        fingerprint=hashlib.sha256(json.dumps(metadata,sort_keys=True,separators=(',',':')).encode()).hexdigest()
+        require(fingerprint==spec.get('metadata_fingerprint') and builder_checksum(spec['base'],spec['archive'])==spec['sha256'],'此平台上游构建器或软件包已变化，暂停构建，等待重新同步和测试。')
+        print('Pinned device metadata and ImageBuilder verified; no hardware boot approval is implied.')
+        return
     path = ROOT / APPROVED
     require(path.exists(), "上游首次验证尚未完成，请在主页查看自动跟进状态后重试。")
     approved = read_json(path)

@@ -10,6 +10,8 @@ from pathlib import Path
 import re
 import urllib.request
 
+from scripts.builders import platforms
+
 DOWNLOADS = "https://downloads.openwrt.org"
 ASU = "https://sysupgrade.openwrt.org"
 REGISTRY = Path(__file__).resolve().parents[1] / "configs" / "builders.json"
@@ -22,7 +24,7 @@ def get_json(url: str):
 
 
 def title(item):
-    return " ".join(str(item.get(k, "")) for k in ("vendor", "model", "variant")).strip()
+    return str(item.get('title') or " ".join(str(item.get(k, "")) for k in ("vendor", "model", "variant"))).strip()
 
 
 def target_data(version, target):
@@ -46,8 +48,17 @@ def target_data(version, target):
 
 
 def kwrt_data(spec):
-    profiles = get_json(spec["base"] + "/profiles.json")
+    profiles = json.loads(json.dumps(get_json(spec['base']+'/'+spec.get('profiles_file','profiles.json'))))
     profiles["default_packages"] = sorted((set(profiles.get("default_packages", [])) - set(spec["exclude_defaults"])) | set(spec["replacement_packages"]))
+    if spec.get('metadata_source')=='selector':
+        arch=profiles['arch_packages']
+        urls=[f"https://openwrt.ai/json/v1/releases/25.12/targets/{spec['target']}/index.json",f"https://openwrt.ai/json/v1/releases/packages-25.12/{arch}-index.json"]
+        indexes=[get_json(url) for url in urls]
+        packages=set(indexes[0]['packages'])|set(indexes[1])
+        digests=[hashlib.sha256(json.dumps(index,sort_keys=True,separators=(',',':')).encode()).hexdigest() for index in indexes]
+        result={'profiles':profiles,'packages':sorted(packages),'package_metadata_errors':[],'image_base':spec['base'],'builder_sha256':spec['sha256'],'package_index_sha256':digests,'compatibility_adjustments':{'excluded_defaults':spec['exclude_defaults'],'replacements':spec['replacement_packages']}}
+        if spec.get('blocked_reason'):result['build_blocked']=spec['blocked_reason']
+        return result
     urls = [spec["kernel_feed"] + "/Packages"] + [spec["feeds"] + "/" + feed + "/Packages"
         for feed in ("base", "packages", "luci", "routing", "video", "kiddin9")]
     def names(url):
@@ -91,22 +102,40 @@ def sync(destination: Path, versions=None, preload=("x86/64",)):
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
             print(f"Metadata: {version} {target}, {len(data['packages'])} packages")
-    for version, spec in json.loads(REGISTRY.read_text(encoding="utf-8")).items():
+    for version, family in json.loads(REGISTRY.read_text(encoding="utf-8")).items():
+        result['versions'].append(version)
+        result['version_labels'][version]=family['label']
+        for target,spec in platforms(family):
+            add_kwrt_target(result,destination,version,target,spec)
+    (destination / "catalog.json").write_text(json.dumps(result, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    print(f"Catalog: {len(result['devices'])} version/profile entries")
+
+
+def add_kwrt_target(result,destination,version,target,spec):
         data = kwrt_data(spec)
-        target = spec["target"]
+        if spec.get('metadata_fingerprint') and hashlib.sha256(json.dumps(data,sort_keys=True,separators=(',',':')).encode()).hexdigest()!=spec['metadata_fingerprint']:
+            raise ValueError('Pinned platform metadata changed: '+target)
         path = destination / "targets" / version / f"{target}.json"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-        result["versions"].append(version)
-        result["version_labels"][version] = spec["label"]
         for profile_id, profile in data["profiles"]["profiles"].items():
             names = [title(t) for t in profile.get("titles", [])]
             result["devices"].append({"id": profile_id, "target": target, "builder": "kwrt",
                 "version": version, "name": names[0] if names else profile_id, "aliases": names,
                 "metadata": f"targets/{version}/{target}.json"})
         print(f"Metadata: {version} {target}, {len(data['packages'])} packages")
-    (destination / "catalog.json").write_text(json.dumps(result, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-    print(f"Catalog: {len(result['devices'])} version/profile entries")
+
+
+def extend_pinned(destination):
+    """Extend the checked-in official baseline; do not select an untested release."""
+    result=json.loads((destination/'catalog.json').read_text(encoding='utf-8'))
+    result['devices']=[d for d in result['devices'] if d.get('builder')!='kwrt']
+    for version,family in json.loads(REGISTRY.read_text(encoding='utf-8')).items():
+        if version not in result['versions']:result['versions'].append(version)
+        result['version_labels'][version]=family['label']
+        for target,spec in platforms(family):add_kwrt_target(result,destination,version,target,spec)
+    result['updated']=dt.datetime.now(dt.timezone.utc).isoformat()
+    (destination/'catalog.json').write_text(json.dumps(result,ensure_ascii=False,separators=(',',':')),encoding='utf-8')
 
 
 if __name__ == "__main__":
@@ -114,5 +143,6 @@ if __name__ == "__main__":
     parser.add_argument("--destination", type=Path, default=Path("site/data"))
     parser.add_argument("--version", action="append")
     parser.add_argument("--target", action="append", default=[])
+    parser.add_argument('--extend-pinned',action='store_true')
     args = parser.parse_args()
-    sync(args.destination, args.version, args.target or ("x86/64",))
+    extend_pinned(args.destination) if args.extend_pinned else sync(args.destination, args.version, args.target or ('x86/64',))

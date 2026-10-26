@@ -1,0 +1,78 @@
+name: Verify all pinned device platforms
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['configs/platform-qa-trigger.txt']
+permissions:
+  contents: read
+concurrency:
+  group: platform-qa-${{ github.repository }}
+  cancel-in-progress: false
+jobs:
+  matrix:
+    if: github.event.repository.private
+    runs-on: ubuntu-24.04
+    outputs:
+      platforms: ${{ steps.matrix.outputs.platforms }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - id: matrix
+        run: |
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          from scripts.builders import platforms
+          registry=json.load(open('configs/builders.json'))
+          targets=[t for t,s in platforms(registry['kwrt-25.12-20261012']) if t!='x86/64']
+          if os.environ['GITHUB_EVENT_NAME']=='push':
+              request=json.loads(Path('configs/platform-qa-trigger.txt').read_text())
+              assert set(request)=={'targets'} and isinstance(request['targets'],list)
+              assert request['targets'] and set(request['targets'])<=set(targets)
+              targets=sorted(set(request['targets']))
+          assert 1<=len(targets)<=32
+          with open(os.environ['GITHUB_OUTPUT'],'a') as f:f.write('platforms='+json.dumps(targets)+'\n')
+          PY
+  platform:
+    needs: matrix
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        target: ${{ fromJSON(needs.matrix.outputs.platforms) }}
+    env:
+      REPOSITORY_PRIVATE: 'true'
+      CONFIG_PATH: configs/platform-qa.json
+      ENFORCE_APPROVED_UPSTREAM: 'true'
+      QA_TARGET: ${{ matrix.target }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Install ImageBuilder tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends build-essential libncurses-dev libssl-dev zlib1g-dev gawk gettext unzip zip file rsync wget curl zstd openssl 7zip
+      - name: Prepare one representative device
+        run: python -m scripts.platform_qa "$QA_TARGET"
+      - name: Build and verify requested packages and embedded translations
+        run: python -m scripts.build --config "$CONFIG_PATH"
+      - name: Verify actual firmware file integrity
+        run: python -m scripts.image_verify
+      - name: Prepare separate downloads and private record without publishing
+        run: python -m scripts.delivery record
+      - name: Keep reports only (no test firmware, no hardware boot claim)
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: platform-${{ strategy.job-index }}-report
+          path: |
+            outputs/build.log
+            outputs/build-summary.json
+            outputs/image-report.json
+            work/build-record.json
+          retention-days: 3

@@ -5,24 +5,46 @@ export function repositoryName(value) {
 }
 export class GitHub {
   constructor(repo,token,ref='main',fetcher=(...args)=>fetch(...args)) {
-    this.repo=repositoryName(repo);this.token=token;this.ref=ref;this.fetcher=fetcher;this.controller=new AbortController();this.closed=false;
+    this.repo=repositoryName(repo);this.token=token;this.ref=ref;this.fetcher=fetcher;this.controller=new AbortController();this.closed=false;this.blocked='';this.retryAt=0;this.rateStrikes=0;
     if(!/^[A-Za-z0-9_./-]+$/.test(ref)||ref.includes('..'))throw new Error('分支名无效。');
   }
   async request(path,options={}) {
     if(this.closed)throw new Error('此页授权已断开；已受理的构建不会因此取消。');
+    if(!this.canQuery)throw this.pauseError();
     const headers={'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28',...(options.body?{'Content-Type':'application/json'}:{})};
     if(this.token)headers.Authorization=`Bearer ${this.token}`;
     let r;
     try{r=await this.fetcher(`${API}/repos/${this.repo}${path}`,{...options,headers,cache:'no-store',signal:AbortSignal.any([this.controller.signal,options.signal??AbortSignal.timeout(90000)])});}
-    catch(error){if(this.closed)throw new Error('此页授权已断开；请求可能已经受理，重连后先查看记录。');if(['AbortError','TimeoutError'].includes(error.name))throw new Error('GitHub 响应超时。先查看构建记录，确认是否已提交，再决定重试。');throw error;}
+    catch(error){if(this.closed)throw new Error('此页授权已断开；请求可能已经受理，重连后先查看记录。');if(this.blocked)throw this.pauseError();if(['AbortError','TimeoutError'].includes(error.name))throw new Error('GitHub 响应超时。先查看构建记录，确认是否已提交，再决定重试。');throw error;}
     if(this.closed)throw new Error('此页授权已断开；不会载入旧会话的结果。');
-    if(!r.ok){const explanations={401:'授权令牌无效或已到期，请重新连接。',403:'权限不足、请求限额或 GitHub 策略限制，请检查授权与 GitHub 提示。',404:'仓库或任务不存在，或当前授权没有访问权限。',410:'构建产物已到期，请重新构建。',422:'配置、分支或工作流输入不符合 GitHub 要求。'};const error=new Error(`GitHub ${r.status}：${explanations[r.status]||'请求失败，请稍后检查 GitHub 状态。'}`);error.status=r.status;throw error;}
+    if(this.blocked)throw this.pauseError();
+    const remaining=r.headers?.get('x-ratelimit-remaining'),reset=r.headers?.get('x-ratelimit-reset'),retry=r.headers?.get('retry-after');
+    if(remaining!==null&&remaining!==undefined&&remaining!=='')this.rateRemaining=Number(remaining);
+    if(!r.ok){
+      let body;try{body=await r.json();}catch{}
+      const limited=r.status===429||r.status===403&&(remaining==='0'||retry!=null||/rate limit/i.test(body?.message||''));
+      if(limited){
+        this.rateStrikes++;
+        const delay=retry&&/^\d+$/.test(retry)?Date.now()+Number(retry)*1000:retry?Date.parse(retry):NaN;
+        const resetAt=remaining==='0'&&Number(reset)>0?Number(reset)*1000:0;
+        this.retryAt=Math.max(Date.now()+1000,Number.isFinite(delay)?delay:0,resetAt||(!Number.isFinite(delay)?Date.now()+60000*2**Math.min(this.rateStrikes-1,5):0))+1000;
+        if(this.rateStrikes>=4)this.blocked='多次遇到 GitHub 请求限额，已暂停自动读取。请稍后重新连接；构建不会自动重提交。';
+        throw this.pauseError(r.status);
+      }
+      if(r.status===401){this.token='';this.blocked='授权令牌无效或已到期，已停止自动读取，请重新连接。';this.controller.abort();throw this.pauseError(401);}
+      if(r.status===403){this.blocked='当前授权权限不足或受 GitHub 策略限制，已停止自动读取。请检查私有构建仓库的授权后重新连接。';this.controller.abort();throw this.pauseError(403);}
+      const explanations={404:'仓库或任务不存在，或当前授权没有访问权限。',410:'构建产物已到期，请重新构建。',422:'配置、分支或工作流输入不符合 GitHub 要求。'};const error=new Error(`GitHub ${r.status}：${explanations[r.status]||'请求失败，请稍后检查 GitHub 状态。'}`);error.status=r.status;throw error;
+    }
     const expires=r.headers?.get('github-authentication-token-expiration');if(expires)this.tokenExpiresAt=expires;
-    const remaining=r.headers?.get('x-ratelimit-remaining');if(remaining!==null&&remaining!==undefined)this.rateRemaining=Number(remaining);
+    if(remaining==='0')this.retryAt=Math.max(Date.now()+60000,Number(reset)*1000||0)+1000;
     let data;try{data=r.status===204?null:await r.json();}catch{throw new Error(this.closed?'此页授权已断开；不会载入旧会话的结果。':'GitHub 返回资料格式无效，请稍后重新连接。');}
     if(this.closed)throw new Error('此页授权已断开；不会载入旧会话的结果。');
+    if(this.blocked)throw this.pauseError();
     return data;
   }
+  get canQuery(){return !this.closed&&!this.blocked&&Date.now()>=this.retryAt;}
+  get pollDelay(){return this.closed||this.blocked?Infinity:Math.max(0,this.retryAt-Date.now());}
+  pauseError(status){const error=new Error(this.blocked||`GitHub 请求额度暂时用尽，暂停到 ${new Date(this.retryAt).toLocaleTimeString()} 后再读取；不会自动重提交构建。`);error.status=status|| (this.blocked?403:429);return error;}
   close(){this.closed=true;this.token='';this.controller.abort();}
   async connect(){const data=await this.request('');this.private=data.private;this.defaultBranch=data.default_branch;return data;}
   async dispatch(config,requestId) {

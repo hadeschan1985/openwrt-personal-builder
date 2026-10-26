@@ -11,6 +11,8 @@ export function requestRun(runs,id){return runs.find(run=>typeof run.display_tit
 export function stageName(name){
   if(name==='Upload EFI VMDK disk')return '保存 EFI VMDK 单独下载';
   if(name==='Upload Legacy VMDK disk')return '保存 Legacy VMDK 单独下载';
+  if(name==='Verify device firmware containers and file integrity')return '校验本次设备固件文件';
+  if(name==='Upload each device image separately')return '逐个保存设备固件下载';
   const delivery={'Verify actual images and selected local services':'验收本次映像启动与本地服务','Prepare delivery manifest':'生成逐文件交付清单','Upload EFI disk':'保存 EFI 映像','Upload Legacy disk':'保存 Legacy 映像','Upload VMDK disks':'保存 VMDK 映像','Upload ROOTFS':'保存 ROOTFS','Upload logs and manifests':'保存日志与校验报告','Upload private record for trusted recorder':'准备私有构建记录','Save private build record without executing upstream code':'保存私有配置与映像记录'};
   if(delivery[name])return delivery[name];
   const translations={'Checkout':'读取构建代码','Python':'准备运行环境','Validate configuration':'检查配置与隐私限制','Install ImageBuilder dependencies':'准备构建工具','Restore verified ImageBuilder download cache':'恢复并校验构建缓存','Build firmware':'检查依赖并生成固件','Upload firmware, manifests and checksums':'保存固件和校验值','Upload failure log':'保存失败日志','Run summary':'生成结果摘要','Set up job':'准备 GitHub 构建环境','Complete job':'收尾'};

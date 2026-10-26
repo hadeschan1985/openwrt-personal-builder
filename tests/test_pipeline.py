@@ -30,7 +30,7 @@ class PipelineTests(unittest.TestCase):
                 images = [{"name": "fixture-squashfs-combined.img.gz", "filesystem": "squashfs", "type": "combined"},
                     {"name": "fixture-squashfs-combined-efi.img.gz", "filesystem": "squashfs", "type": "combined-efi"},
                     {"name": "fixture-targz-rootfs.tar.gz", "filesystem": "targz", "type": "rootfs"}]
-                metadata = {"profiles": {"generic": {"images": images}}}
+                metadata = {"arch_packages":"x86_64","profiles": {"generic": {"images": images}}}
                 def download(url, destination):
                     destination.parent.mkdir(parents=True, exist_ok=True)
                     destination.write_text(digest + "  " + archive_name if destination.name == "sha256sums" else "test archive")

@@ -8,19 +8,21 @@ from pathlib import Path
 import re
 import shutil
 
-from scripts.build import normalize, require, sha256
+from scripts.build import normalize, require, sha256, router_password
 
 MAX_BYTES = 1536 * 1024 * 1024
 
 
 def policy(config, env):
-    if config["build_mode"] != "release":
+    if config["build_mode"] == "experiment":
         return
     require(env.get("REPOSITORY_PRIVATE") == "true", "正式模式只能使用私有构建仓库。")
-    password = env.get("ROUTER_PASSWORD", "")
-    require(config["system"]["password_secret"] and len(password) >= 12 and len(password.encode("utf-8")) <= 128 and not any(c in password for c in ":\r\n\x00"),
-            "正式模式需要仓库 ROUTER_PASSWORD：至少 12 个字符、最多 128 UTF-8 字节，不能含冒号或换行。不要把密码写进配置或聊天。")
+    password = router_password(config,env)
+    minimum=4 if config['system'].get('password_source')=='root' else 12
+    require(config["system"]["password_secret"] and len(password) >= minimum and len(password.encode("utf-8")) <= 128 and not any(c in password for c in ":\r\n\x00"),
+            '请选择临时默认 root 密码，或使用至少 12 个字符的仓库 ROUTER_PASSWORD；最多 128 UTF-8 字节，不能含冒号或换行。')
     require(config["system"]["https"], "正式模式必须启用 HTTPS。")
+    if config['build_mode']=='device':return
     require(config["target"] == "x86/64" and (config["output"]["efi"] or config["output"]["legacy"]),
             "正式模式目前只支持可自动启动验收的 x86/64 EFI/Legacy 磁盘。其他架构或仅 ROOTFS 请使用实验模式。")
     ports = [config["network"]["wan_port"], *config["network"]["lan_ports"].split()]
@@ -50,14 +52,18 @@ def file_group(name):
         return "vmdk"
     if name.endswith("rootfs.tar.gz"):
         return "rootfs"
-    return "reports"
+    return 'reports' if name.endswith(('.json','.log','.manifest')) or name=='SHA256SUMS' else 'device'
 
 
 def prepare_downloads(files, output, destination):
     """One disk file per download. Keep VMDK boot variants separate too."""
     groups = {}
+    device_count=0
     for item in files:
         group = item['group']
+        if group=='device':
+            device_count+=1;require(device_count<=32,'At most 32 individual device image files are supported')
+            group=f'device-{device_count:02d}'
         if group == 'vmdk':
             require(re.search(r'combined(?:-efi)?\.vmdk(?:\.zip)?$', item['name']), 'Unknown VMDK download layout')
             group = 'efi-vmdk' if '-efi.vmdk' in item['name'] else 'legacy-vmdk'
@@ -91,17 +97,20 @@ def record(config, root=Path(".")):
     result = {"schema_version": 1, "run_id": os.environ.get("GITHUB_RUN_ID", ""), "run_number": os.environ.get("GITHUB_RUN_NUMBER", ""),
               "source_commit": os.environ.get("GITHUB_SHA", ""), "config": config, "files": files, "vm": vm,
               "builder_sha256": summary["builder_sha256"], "hardware_tested": False}
+    if config['build_mode']=='device':
+        result['image_validation']=json.loads((output/'image-report.json').read_text(encoding='utf-8'))
     validate_record(result)
     path = root / "work" / "build-record.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(result, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-    groups = prepare_downloads(files, output, root / 'work' / 'downloads-separated') if config['target'].startswith('x86/') else []
+    groups = prepare_downloads(files, output, root / 'work' / 'downloads-separated')
     if os.environ.get("GITHUB_OUTPUT"):
         with open(os.environ["GITHUB_OUTPUT"], "a") as stream:
             for group in ("efi", "legacy", "vmdk", "rootfs"):
                 stream.write(f"{group}={str(any(f['group'] == group for f in files)).lower()}\n")
             stream.write("x86=" + str(config["target"].startswith("x86/")).lower() + "\n")
             stream.write('download_groups=' + json.dumps(groups, separators=(',', ':')) + '\n')
+            stream.write('device_count='+str(sum(g.startswith('device-') for g in groups))+'\n')
     return result
 
 
@@ -120,6 +129,9 @@ def validate_record(value):
     clean = normalize(value["config"])
     require(clean == value["config"], "Record configuration is not normalized")
     require(clean["build_mode"] != "release" or value.get("vm", {}).get("status") == "passed", "Release did not pass VM tests")
+    if clean['build_mode']=='device':
+        report=value.get('image_validation',{})
+        require(report.get('status')=='passed' and report.get('boot_tested') is False and all(report.get(k)==clean[k] for k in ('version','target','profile')),'Device image integrity report missing or mismatched')
     return value
 
 
