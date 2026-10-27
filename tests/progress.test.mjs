@@ -23,6 +23,12 @@ test('individual profile failures expose bounded missing dependencies without cl
   assert.match(result,/hwmon-drivetemp、kmod-thermal/);assert.equal(result.match(/kmod-thermal/g).length,1);
   assert.match(profileFailureHelp({diagnostic:'network unavailable'}),/未通过/);assert.doesNotMatch(profileFailureHelp({diagnostic:'Cannot install package <script>'}),/script/);
 });
+test('profile download interruptions remain incomplete and do not masquerade as missing device dependencies',()=>{
+  for(const diagnostic of ['http.client.IncompleteRead: IncompleteRead(6025 bytes read)','Build failed: <urlopen error [Errno 104] Connection reset by peer>','HTTP Error 503: temporarily unavailable\nCannot install package curl.']){
+    const help=profileFailureHelp({diagnostic});assert.match(help,/下载中断/);assert.match(help,/尚无本轮编译通过/);assert.doesNotMatch(help,/缺少依赖/);
+  }
+  assert.match(profileFailureHelp({diagnostic:'HTTP Error 404: Not Found'}),/未通过/);
+});
 test('request matching is exact, not a title substring',()=>{
   const runs=[{id:1,display_title:'Personal firmware · abc-extra'},{id:2,display_title:'Personal firmware · abc'}];
   assert.equal(requestRun(runs,'abc').id,2);assert.equal(requestRun(runs,'missing'),undefined);

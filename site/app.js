@@ -2,7 +2,7 @@ import {COMMON,CORE,NFT_ONLY,PROXIES,THEMES,defaultConfig,tokenize,validate,priv
 import {GitHub,repositoryName} from './lib/github.js?v=20261027-6';
 import {internalRun,firmwareArtifact,firmwareFile,downloadLabel,deliveryLabel,buildRecord,privateArchives,artifactFile} from './lib/delivery.js?v=20261027-4';
 import {SOFTWARE_PROFILES,applySoftwareProfile,softwareAdvice} from './lib/software.js?v=20261027-2';
-import {runStatus,stepStatus,active,requestRun,stageName,failureHelp,artifactInfo,profileFailureHelp} from './lib/progress.js?v=20261028-1';
+import {runStatus,stepStatus,active,requestRun,stageName,failureHelp,artifactInfo,profileFailureHelp} from './lib/progress.js?v=20261028-2';
 import {verifyDownload,verificationTarget} from './lib/verification.js?v=20261026-8';
 import {mergeApproved} from './lib/upstream.js?v=20261027-6';
 import {mergeDeviceApproved,validateDeviceMetadata} from './lib/device-upstream.js?v=20261027-6';
