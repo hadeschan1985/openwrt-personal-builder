@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "device_profiles": 865,
+  "platforms": 24,
+  "configuration_audit": "passed",
+  "blocked": [
+    {
+      "target": "amlogic/meson",
+      "profile": "phicomm_n1",
+      "reason": "上游 N1 默认无线校准包 brcmfmac-nvram-43455-sdio-generic 已缺失，暂停构建，避免交付缺少无线校准数据的固件。"
+    },
+    {
+      "target": "amlogic/meson8b",
+      "profile": "thunder-onecloud",
+      "reason": "上游 ImageBuilder 实际 SHA256 与公布值不一致，已暂停构建；不能跳过校验。"
+    }
+  ],
+  "rootfs_only": [
+    {
+      "target": "armsr/armv8",
+      "profile": "box"
+    },
+    {
+      "target": "mediatek/filogic",
+      "profile": "wavlink_wl-wn573hx3"
+    }
+  ],
+  "hardware_tested": false
+}

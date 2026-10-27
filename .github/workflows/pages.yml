@@ -30,10 +30,9 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.12'
-      # Publish the checked-in baseline, not untested live upstream releases.
-      # Approved newer x86/64 versions are loaded from the private build repo.
-      - name: Extend baseline with every pinned Kwrt device platform
-        run: python -m scripts.catalog --destination site/data --extend-pinned
+      # Publish the complete immutable baseline already checked into this repo.
+      # Reading rolling feeds here would prevent deploying the site after a feed
+      # change. New tested releases are loaded from the private build repository.
       - name: Validate every listed device and output configuration
         run: python -m scripts.device_audit
       - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0

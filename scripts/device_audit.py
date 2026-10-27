@@ -1,5 +1,6 @@
 """Validate every listed device configuration against its own pinned metadata."""
 import argparse
+import hashlib
 import json
 from pathlib import Path
 import re
@@ -17,7 +18,12 @@ def audit(data,destination):
         identity=(device['version'],device['target'],device['id'])
         build.require(identity not in seen,'Duplicate device identity');seen.add(identity)
         key=(device['version'],device['target'])
-        if key not in cache:cache[key]=json.loads((data/device['metadata']).read_text(encoding='utf-8'))
+        if key not in cache:
+            cache[key]=json.loads((data/device['metadata']).read_text(encoding='utf-8'))
+            pin=builders.resolve(*key)
+            if pin.get('metadata_fingerprint'):
+                digest=hashlib.sha256(json.dumps(cache[key],sort_keys=True,separators=(',',':')).encode()).hexdigest()
+                build.require(digest==pin['metadata_fingerprint'],'Pinned baseline metadata digest mismatch: '+device['target'])
         metadata=cache[key];spec=builders.resolve(*key)
         build.require(metadata['profiles']['target']==device['target'] and metadata['builder_sha256']==spec['sha256'],'Wrong platform metadata')
         profile=metadata['profiles']['profiles'][device['id']]
