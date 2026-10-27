@@ -92,7 +92,7 @@ jobs:
       - name: Install ImageBuilder dependencies
         timeout-minutes: 20
         run: |
-          packages=(build-essential libncurses-dev libssl-dev zlib1g-dev gawk gettext unzip zip file rsync wget curl zstd 7zip openssl android-sdk-libsparse-utils e2fsprogs)
+          packages=(build-essential libncurses-dev libssl-dev zlib1g-dev gawk gettext unzip zip file rsync wget curl zstd 7zip openssl android-sdk-libsparse-utils e2fsprogs iproute2)
           if [ "$BUILD_X86" = true ]; then packages+=(qemu-utils); fi
           if [ "$BUILD_MODE" = release ]; then packages+=(qemu-system-x86 ovmf openssh-client sshpass smbclient); fi
           if [ "$BUILD_BOX" = true ]; then packages+=(btrfs-progs dosfstools parted u-boot-tools uuid-runtime pigz kmod); fi
@@ -117,7 +117,12 @@ jobs:
       - name: Build firmware
         run: |
           if [ -n "$REBUILD_RUN_ID" ]; then
-            sudo -E unshare --net -- setpriv --reuid "$(id -u)" --regid "$(id -g)" --init-groups python -m scripts.build --config "$CONFIG_PATH"
+            sudo -E unshare --net -- bash -euc '
+              ip link set dev lo up
+              python -m scripts.offline_namespace
+              exec setpriv --reuid "$1" --regid "$2" --init-groups python -m scripts.build --config "$3"
+            ' offline-build "$(id -u)" "$(id -g)" "$CONFIG_PATH"
+            cp work/offline-network-report.json outputs/offline-network-report.json
           else
             python -m scripts.build --config "${CONFIG_PATH:-configs/x86-default.json}"
           fi

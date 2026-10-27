@@ -13,6 +13,12 @@ jobs:
           python-version: '3.12'
       - run: node --test tests/*.test.mjs
       - name: Install archive test tool
-        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends 7zip openssl
+        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends 7zip openssl iproute2
       - run: python -m unittest discover -s tests -p 'test_*.py'
+      - name: Verify real loopback IPC and blocked outbound networking
+        run: |
+          sudo unshare --net -- bash -euc '
+            ip link set dev lo up
+            python -m scripts.offline_namespace
+          '
       - run: python scripts/build.py --plan
