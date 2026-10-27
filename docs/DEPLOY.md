@@ -15,7 +15,7 @@ GitHub 连接已识别用户。2026-10-25 经用户确认，已通过 GPT 内部
 
 将本项目推送至网页仓库 main 分支。进入 Settings → Pages，将 Source 设为 GitHub Actions，运行 `Deploy configuration workbench`。
 
-工作流发布已纳入源码的基线设备目录和 site/，不在发布时直接引入未验证的新版本。自动跟进的新 x86/64 版本由私有仓库测试批准后，在网页连接时载入。默认 github.io 域名即可，不需要另买域名。详见 UPSTREAM.md。
+工作流审计并发布源码中的完整基线快照和 site/，不在发布时读取滚动软件源。新 x86 及多型号版本由私有仓库测试批准后，在网页连接时载入。默认 github.io 域名即可，不需要另买域名。详见 UPSTREAM.md。
 
 ## 构建仓库
 
@@ -31,7 +31,7 @@ GitHub 连接已识别用户。2026-10-25 经用户确认，已通过 GPT 内部
 
 填写 Wi-Fi SSID 时必须同时启用 WIFI_PASSWORD；本项目不生成无密码的开放热点。固件本身会包含首次启动所需的私人配置，不能因为使用 Secrets 就将产物公开分享。
 
-首次部署先等待私有仓库的 `Automatically follow tested upstream` 成功（或手动运行一次），以生成批准记录。然后在 Actions 选择 `Build personal firmware` → Run workflow。config_json 留空，使用 configs/x86-default.json。未完成首次批准时会明确停止，不会绕过校验。
+首次部署先等待私有仓库的 `Automatically follow tested upstream`（x86）及 `Automatically approve tested device updates`（多型号）完成首次批准。然后在网页选择实际设备并提交，或在 Actions 的 `Build personal firmware` 中粘贴导出配置。不要留空，否则运行仓库的官方 x86 示例配置；这与当前网页选择不同。
 
 以后在网页配置并导出 JSON，粘贴到 config_json 即可运行。无需向网页提供访问令牌，也无需运行服务器。
 

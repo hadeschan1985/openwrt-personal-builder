@@ -1,1 +1,1 @@
-2026-10-27: validate N1 upstream-provenance compatibility and all active device platforms.
+2026-10-27: confirm unchanged approved platforms reuse their exact validation evidence.

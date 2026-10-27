@@ -14,6 +14,7 @@ const deviceReleases=new Map();
 const verifiedFiles=new Map();
 let toastTimer,pollTimer;
 let upstreamBusy=false,upstreamAt=0,approvedFingerprint='';
+let latestDeviceVersion='';
 let deferredConfig=null;
 let connectAttempt=null;
 let verification=null,verificationController=null,verificationSequence=0;
@@ -23,6 +24,7 @@ async function json(url){const r=await fetch(url,{cache:'no-store'});if(!r.ok)th
 function node(tag,text,className){const e=document.createElement(tag);if(text!==undefined)e.textContent=text;if(className)e.className=className;return e;}
 const val=id=>$(id).value;
 const checked=id=>$(id).checked;
+function versionLabel(v){const label=state.catalog.version_labels?.[v]||`OpenWrt ${v}`;return deviceReleases.has(v)?`${label} · ${v.slice(-8)}`:v==='kwrt-25.12-20261012'?label.replace('（x86/64）','（全设备固定版）'):label;}
 function clearSelectedFile(){state.file=null;$('overlay-file').value='';$('upload-label').textContent='选择文件包';}
 const bindings={
   system:{hostname:'hostname',ip:'ip',webserver:'webserver',signature:'signature',default_theme:'default-theme',theme_mode:'theme-mode'},
@@ -207,7 +209,7 @@ async function selectDevice(device,config=null){
     renderPackages();renderSoftwareProfiles();applyForm(state.config);update();
     const source=device.builder==='kwrt'?'Kwrt 固定构建包':'OpenWrt 官方';
     notice(data.build_blocked|| (data.package_metadata_errors.length?'设备资料已载入，但部分包索引不可用；请刷新后再构建。':`${source}资料已载入。`+(state.git?`已连接构建仓库 ${state.git.repo}。`:'可导出配置，在 GitHub 手动构建；连接仓库授权后也可直接提交。')),data.build_blocked||data.package_metadata_errors.length?'warning':'');
-    state.metadataReady=!data.package_metadata_errors.length;return true;
+    state.metadataReady=!data.package_metadata_errors.length;renderDeviceUpdate();return true;
   }catch(error){if(requestId===state.loadId)notice(`设备资料载入失败：${error.message.replace(/[。.]$/,'')}。可重新选择或刷新。`,'error');return false;
   }finally{if(requestId===state.loadId){state.loading=false;$('device-search').disabled=false;buildAvailability();$('preview-button').disabled=!state.metadataReady;}}
 }
@@ -448,7 +450,7 @@ async function refreshUpstream(){
         // New package metadata applies only when the user chooses a version.
         const selected=val('version');state.catalog=merged.catalog;
         for(const [key,value]of merged.targets)targetCache.set(key,value);
-        $('version').replaceChildren(...state.catalog.versions.map(v=>new Option(state.catalog.version_labels?.[v]||`OpenWrt ${v}`,v)));$('version').value=selected;
+        $('version').replaceChildren(...state.catalog.versions.map(v=>new Option(versionLabel(v),v)));$('version').value=selected;
         approvedFingerprint=approved.fingerprint;
       }
       parts.push(node('p',`已批准：${new Date(approved.approved_at).toLocaleString()} · ${approved.sources.map(s=>s.version).join(' / ')}`));
@@ -468,10 +470,8 @@ async function refreshUpstream(){
       if(deferredConfig&&deferredConfig.version===approved.version){
         const saved=deferredConfig,b=node('button','恢复上次保存的多型号配置','button secondary');b.type='button';b.addEventListener('click',async()=>{b.disabled=true;try{await restore(saved);b.remove();toast('已恢复上次配置。');}catch(e){toast(e.message);b.disabled=false;}});parts.push(b);
       }
-      if(state.device&&state.config.version!==approved.version){
-        const next=state.catalog.devices.find(d=>d.version===approved.version&&d.target===state.device.target&&d.id===state.device.id);
-        if(next){const b=node('button','此设备使用最新验收版本','button secondary');b.type='button';b.addEventListener('click',async()=>{const file=state.file,c=readForm();c.version=next.version;b.disabled=true;try{await restore(c);state.file=file;if(file)$('upload-label').textContent=file.name;toast('已切换验收版本，软件与网络设置保留；请检查配置提示。');}catch(e){toast(e.message);b.disabled=false;}});parts.push(b);}
-      }
+      latestDeviceVersion=approved.version;
+      const action=node('div');action.id='device-update-action';parts.push(action);
     }else if(devices.reason.status===404)parts.push(node('p','多型号自动跟进正在等待首次全平台验收。现有固定版本可以继续使用。','help'));
     else parts.push(node('p',`多型号更新读取失败：${devices.reason.message} 已加载版本保留。`,'error'));
     if(deviceRuns.status==='fulfilled'){
@@ -481,14 +481,25 @@ async function refreshUpstream(){
     if(deferredConfig&&/^kwrt-25\.12-\d{8}-[a-f0-9]{8}$/.test(deferredConfig.version)&&!state.catalog.versions.includes(deferredConfig.version)){
       const saved=deferredConfig,b=node('button','载入并恢复上次保存的历史版本','button secondary');b.type='button';b.addEventListener('click',async()=>{b.disabled=true;try{await restore(saved);b.remove();toast('已恢复历史配置。');}catch(e){toast(e.message);b.disabled=false;}});parts.push(b);
     }
-    body.replaceChildren(...parts);
+    body.replaceChildren(...parts);renderDeviceUpdate();
   }catch(error){if(git===state.git)body.replaceChildren(node('p',error.message,'error'));}
   finally{if(git===state.git){upstreamBusy=false;$('refresh-upstream').disabled=false;}}
 }
 function installDeviceRelease(approved){
   const merged=mergeDeviceApproved(state.catalog,approved),selected=val('version');
   state.catalog=merged.catalog;deviceReleases.set(approved.version,merged.release);
-  $('version').replaceChildren(...state.catalog.versions.map(v=>new Option(state.catalog.version_labels?.[v]||`OpenWrt ${v}`,v)));$('version').value=selected;
+  $('version').replaceChildren(...state.catalog.versions.map(v=>new Option(versionLabel(v),v)));$('version').value=selected;
+}
+function renderDeviceUpdate(){
+  const slot=$('device-update-action');if(!slot)return;slot.replaceChildren();
+  if(!state.git||!state.device||state.config.version===latestDeviceVersion)return;
+  const next=state.catalog.devices.find(d=>d.version===latestDeviceVersion&&d.target===state.device.target&&d.id===state.device.id);if(!next)return;
+  const b=node('button','此设备使用最新验收版本','button secondary');b.type='button';
+  b.addEventListener('click',async()=>{
+    if(state.loading)return;
+    const file=state.file,c=readForm();c.version=next.version;b.disabled=true;
+    try{await restore(c);state.file=file;if(file)$('upload-label').textContent=file.name;toast('已切换验收版本，软件与网络设置保留；请检查配置提示。');}catch(e){toast(e.message);b.disabled=false;}
+  });slot.append(b);
 }
 async function connect(){
   $('connect-error').textContent='';$('confirm-connect').disabled=true;
@@ -560,7 +571,7 @@ async function init(){
   $('import-config').addEventListener('change',async e=>{try{const f=e.target.files[0];if(!f)return;if(f.size>60000)throw new Error('配置文件不能超过 60 KB。');await restore(JSON.parse(await f.text()));toast('配置已导入。');}catch(error){toast(error.message);}e.target.value='';});
   $('clear-overlay').addEventListener('click',()=>{clearSelectedFile();$('overlay-path').value='';update();toast('已清除本页选择；不会删除仓库中的文件。');});
   $('overlay-file').addEventListener('change',e=>{const file=e.target.files[0];if(!file)return;if(file.size>12*1024*1024||!/(\.zip|\.tgz|\.tar\.gz|\.7z)$/i.test(file.name)){e.target.value='';toast('请选择不超过 12 MiB 的 ZIP/TAR.GZ/TGZ/7Z。');return;}state.file=file;$('upload-label').textContent=`${file.name} · ${(file.size/1048576).toFixed(2)} MiB`;$('overlay-path').value='';update();});
-  try{state.catalog=await json('data/catalog.json');$('version').replaceChildren(...state.catalog.versions.map(v=>new Option(state.catalog.version_labels?.[v]||`OpenWrt ${v}`,v)));$('version').value=state.catalog.default_version;
+  try{state.catalog=await json('data/catalog.json');$('version').replaceChildren(...state.catalog.versions.map(v=>new Option(versionLabel(v),v)));$('version').value=state.catalog.default_version;
     $('metadata-date').textContent=`资料更新 ${new Date(state.catalog.updated).toLocaleDateString()}`;
     const devices=state.catalog.devices.filter(d=>d.version===val('version'));$('device-count').textContent=`${devices.length.toLocaleString()} 个设备档案`;
     let saved=null;try{if(checked('autofill'))saved=JSON.parse(localStorage.getItem('pb-current')||'null');}catch{}

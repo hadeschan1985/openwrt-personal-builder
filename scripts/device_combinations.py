@@ -34,6 +34,21 @@ def candidate():
         targets[target]={'spec':copy.deepcopy(extension['versions'][version]['targets'][target]),'metadata':data}
     return u.validate_candidate({'schema_version':1,'version':version,'source_commit':os.environ.get('GITHUB_SHA','0'*40),'fingerprint':approved['fingerprint'],'policy_sha256':approved['policy_sha256'],'targets':targets})
 
+def validate_models(value,c):
+    for case in value:
+        entry=c['targets'].get(case['target']);require(entry is not None and not entry['spec'].get('blocked_reason'),'QA platform unavailable: '+case['id'])
+        data=entry['metadata'];profile=data['profiles']['profiles'].get(case['profile']);require(profile is not None,'QA profile unavailable: '+case['id'])
+        filesystems={i.get('filesystem') for i in profile['images']}
+        require(not case.get('filesystem') or case['filesystem'] in filesystems,'QA filesystem not advertised by this device: '+case['id'])
+        missing=set(case['packages']+case.get('proxies',[]))-set(data['packages'])
+        require(not missing,'QA packages unavailable: '+case['id']+' '+','.join(sorted(missing)))
+    return value
+
+def requested_cases(value,request):
+    require(isinstance(request,dict) and set(request)=={'cases'} and isinstance(request['cases'],list) and request['cases'] and len(request['cases'])<=24,'Invalid QA retry request')
+    ids=request['cases'];require(all(isinstance(i,str) for i in ids) and len(ids)==len(set(ids)) and set(ids)<={c['id'] for c in value},'Unknown or duplicate QA retry case')
+    return [c for c in value if c['id'] in ids]
+
 def prepare(case_id):
     selected=next((c for c in cases() if c['id']==case_id),None);require(selected is not None,'Unknown QA case')
     c=candidate();u.write(u.WORK/'candidate.json',c)
@@ -51,7 +66,8 @@ def attest():
 if __name__=='__main__':
     parser=argparse.ArgumentParser();parser.add_argument('action',choices=['matrix','prepare','attest']);parser.add_argument('--case');args=parser.parse_args()
     if args.action=='matrix':
-        value=cases()
+        value=validate_models(cases(),candidate())
+        if os.environ.get('GITHUB_EVENT_NAME')=='push':value=requested_cases(value,u.read('configs/device-combinations-trigger.txt',64*1024))
         with open(os.environ['GITHUB_OUTPUT'],'a') as f:f.write('matrix='+json.dumps([c['id'] for c in value])+'\n')
     elif args.action=='prepare':prepare(args.case)
     else:attest()

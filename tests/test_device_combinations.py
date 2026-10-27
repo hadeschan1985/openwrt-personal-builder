@@ -1,9 +1,21 @@
 import copy
 import unittest
+import json
+from pathlib import Path
 from unittest.mock import patch
 from scripts import device_combinations as q
 
 class DeviceCombinationTests(unittest.TestCase):
+    def test_real_profiles_reject_unadvertised_filesystems_before_scheduling_runners(self):
+        cases=q.cases();targets={}
+        for c in cases:
+            if c['target'] not in targets:targets[c['target']]={'spec':{},'metadata':json.loads((Path('site/data/targets/kwrt-25.12-20261012')/(c['target']+'.json')).read_text(encoding='utf-8'))}
+        candidate={'targets':targets};q.validate_models(cases,candidate)
+        wrong=copy.deepcopy(cases);next(c for c in wrong if c['profile']=='rpi-4')['filesystem']='ext4'
+        with self.assertRaisesRegex(ValueError,'not advertised'):q.validate_models(wrong,candidate)
+        selected=q.requested_cases(cases,{'cases':[cases[0]['id']]});self.assertEqual(selected,[cases[0]])
+        with self.assertRaises(ValueError):q.requested_cases(cases,{'cases':['unknown']})
+
     def test_cases_are_bounded_unique_real_platforms_and_distinct_bundles(self):
         cases=q.cases();self.assertEqual(len(cases),12);self.assertEqual(len({c['id'] for c in cases}),12)
         self.assertGreaterEqual(len({c['target'] for c in cases}),8)
