@@ -586,8 +586,11 @@ async function loadProfileCoverage(){
   try{const data=await json('https://raw.githubusercontent.com/hadeschan1985/openwrt-personal-builder/main/updates/profile-coverage.json');if(data.schema_version!==1||!data.profiles||typeof data.profiles!=='object'||Object.keys(data.profiles).length>10000)return;for(const entry of Object.values(data.profiles))if(entry&&typeof entry.target==='string'&&typeof entry.profile==='string'&&entry.hardware_tested===false&&/^[a-f0-9]{64}$/.test(entry.policy_sha256||'')&&/^[a-f0-9]{64}$/.test(entry.target_fingerprint||''))profileCoverage.set(`${entry.target}/${entry.profile}`,entry);applyProfileCoverage();}catch{}
 }
 function renderCompatibility(){
-  const panel=$('device-compatibility');panel.replaceChildren();panel.hidden=true;
+  const panel=$('device-compatibility');
   const release=deviceReleases.get(state.config.version),correction=r3dCorrection(state.config,release,state.target,r3dProof);
+  const identity=correction?`${state.config.version}/${r3dProof.target_fingerprint}/${correction.applied}`:'';
+  if(panel.dataset.identity===identity)return;
+  panel.dataset.identity=identity;panel.replaceChildren();panel.hidden=true;
   if(!correction)return;
   panel.hidden=false;
   panel.append(node('p',correction.applied?'已应用温度驱动包名修正。此组合已实际编译并校验，实体开机未测试。':'上游默认包名 hwmon-drivetemp 不存在。已有保留风扇和温度监测组件的修正组合通过实际编译；应用后会替换为 kmod-hwmon-drivetemp。','help'));

@@ -1,1 +1,1 @@
-2026-10-28: verify explicit R3D package-name correction, retained settings, approved catalogs, history and mobile layout without build dispatch.
+2026-10-28: verify stable correction button while form fields lose focus; R3D, retained settings and catalog transitions, attempt 2.
