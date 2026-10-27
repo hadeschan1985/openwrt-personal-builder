@@ -1,0 +1,68 @@
+name: Verify fixed TV box repacking
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['configs/box-build-trigger.txt']
+permissions:
+  contents: read
+jobs:
+  verify:
+    if: github.event.repository.private
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        include:
+          - model: s905d
+            kernel: stable-6.6.160
+          - model: s905x3-hk1
+            kernel: stable-6.12.114
+          - model: orangepi-zero3
+            kernel: stable-6.18.58
+          - model: orangepi-5-plus
+            kernel: stable-6.18.58
+    env:
+      REPOSITORY_PRIVATE: 'true'
+      ENFORCE_APPROVED_UPSTREAM: 'true'
+      CONFIG_PATH: configs/device-upstream-qa.json
+      BOX_MODEL: ${{ matrix.model }}
+      BOX_KERNEL: ${{ matrix.kernel }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Prepare generic ARM64 source and fixed box choice
+        run: |
+          python -m scripts.device_upstream detect
+          python -m scripts.device_upstream prepare --target armsr/armv8 --profile box
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          from scripts.build import normalize
+          path=Path(os.environ['CONFIG_PATH']);value=json.loads(path.read_text())
+          value['box']={'model':os.environ['BOX_MODEL'],'kernel':os.environ['BOX_KERNEL']}
+          path.write_text(json.dumps(normalize(value)))
+          PY
+      - name: Install isolated image tools without user secrets
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends build-essential libncurses-dev libssl-dev zlib1g-dev gawk gettext unzip zip file rsync wget curl zstd openssl 7zip btrfs-progs dosfstools e2fsprogs parted u-boot-tools uuid-runtime pigz kmod
+      - name: Build and repack actual firmware
+        run: python -m scripts.build --config "$CONFIG_PATH"
+      - name: Verify produced firmware container
+        run: python -m scripts.image_verify
+      - name: Keep reports only
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: box-report-${{ matrix.model }}-${{ matrix.kernel }}
+          path: |
+            outputs/build.log
+            outputs/build-summary.json
+            outputs/image-report.json
+            outputs/box-pack.log
+            outputs/box-pack-report.json
+          retention-days: 3

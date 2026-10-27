@@ -79,7 +79,7 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends build-essential libncurses-dev libssl-dev \
-            zlib1g-dev gawk gettext unzip zip file rsync wget curl zstd qemu-utils qemu-system-x86 ovmf openssh-client sshpass smbclient 7zip openssl
+            zlib1g-dev gawk gettext unzip zip file rsync wget curl zstd qemu-utils qemu-system-x86 ovmf openssh-client sshpass smbclient 7zip openssl android-sdk-libsparse-utils btrfs-progs dosfstools e2fsprogs parted u-boot-tools uuid-runtime pigz kmod
       - name: Restore verified ImageBuilder download cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -87,6 +87,10 @@ jobs:
           key: imagebuilder-v1-${{ runner.os }}-${{ steps.config.outputs.builder_key }}
           restore-keys: |
             imagebuilder-v1-${{ runner.os }}-
+      - name: Restore separately verified private source when needed
+        run: python -m scripts.source_cache prepare --config "${CONFIG_PATH:-configs/x86-default.json}"
+        env:
+          GH_TOKEN: ${{ github.token }}
       - name: Build firmware
         run: python -m scripts.build --config "${CONFIG_PATH:-configs/x86-default.json}"
       - name: Verify actual images and selected local services

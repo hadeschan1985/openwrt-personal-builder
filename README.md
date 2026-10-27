@@ -2,12 +2,14 @@
 
 个人固件定制工作台：GitHub Pages 展示网页，GitHub Actions 构建，没有 VPS、会员或收费系统。
 
-- [打开工作台](https://hadeschan1985.github.io/openwrt-personal-builder/?v=20261027-3)
+- [打开工作台](https://hadeschan1985.github.io/openwrt-personal-builder/?v=20261027-4)
 - [日常使用说明](docs/USAGE.md)
 - [当前交付范围和限制](docs/DELIVERY.md)
-- [本轮测试证据](docs/RELEASE-11.md)
+- [本轮测试证据](docs/RELEASE-12.md)
 
-已接入原站当前公开目录的 865 个 Kwrt 设备档案、24 个平台，以及独立的 OpenWrt 官方目录。目录数量不是实体硬件实测数量。N1 已在新的自动验收版本修复；玩客云因构建器校验值不一致继续暂停；另有两个档案仅提供 ROOTFS。
+已接入原站当前公开目录的 865 个 Kwrt 设备档案、24 个平台，以及独立的 OpenWrt 官方目录。N1 和玩客云的公开资源兼容修复已完成云端验证；修复由新验收版本启用，旧固定版本保留原状态。目录数量不是实体硬件实测数量。
+
+“电视盒子全系列”新增 209 个资源匹配的型号档案和三个固定内核选择，DTB 自动绑定。四组代表组合已通过真实打包、只读回读、内核模块版本及个人设置保留检查。其余型号未逐一编译或实机测试；Wavlink WL-WN573HX3 档案仍只提供 ROOTFS。
 
 新配置按使用者要求暂用 root / root；可改为私有仓库的 ROUTER_PASSWORD。x86 可逐个映像做虚拟机启动验收；其他设备执行编译及文件校验，界面明确标注未验证实机启动。
 

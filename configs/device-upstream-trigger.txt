@@ -1,1 +1,1 @@
-2026-10-27: confirm unchanged approved platforms reuse their exact validation evidence.
+2026-10-27: final full device regression including restored OneCloud burn packaging and ARM64 box source preparation.

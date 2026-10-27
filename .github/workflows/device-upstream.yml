@@ -62,9 +62,13 @@ jobs:
       - name: Install ImageBuilder tools without user secrets
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends build-essential libncurses-dev libssl-dev zlib1g-dev gawk gettext unzip zip file rsync wget curl zstd openssl 7zip
+          sudo apt-get install -y --no-install-recommends build-essential libncurses-dev libssl-dev zlib1g-dev gawk gettext unzip zip file rsync wget curl zstd openssl 7zip android-sdk-libsparse-utils
       - name: Prepare candidate platform with temporary root password
         run: python -m scripts.device_upstream prepare --target "$QA_TARGET" --profile "$QA_PROFILE"
+      - name: Restore exact author source in a separate transfer step
+        run: python -m scripts.source_cache prepare --config "$CONFIG_PATH"
+        env:
+          GH_TOKEN: ${{ github.token }}
       - name: Compile actual firmware and verify package manifests
         run: python -m scripts.build --config "$CONFIG_PATH"
       - name: Validate actual image integrity

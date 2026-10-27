@@ -1,3 +1,4 @@
+import {boxErrors} from './box.js?v=20261027-4';
 export const CORE = new Set(['base-files','busybox','libc','libgcc','libgcc1','kernel','netifd','procd','uci','fstools']);
 export const PACKAGE_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9+_.-]{0,120}$/;
 export const NFT_ONLY = new Set(['luci-app-homeproxy','luci-app-homeproxy-pro','luci-app-nikki','luci-app-xray-status','luci-app-fchomo']);
@@ -126,6 +127,7 @@ export function validate(c,available=null,versions=null) {
     const missing=[...c.packages,...c.themes,...c.proxies].filter(p=>!available.has(p));
     if(missing.length) errors.push(`当前软件源找不到：${missing.slice(0,8).join('、')}${missing.length>8?' 等':''}。`);
   }
+  errors.push(...boxErrors(c));
   return errors;
 }
 export function ipv4(value,cidr=false) {
@@ -146,5 +148,6 @@ export function safePreset(c) {
   }
   if(c.system?.password_source===undefined)delete base.system.password_source;
   if(c.output?.image_types!==undefined)base.output.image_types=structuredClone(c.output.image_types);
+  if(c.box!==undefined)base.box={model:c.box?.model,kernel:c.box?.kernel};
   return base;
 }

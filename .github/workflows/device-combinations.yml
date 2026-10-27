@@ -43,9 +43,13 @@ jobs:
       - name: Install build tools without user secrets
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends build-essential libncurses-dev libssl-dev zlib1g-dev gawk gettext unzip zip file rsync wget curl zstd openssl 7zip
+          sudo apt-get install -y --no-install-recommends build-essential libncurses-dev libssl-dev zlib1g-dev gawk gettext unzip zip file rsync wget curl zstd openssl 7zip android-sdk-libsparse-utils
       - name: Prepare exact approved model and software
         run: python -m scripts.device_combinations prepare --case "$QA_CASE"
+      - name: Restore separately verified source when required
+        run: python -m scripts.source_cache prepare --config "$CONFIG_PATH"
+        env:
+          GH_TOKEN: ${{ github.token }}
       - name: Build actual firmware and verify package manifests
         run: python -m scripts.build --config "$CONFIG_PATH"
       - name: Verify actual firmware files

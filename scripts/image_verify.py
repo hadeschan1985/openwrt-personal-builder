@@ -71,6 +71,16 @@ def verify(config,output=Path('outputs')):
         files.append({'name':path.name,'bytes':item['bytes'],'sha256':item['sha256'],'check':kind})
     require(files,'No device firmware output to validate')
     report={'schema_version':1,'status':'passed','verification_level':'build-and-integrity-only','boot_tested':False,'hardware_tested':False,'version':config['version'],'target':config['target'],'profile':config['profile'],'files':files}
+    if config.get('box'):
+        proof=json.loads((output/'box-pack-report.json').read_text(encoding='utf-8'))
+        require(proof.get('status')=='passed' and proof.get('model')==config['box']['model'] and proof.get('kernel')==config['box']['kernel'] and proof.get('filesystem')=='btrfs' and proof.get('module_vermagic_checked',0)>=20 and proof.get('boot_tested') is False and proof.get('hardware_tested') is False,'Missing matching box kernel/DTB/ABI validation')
+        require(len(files)==1 and all(proof['file'][key]==files[0][key] for key in ('name','bytes','sha256')),'Box proof belongs to a different image')
+        report['box_packaging']=proof
+    if config['target']=='amlogic/meson8b' and any('emmc_burn' in f['name'] for f in files):
+        proof=json.loads((output/'onecloud-pack-report.json').read_text(encoding='utf-8'))
+        require(proof.get('status')=='passed' and proof.get('container_crc')=='verified-by-AmlImg' and proof.get('hardware_tested') is False and [p.get('name') for p in proof.get('partitions',[])]==['boot','rootfs'] and all(p.get('roundtrip')=='identical' for p in proof['partitions']),'OneCloud burn partition verification missing')
+        require(any(all(proof['file'][key]==f[key] for key in ('name','bytes','sha256')) for f in files),'OneCloud proof belongs to another image')
+        report['onecloud_packaging']=proof
     (output/'image-report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8')
     print('Device build and file integrity passed; device boot/hardware have NOT been tested.')
     return report

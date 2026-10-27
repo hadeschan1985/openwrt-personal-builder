@@ -1,0 +1,47 @@
+name: Independently verify OneCloud author artifact
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['configs/onecloud-provenance-trigger.txt']
+permissions:
+  contents: read
+jobs:
+  verify:
+    if: github.event.repository.private
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Download public author data and validate independent published digest
+        run: python -m scripts.onecloud_provenance
+      - name: Keep small provenance evidence only
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: independently-verified-onecloud-source
+          path: |
+            outputs/onecloud-provenance.json
+            outputs/kwrt-imagebuilder-amlogic-meson8b.Linux-x86_64.tar.zst
+          if-no-files-found: error
+          retention-days: 7
+  cache:
+    needs: verify
+    if: github.event.repository.private
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0
+        with:
+          name: independently-verified-onecloud-source
+          path: outputs
+      - name: Recheck bytes and preserve source privately without executing it
+        run: python -m scripts.source_cache publish
+        env:
+          GH_TOKEN: ${{ github.token }}

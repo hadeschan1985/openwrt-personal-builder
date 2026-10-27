@@ -1,0 +1,16 @@
+{
+  "archive_member": "amlogic/meson8b/kwrt-imagebuilder-amlogic-meson8b.Linux-x86_64.tar.zst",
+  "artifact_bytes": 613745374,
+  "artifact_id": 11760922364,
+  "artifact_sha256": "45c39e568391b77cb628086e5f8f3eb96374e323ecef959ffc9d731e5237c57d",
+  "builder_bytes": 313895435,
+  "builder_name": "kwrt-imagebuilder-amlogic-meson8b.Linux-x86_64.tar.zst",
+  "builder_sha256": "e29abe52fea3bdaf77a0af313ccb5c6f06c6564a4f7cdb27d41fd9215d6926b5",
+  "executed": false,
+  "run_id": 38270404059,
+  "schema_version": 1,
+  "source_commit": "72d10a7d43d85dae0ab057493d5a4aa81e97ac82",
+  "source_repository": "kiddin9/Kwrt",
+  "verification": "author-artifact-sha256-and-member-crc",
+  "verification_run_id": 40455959521
+}

@@ -1,0 +1,25 @@
+name: Verify fixed box kernels and device trees
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['configs/box-resources-trigger.txt']
+permissions:
+  contents: read
+jobs:
+  verify:
+    if: github.event.repository.private
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Validate published kernel digests and inspect actual model device trees
+        run: python -m scripts.box_resources
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: verified-box-resource-catalog
+          path: outputs/box-resources.json
+          if-no-files-found: error
+          retention-days: 7

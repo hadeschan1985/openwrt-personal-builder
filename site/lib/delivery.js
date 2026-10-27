@@ -1,8 +1,10 @@
-import {safePreset,validate} from './model.js?v=20261027-1';
+import {safePreset,validate} from './model.js?v=20261027-4';
 export function internalRun(run){return / · qa-internal-[A-Za-z0-9-]+$/.test(run?.display_title||'');}
 export function firmwareArtifact(artifact){return /^firmware-\d+(?:-(efi|legacy|vmdk|efi-vmdk|legacy-vmdk|rootfs|device-(?:0[1-9]|[12][0-9]|3[0-2])))?$/.test(artifact.name||'');}
 export function firmwareFile(name){return /(?:\.img(?:\.gz)?|\.vmdk(?:\.zip)?|\.bin|\.trx|\.itb|\.ubi|\.chk|\.tar(?:\.gz)?)$/.test(name||'');}
 export function downloadLabel(name){
+  if(/^personal-box-.*\.img\.gz$/.test(name))return '盒子磁盘 · IMG.GZ / Btrfs';
+  if(/-emmc_burn\.img(?:\.gz)?$/.test(name))return 'USB 烧录包 · EMMC';
   if(/-device-\d{2}$/.test(name))return '设备固件 · 文件 '+name.slice(-2);
   if(/-sysupgrade(?:[_.-]|$)/.test(name))return 'sysupgrade · 设备固件';
   if(/-factory(?:[_.-]|$)/.test(name))return 'factory · 设备固件';

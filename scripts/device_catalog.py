@@ -36,6 +36,10 @@ def inspect(target,dynamic_issues=False):
     data=catalog.kwrt_data(spec)
     if dynamic_issues:
         repaired=(target=='amlogic/meson8b' and spec['sha256']!=ONECLOUD_BAD_DIGEST) or (target=='amlogic/meson' and 'brcmfmac-nvram-43455-sdio-generic' in data['packages'])
+        if target=='amlogic/meson8b' and spec['sha256']==ONECLOUD_BAD_DIGEST:
+            # The independently verified author artifact contains these exact
+            # originally published bytes. Never replace the expected checksum.
+            spec['source_cache']='onecloud-author-20261012';repaired=True
         if target=='amlogic/meson' and not repaired and 'brcmfmac-nvram-43455-sdio' in data['packages']:
             from scripts.n1_compat import RECIPE,metadata
             spec['compatibility_recipe']=RECIPE;data=metadata(data,spec);repaired=True

@@ -1,0 +1,1 @@
+2026-10-27: inspect exact kernel assets and model-specific device trees before enabling repacking.

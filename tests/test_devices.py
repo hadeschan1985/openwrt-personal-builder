@@ -80,6 +80,27 @@ class DeviceTests(unittest.TestCase):
             (root/'build-summary.json').write_text(json.dumps(summary))
             with self.assertRaises((EOFError,OSError,ValueError)):image_verify.verify(c,root)
 
+    def test_box_image_requires_matching_model_kernel_and_file_proof(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);c=self.config();c.update(target='armsr/armv8',profile='box',box={'model':'s905d','kernel':'stable-6.12.114'})
+            data=gzip.compress(b'fixture');name='personal-box-s905d-6.12.114.img.gz';(root/name).write_bytes(data)
+            item={'name':name,'bytes':len(data),'sha256':hashlib.sha256(data).hexdigest()}
+            summary={k:c[k] for k in ['version','target','profile','builder']};summary.update(dependency_preflight={'status':'passed'},files=[item]);(root/'build-summary.json').write_text(json.dumps(summary))
+            with self.assertRaises(FileNotFoundError):image_verify.verify(c,root)
+            proof={'status':'passed','model':'s905d','kernel':'stable-6.12.114','filesystem':'btrfs','module_vermagic_checked':20,'boot_tested':False,'hardware_tested':False,'file':item}
+            path=root/'box-pack-report.json';path.write_text(json.dumps(proof));self.assertEqual(image_verify.verify(c,root)['box_packaging']['kernel'],c['box']['kernel'])
+            proof['file']={**item,'sha256':'0'*64};path.write_text(json.dumps(proof))
+            with self.assertRaisesRegex(ValueError,'different image'):image_verify.verify(c,root)
+
+    def test_onecloud_output_cannot_skip_partition_roundtrip_proof(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);c=self.config();c.update(target='amlogic/meson8b',profile='thunder-onecloud')
+            data=gzip.compress(b'fixture');name='kwrt-onecloud-ext4-emmc_burn.img.gz';(root/name).write_bytes(data)
+            item={'name':name,'bytes':len(data),'sha256':hashlib.sha256(data).hexdigest()}
+            summary={k:c[k] for k in ['version','target','profile','builder']};summary.update(dependency_preflight={'status':'passed'},files=[item]);(root/'build-summary.json').write_text(json.dumps(summary))
+            proof={'status':'passed','container_crc':'verified-by-AmlImg','hardware_tested':False,'partitions':[{'name':'boot','roundtrip':'identical'},{'name':'rootfs','roundtrip':'changed'}],'file':item};(root/'onecloud-pack-report.json').write_text(json.dumps(proof))
+            with self.assertRaisesRegex(ValueError,'partition verification'):image_verify.verify(c,root)
+
     def test_gzip_with_openwrt_metadata_checks_both_crcs_and_rejects_unknown_tails(self):
         with tempfile.TemporaryDirectory() as folder:
             path=Path(folder)/'sysupgrade.img.gz'

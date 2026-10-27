@@ -31,7 +31,7 @@ SHA=re.compile(r'[a-f0-9]{64}')
 COMMIT=re.compile(r'[a-f0-9]{40}')
 PROFILE=re.compile(r'[A-Za-z0-9_,.+-]{1,180}')
 PACKAGE=re.compile(r'[A-Za-z0-9][A-Za-z0-9+_.-]{0,120}')
-POLICY_FILES=['scripts/build.py','scripts/builders.py','scripts/catalog.py','scripts/delivery.py','scripts/image_verify.py','scripts/platform_qa.py','scripts/device_catalog.py','scripts/device_upstream.py','scripts/n1_compat.py','configs/x86-default.json']
+POLICY_FILES=['scripts/build.py','scripts/builders.py','scripts/catalog.py','scripts/delivery.py','scripts/image_verify.py','scripts/platform_qa.py','scripts/device_catalog.py','scripts/device_upstream.py','scripts/n1_compat.py','scripts/source_cache.py','scripts/onecloud_provenance.py','scripts/onecloud_pack.py','scripts/box_repack.py','scripts/box_resources.py','configs/x86-default.json']
 
 def read(path,limit=20*1024*1024):
     path=Path(path);require(path.is_file() and path.stat().st_size<=limit,'Device update data missing or oversized')

@@ -42,6 +42,7 @@ def validate_spec(spec):
     if spec.get('profiles_file','profiles.json') not in ('profiles.json','profiles.json.b'):raise ValueError('Invalid profile metadata path')
     if spec.get('metadata_source') not in (None,'selector'):raise ValueError('Invalid metadata source')
     if 'compatibility_recipe' in spec and (spec['target']!='amlogic/meson' or spec['compatibility_recipe']!='n1-nvram-v1'):raise ValueError('Unreviewed board compatibility recipe')
+    if 'source_cache' in spec and (spec['source_cache']!='onecloud-author-20261012' or target!='amlogic/meson8b' or spec['archive']!='kwrt-imagebuilder-amlogic-meson8b.Linux-x86_64.tar.zst' or spec['sha256']!='e29abe52fea3bdaf77a0af313ccb5c6f06c6564a4f7cdb27d41fd9215d6926b5'):raise ValueError('Untrusted source cache selection')
     if 'blocked_reason' in spec and (not isinstance(spec['blocked_reason'],str) or not 1<=len(spec['blocked_reason'])<=300):raise ValueError('Invalid platform block reason')
     return spec
 

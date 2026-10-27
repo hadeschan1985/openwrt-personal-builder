@@ -1,0 +1,1 @@
+2026-10-27: verify publisher-compressed native disk and portable burn round trips, attempt 5.

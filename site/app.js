@@ -1,15 +1,17 @@
-import {COMMON,CORE,NFT_ONLY,PROXIES,THEMES,defaultConfig,tokenize,validate,privateContent,safePreset,deviceOutput,deviceMatches,upgradeAutofill} from './lib/model.js?v=20261027-1';
+import {COMMON,CORE,NFT_ONLY,PROXIES,THEMES,defaultConfig,tokenize,validate,privateContent,safePreset,deviceOutput,deviceMatches,upgradeAutofill} from './lib/model.js?v=20261027-4';
 import {GitHub,repositoryName} from './lib/github.js?v=20261027-2';
-import {internalRun,firmwareArtifact,firmwareFile,downloadLabel,deliveryLabel,buildRecord,privateArchives,artifactFile} from './lib/delivery.js?v=20261027-1';
+import {internalRun,firmwareArtifact,firmwareFile,downloadLabel,deliveryLabel,buildRecord,privateArchives,artifactFile} from './lib/delivery.js?v=20261027-4';
 import {SOFTWARE_PROFILES,applySoftwareProfile,softwareAdvice} from './lib/software.js?v=20261027-2';
 import {runStatus,stepStatus,active,requestRun,stageName,failureHelp,artifactInfo} from './lib/progress.js?v=20261027-1';
 import {verifyDownload,verificationTarget} from './lib/verification.js?v=20261026-8';
 import {mergeApproved} from './lib/upstream.js?v=20261026-3';
 import {mergeDeviceApproved,validateDeviceMetadata} from './lib/device-upstream.js?v=20261027-2';
+import {boxProfile,boxErrors} from './lib/box.js?v=20261027-4';
 
 const $=id=>document.getElementById(id);
 const state={catalog:null,device:null,target:null,available:new Set(),config:defaultConfig(),git:null,file:null,loadId:0,loading:false,metadataReady:false,busy:false,pending:null,runs:[],latestRuns:[],success:null,historyPage:1,totalRuns:0,archives:[],archiving:new Map(),expanded:null,details:new Map(),refreshing:false,resultsLoaded:false,result:null,runError:''};
 const targetCache=new Map();
+let boxCatalog=null;
 const deviceReleases=new Map();
 const verifiedFiles=new Map();
 let toastTimer,pollTimer;
@@ -41,6 +43,7 @@ function readForm(){
   if(!c.target.startsWith('x86/'))c.output.image_types=[...$('image-types').selectedOptions].map(o=>o.value);
   c.packages=tokenize(val('custom-packages'));c.firewall=val('firewall');c.defaults=val('defaults');c.overlay=val('overlay-path').trim();
   for(const key of ['docker','usb_net','usb_wireless','wwan','istoreos','routerdog','remove_links'])c.features[key]=checked(`feature-${key}`);
+  if(boxProfile(c)&&checked('box-enabled'))c.box={model:val('box-model'),kernel:val('box-kernel')};else delete c.box;
   return c;
 }
 function applyForm(c){
@@ -51,9 +54,28 @@ function applyForm(c){
   for(const [group,fields]of Object.entries(checks))for(const [key,id]of Object.entries(fields))$(id).checked=c[group][key];
   $('rootfs-size').value=c.output.rootfs_size_mb;$('custom-packages').value=c.packages.join(' ');$('firewall').value=c.firewall;$('defaults').value=c.defaults;$('overlay-path').value=c.overlay;
   for(const key of ['docker','usb_net','usb_wireless','wwan','istoreos','routerdog','remove_links'])$(`feature-${key}`).checked=c.features[key]||false;
+  $('box-enabled').checked=Boolean(c.box);renderBox(c.box);
   conditionalFields();
 }
+function renderBox(choice=null){
+  const eligible=boxProfile(state.config);$('box-options').hidden=!eligible;
+  $('box-enabled').disabled=!boxCatalog;
+  if(!eligible)return;
+  if(!boxCatalog){$('box-help').textContent='盒子资源目录暂时未载入。仍可导出原生 ROOTFS，刷新后重试型号打包。';return;}
+  if(!$('box-model').options.length)for(const model of boxCatalog.models)$('box-model').add(new Option(`${model.name} · ${model.id}`,model.id));
+  if(choice)$('box-model').value=choice.model;
+  const model=boxCatalog.models.find(m=>m.id===val('box-model'));
+  const selected=choice?.kernel||val('box-kernel');$('box-kernel').replaceChildren();
+  for(const id of model?.kernels||[])$('box-kernel').add(new Option(id.replace('stable-',''),id));
+  if((model?.kernels||[]).includes(selected))$('box-kernel').value=selected;
+  else if((model?.kernels||[]).includes('stable-6.12.114'))$('box-kernel').value='stable-6.12.114';
+  $('box-dtb').value=model?.dtb||'';
+  const enabled=checked('box-enabled');for(const id of ['box-model','box-kernel'])$(id).disabled=!enabled;
+  $('box-help').textContent=`${boxCatalog.models.length} 个型号档案；DTB 随型号和内核绑定。输出 Btrfs 磁盘镜像，ROOTFS 仅作中间输入。已验证代表组合的打包、DTB、模块版本和配置保留；具体设备开机未测试。`;
+  if(enabled){$('rootfs').checked=true;$('image-types').replaceChildren();}
+}
 function browserSnapshot(c){const result=safePreset(c);result.defaults='';result.overlay='';return result;}
+function formErrors(c,available=null,versions=null){const errors=[...new Set([...validate(c,available,versions),...boxErrors(c,boxCatalog)])];if(c.box&&!boxCatalog)errors.push('盒子资源目录尚未载入，请刷新后重试。');return errors;}
 function persist(){
   // A private approved version may not be available until reconnecting. Do not
   // replace its saved settings with the public baseline during initial load.
@@ -63,12 +85,16 @@ function persist(){
 function update(){
   if(!state.device)return;
   state.config=readForm();
-  const c=state.config,errors=validate(c,state.available,state.catalog?.versions);
+  const c=state.config,errors=formErrors(c,state.available,state.catalog?.versions);
   $('delivery-help').textContent=c.build_mode==='release'?'x86 启动验收：本次所选磁盘均须通过虚拟机启动和登录测试。使用私有仓库、密码和 HTTPS；实体硬件仍未验证。':c.build_mode==='device'?'设备编译校验：检查包依赖、固件文件和 SHA256。没有替你验证这台设备能否开机；首次刷机须核对型号和恢复方法。':'实验模式：不执行启动验收。';
   $('summary-device').textContent=state.device.name;$('summary-version').textContent=c.version;
+  if(c.box)$('summary-device').textContent=boxCatalog?.models.find(m=>m.id===c.box.model)?.name||c.box.model;
+  $('kernel-label').textContent=c.box?c.box.kernel.replace('stable-','')+'（盒子内核）':state.target?.profiles.linux_kernel?.version||'查看构建环境';
   $('summary-packages').textContent=`${new Set([...c.packages,...c.themes,...c.proxies]).size} 个`;
   $('summary-removed').textContent=`${c.remove_packages.length} 个`;
   $('summary-output').textContent=c.target.startsWith('x86/')?[c.output.efi?'EFI':'',c.output.legacy?'Legacy':'',c.output.vmdk?'VMDK':'',c.output.rootfs?'ROOTFS':''].filter(Boolean).join(' / ')||c.output.filesystem:[...(c.output.image_types||[]),c.output.rootfs?'ROOTFS':''].filter(Boolean).join(' / ')||c.output.filesystem;
+  if(c.box)$('summary-output').textContent=`盒子 IMG.GZ · Btrfs · ${c.box.kernel.replace('stable-','')}`;
+  if(boxProfile(c))$('device-test-status').textContent=c.box?'本次将按所选型号打包 Btrfs 磁盘镜像，并验证内核、DTB、模块版本与个人设置；具体设备开机未测试。':'此档案当前输出 ROOTFS；开启盒子型号打包后可生成完整磁盘镜像。';
   const panel=$('validation');panel.replaceChildren();panel.classList.toggle('invalid',errors.length>0);
   if(errors.length){const list=node('ul');errors.forEach(e=>list.append(node('li',e)));panel.append(list);}else panel.textContent=privateContent(c)||state.file?'配置已通过基础检查。含私人内容，须在私有仓库构建。':'配置已通过基础检查。构建时会再次检查依赖和映像支持。';
   if(!errors.length&&!c.system.password_secret)panel.textContent+=' 尚未设置后台密码：仅建议用于实验，实际使用前请启用密码设置。';
@@ -104,6 +130,7 @@ function conditionalFields(){
   for(const id of ['wan-port','lan-ports','rootfs-size','efi','legacy','vmdk'])$(id).disabled=!x86;
   $('device-output-field').hidden=x86;
   $('password-source').disabled=!checked('password-secret');
+  renderBox();
   if(!x86&&state.target){
     const images=state.target.profiles.profiles[state.device.id].images;
     const types=[...new Set(images.filter(i=>i.filesystem===val('filesystem')).map(i=>i.type))];
@@ -324,7 +351,7 @@ function renderDelivery(run,data,container){
   container.append(node('p',deliveryLabel(data.record),'notice '+(data.record?.vm?.status==='passed'?'':'warning')));
   if(data.recordError)container.append(node('p',data.recordError,'error'));
   if(data.record){
-    container.append(node('p',`结果设备：${data.record.config.target} · ${data.record.config.profile}`,'help'));
+    container.append(node('p',`结果设备：${data.record.config.target} · ${data.record.config.profile}${data.record.config.box?` · ${data.record.config.box.model} · ${data.record.config.box.kernel}`:''}`,'help'));
     const wrap=node('div',undefined,'file-table'),table=node('table'),head=node('tr');
     for(const title of ['文件 / 格式','大小','SHA256'])head.append(node('th',title));table.append(head);
     for(const file of data.record.files){const row=node('tr'),name=node('td',file.name);name.append(node('small',file.group),verificationButton({name:file.name,bytes:file.bytes,hash:file.sha256,kind:'image'},'校验此文件'));row.append(name,node('td',`${(file.bytes/1048576).toFixed(2)} MiB`));const hash=node('td');hash.append(node('code',file.sha256));row.append(hash);table.append(row);}wrap.append(table);container.append(wrap);
@@ -515,7 +542,7 @@ async function connect(){
 async function startBuild(){
   if(state.pending&&state.pending.repo===state.git?.repo){toast('上次请求仍在登记或执行，请先查看构建记录。');return;}
   if(state.loading||!state.metadataReady){toast('请等设备资料载入完成后再构建。');return;}
-  state.config=readForm();const errors=validate(state.config,state.available,state.catalog?.versions);if(errors.length){update();toast(errors[0]);return;}
+  state.config=readForm();const errors=formErrors(state.config,state.available,state.catalog?.versions);if(errors.length){update();toast(errors[0]);return;}
   if(!state.git?.token){showConfig();toast('可导出配置并手动运行，或连接仓库授权后直接构建。');return;}
   if((privateContent(state.config)||state.file)&&!state.git.private){toast('初始化脚本、密码引用和文件包须使用私有构建仓库。');return;}
   const config=structuredClone(state.config),file=state.file,git=state.git;
@@ -531,7 +558,7 @@ async function restore(config){
     const approved=await git.deviceRelease(clean.version);if(git!==state.git)throw new Error('仓库连接已变更');
     if(approved.version!==clean.version)throw new Error('历史版本身份不匹配');installDeviceRelease(approved);
   }
-  const errors=validate(clean,null,state.catalog?.versions);if(errors.length)throw new Error(errors[0]);
+  const errors=formErrors(clean,null,state.catalog?.versions);if(errors.length)throw new Error(errors[0]);
   const device=state.catalog.devices.find(d=>d.version===clean.version&&d.target===clean.target&&d.id===clean.profile);if(!device)throw new Error('此配置的版本/设备不在当前目录中。');
   if(!await selectDevice(device,clean))throw new Error('此设备资料未载入，配置尚未导入。');
   deferredConfig=null;persist();
@@ -571,7 +598,7 @@ async function init(){
   $('import-config').addEventListener('change',async e=>{try{const f=e.target.files[0];if(!f)return;if(f.size>60000)throw new Error('配置文件不能超过 60 KB。');await restore(JSON.parse(await f.text()));toast('配置已导入。');}catch(error){toast(error.message);}e.target.value='';});
   $('clear-overlay').addEventListener('click',()=>{clearSelectedFile();$('overlay-path').value='';update();toast('已清除本页选择；不会删除仓库中的文件。');});
   $('overlay-file').addEventListener('change',e=>{const file=e.target.files[0];if(!file)return;if(file.size>12*1024*1024||!/(\.zip|\.tgz|\.tar\.gz|\.7z)$/i.test(file.name)){e.target.value='';toast('请选择不超过 12 MiB 的 ZIP/TAR.GZ/TGZ/7Z。');return;}state.file=file;$('upload-label').textContent=`${file.name} · ${(file.size/1048576).toFixed(2)} MiB`;$('overlay-path').value='';update();});
-  try{state.catalog=await json('data/catalog.json');$('version').replaceChildren(...state.catalog.versions.map(v=>new Option(versionLabel(v),v)));$('version').value=state.catalog.default_version;
+  try{boxCatalog=await json('data/box-builders.json').catch(()=>null);state.catalog=await json('data/catalog.json');$('version').replaceChildren(...state.catalog.versions.map(v=>new Option(versionLabel(v),v)));$('version').value=state.catalog.default_version;
     $('metadata-date').textContent=`资料更新 ${new Date(state.catalog.updated).toLocaleDateString()}`;
     const devices=state.catalog.devices.filter(d=>d.version===val('version'));$('device-count').textContent=`${devices.length.toLocaleString()} 个设备档案`;
     let saved=null;try{if(checked('autofill'))saved=JSON.parse(localStorage.getItem('pb-current')||'null');}catch{}

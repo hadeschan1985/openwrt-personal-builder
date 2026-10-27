@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "repositories": [
+    {
+      "repository": "ophub/amlogic-s9xxx-openwrt",
+      "commit": "52ad5239e6720f5b56c9afafcd7080cbe3cf2881"
+    },
+    {
+      "repository": "ophub/amlogic-s9xxx-armbian",
+      "commit": "72621c6f32942e40757deb1a5de63dca575c7658"
+    },
+    {
+      "repository": "ophub/u-boot",
+      "commit": "e06036570fc7a3ff810d7d5e8b4cb32f3a925f31"
+    },
+    {
+      "repository": "ophub/firmware",
+      "commit": "a9d0e8337cc8aa2ca4b482acd7b19c74ce05860f"
+    },
+    {
+      "repository": "ophub/luci-app-amlogic",
+      "commit": "16df300f86e5b4e48e955cd66f337c5872d27d3c"
+    }
+  ],
+  "model_database_blob": "877f552a2f30d7128aee75f2edbd6868f661d411",
+  "remake_blob": "37b10ea323f5ed11965288fc05bb9c0261687fc5",
+  "kernels": [
+    {
+      "id": "stable-6.6.160",
+      "tag": "stable",
+      "version": "6.6.160",
+      "asset_id": 664134741,
+      "bytes": 97398570,
+      "sha256": "366bfdcaf4a13887d3e94e82996dcf43c7d8756ba7935daa85cf200f0ae73fb4"
+    },
+    {
+      "id": "stable-6.12.114",
+      "tag": "stable",
+      "version": "6.12.114",
+      "asset_id": 665125284,
+      "bytes": 115394078,
+      "sha256": "4cf9646f4725817d4ec91a2b4889f42f30d2b2e1d584b4bfdba9bcc2477adae6"
+    },
+    {
+      "id": "stable-6.18.58",
+      "tag": "stable",
+      "version": "6.18.58",
+      "asset_id": 677003716,
+      "bytes": 123598556,
+      "sha256": "a73f560d56fb2a179e35e308b51e4a1c6b14a114585cebe7e0ad4294dbc44ce0"
+    }
+  ]
+}

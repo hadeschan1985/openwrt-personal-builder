@@ -186,6 +186,10 @@ def normalize(raw):
     overlay = raw.get("overlay", "")
     require(isinstance(overlay, str) and (not overlay or re.fullmatch(r"overlays/[A-Za-z0-9_.-]+\.(?:zip|tar\.gz|tgz|7z)", overlay)), "Overlay must be an archive under overlays/")
     result["overlay"] = overlay
+    if 'box' in raw:
+        result['box']=raw['box']
+        from scripts.box_repack import selection
+        selection(result)
     return result
 
 
@@ -639,6 +643,12 @@ def build(config, root=Path(".")):
     builders[0].rename(workspace)
     if kwrt:
         prepare_kwrt(workspace)
+        if config['target']=='armsr/armv8' and config['profile']=='box':
+            from scripts.box_repack import restore_rootfs_recipe
+            restore_rootfs_recipe(workspace)
+        if kwrt.get('source_cache')=='onecloud-author-20261012':
+            from scripts.onecloud_pack import restore_native_recipe
+            restore_native_recipe(workspace)
         if kwrt.get('compatibility_recipe'):
             from scripts.n1_compat import RECIPE,create_package
             require(kwrt['compatibility_recipe']==RECIPE and config['target']=='amlogic/meson' and config['profile']=='phicomm_n1','Wrong device for N1 compatibility recipe')
@@ -702,7 +712,17 @@ def build(config, root=Path(".")):
     for image in images:
         filename = image["name"]
         require(PurePosixPath(filename).name == filename, "Unexpected output filename")
-        shutil.copy2(manifests[0].parent / filename, outputs / filename)
+        if config.get('box') and image.get('filesystem')=='targz':
+            from scripts.box_repack import repack
+            repack(manifests[0].parent/filename,config,outputs,root/'work/box-repack')
+        elif kwrt and kwrt.get('source_cache')=='onecloud-author-20261012' and image.get('type')=='emmc_burn':
+            from scripts.onecloud_pack import pack,native_disk
+            destination=filename if filename.endswith('.gz') else filename+'.gz'
+            raw=native_disk(workspace,manifests[0].parent,filename,root/'work/onecloud-pack')
+            pack(raw,outputs/destination,root/'work/onecloud-pack')
+            image['name']=destination
+        else:
+            shutil.copy2(manifests[0].parent / filename, outputs / filename)
     out = config["output"]
     if config["target"].startswith("x86/"):
         for required, image_type in [(out["efi"], "combined-efi"), (out["legacy"], "combined"), (out["rootfs"], "rootfs")]:
