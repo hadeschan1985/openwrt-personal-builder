@@ -1,17 +1,20 @@
-import {COMMON,CORE,NFT_ONLY,PROXIES,THEMES,defaultConfig,tokenize,validate,privateContent,safePreset,deviceOutput,deviceMatches,upgradeAutofill} from './lib/model.js?v=20261027-4';
-import {GitHub,repositoryName} from './lib/github.js?v=20261027-2';
+import {COMMON,CORE,NFT_ONLY,PROXIES,THEMES,defaultConfig,tokenize,validate,privateContent,safePreset,deviceOutput,deviceMatches,upgradeAutofill} from './lib/model.js?v=20261027-6';
+import {GitHub,repositoryName} from './lib/github.js?v=20261027-6';
 import {internalRun,firmwareArtifact,firmwareFile,downloadLabel,deliveryLabel,buildRecord,privateArchives,artifactFile} from './lib/delivery.js?v=20261027-4';
 import {SOFTWARE_PROFILES,applySoftwareProfile,softwareAdvice} from './lib/software.js?v=20261027-2';
-import {runStatus,stepStatus,active,requestRun,stageName,failureHelp,artifactInfo} from './lib/progress.js?v=20261027-1';
+import {runStatus,stepStatus,active,requestRun,stageName,failureHelp,artifactInfo,profileFailureHelp} from './lib/progress.js?v=20261028-1';
 import {verifyDownload,verificationTarget} from './lib/verification.js?v=20261026-8';
-import {mergeApproved} from './lib/upstream.js?v=20261026-3';
-import {mergeDeviceApproved,validateDeviceMetadata} from './lib/device-upstream.js?v=20261027-2';
-import {boxProfile,boxErrors} from './lib/box.js?v=20261027-4';
+import {mergeApproved} from './lib/upstream.js?v=20261027-6';
+import {mergeDeviceApproved,validateDeviceMetadata} from './lib/device-upstream.js?v=20261027-6';
+import {boxProfile,boxErrors,validateBoxCatalog} from './lib/box.js?v=20261028-1';
 
 const $=id=>document.getElementById(id);
 const state={catalog:null,device:null,target:null,available:new Set(),config:defaultConfig(),git:null,file:null,loadId:0,loading:false,metadataReady:false,busy:false,pending:null,runs:[],latestRuns:[],success:null,historyPage:1,totalRuns:0,archives:[],archiving:new Map(),expanded:null,details:new Map(),refreshing:false,resultsLoaded:false,result:null,runError:''};
 const targetCache=new Map();
 let boxCatalog=null;
+let baselineBoxCatalog=null;
+const boxReleases=new Map();
+const profileCoverage=new Map();
 const deviceReleases=new Map();
 const verifiedFiles=new Map();
 let toastTimer,pollTimer;
@@ -43,7 +46,7 @@ function readForm(){
   if(!c.target.startsWith('x86/'))c.output.image_types=[...$('image-types').selectedOptions].map(o=>o.value);
   c.packages=tokenize(val('custom-packages'));c.firewall=val('firewall');c.defaults=val('defaults');c.overlay=val('overlay-path').trim();
   for(const key of ['docker','usb_net','usb_wireless','wwan','istoreos','routerdog','remove_links'])c.features[key]=checked(`feature-${key}`);
-  if(boxProfile(c)&&checked('box-enabled'))c.box={model:val('box-model'),kernel:val('box-kernel')};else delete c.box;
+  if(boxProfile(c)&&checked('box-enabled')){c.box={model:val('box-model'),kernel:val('box-kernel')};if(boxCatalog?.release)c.box.release=boxCatalog.release;}else delete c.box;
   return c;
 }
 function applyForm(c){
@@ -63,7 +66,7 @@ function renderBox(choice=null){
   $('box-enabled').disabled=!boxCatalog&&!checked('box-enabled');
   if(!eligible)return;
   if(!boxCatalog){$('box-help').textContent='盒子资源目录暂时未载入。仍可导出原生 ROOTFS，刷新后重试型号打包。';return;}
-  if(!$('box-model').options.length)for(const model of boxCatalog.models)$('box-model').add(new Option(`${model.name} · ${model.id}`,model.id));
+  if($('box-model').dataset.release!==(boxCatalog.release||'baseline')){const previous=val('box-model');$('box-model').replaceChildren(...boxCatalog.models.map(model=>new Option(`${model.name} · ${model.id}`,model.id)));if(boxCatalog.models.some(m=>m.id===previous))$('box-model').value=previous;$('box-model').dataset.release=boxCatalog.release||'baseline';}
   if(choice)$('box-model').value=choice.model;
   const model=boxCatalog.models.find(m=>m.id===val('box-model'));
   const selected=choice?.kernel||val('box-kernel');$('box-kernel').replaceChildren();
@@ -231,6 +234,11 @@ async function selectDevice(device,config=null){
     $('rootfs').disabled=rootfsOnly||!fs.has('targz');
     const proof=deviceReleases.get(device.version)?.targets[device.target]?.proof;
     $('device-test-status').textContent=data.build_blocked|| (rootfsOnly?'此档案仅提供 ROOTFS 根文件系统，不提供可直接刷机的整机映像。':device.target==='x86/64'?'可对本次映像执行虚拟机启动验收；实体硬件未测试。':proof?`${proof.profile===device.id?'此型号':'此平台代表型号'}已通过实际编译和文件完整性检查。${proof.profile===device.id?'':'当前型号未单独编译验收。'}实体开机未测试。`:'提供此型号的构建档案。构建成功与文件校验不等于此型号已做实体开机测试。');
+    applyProfileCoverage();
+    if(rootfsOnly&&device.id==='wavlink_wl-wn573hx3'){
+      const official=state.catalog.devices.filter(d=>d.builder!=='kwrt'&&d.target===device.target&&d.id===device.id).sort((a,b)=>b.version.localeCompare(a.version,undefined,{numeric:true}))[0];
+      if(official){const button=node('button','改用官方源生成完整升级镜像','button secondary');button.type='button';button.addEventListener('click',async()=>{const c=readForm();c.builder='official';c.version=official.version;c.output={...c.output,filesystem:'squashfs',rootfs:false,image_types:['WN573HX3-sysupgrade']};delete c.box;await selectDevice(official,c);toast('已切换至官方固件，请检查软件是否在官方源中提供。');});$('device-test-status').append(document.createTextNode(' '),button);}
+    }
     $('official-images').replaceChildren();
     const imageBase=data.image_base||`https://downloads.openwrt.org/releases/${device.version}/targets/${device.target}`;
     for(const image of images){const row=node('div',undefined,'download-item');const link=node('a',`${image.type} · ${image.filesystem} · ${(image.size/1048576).toFixed(1)} MiB ↗`);link.href=`${imageBase}/${encodeURIComponent(image.name)}`;link.target='_blank';link.rel='noreferrer';row.append(link,node('code',`SHA256 ${image.sha256}`));$('official-images').append(row);}
@@ -357,6 +365,10 @@ function renderDelivery(run,data,container){
     for(const title of ['文件 / 格式','大小','SHA256'])head.append(node('th',title));table.append(head);
     for(const file of data.record.files){const row=node('tr'),name=node('td',file.name);name.append(node('small',file.group),verificationButton({name:file.name,bytes:file.bytes,hash:file.sha256,kind:'image'},'校验此文件'));row.append(name,node('td',`${(file.bytes/1048576).toFixed(2)} MiB`));const hash=node('td');hash.append(node('code',file.sha256));row.append(hash);table.append(row);}wrap.append(table);container.append(wrap);
     const reuse=node('button','用此配置重新填写','button secondary');reuse.type='button';reuse.addEventListener('click',async()=>{reuse.disabled=true;try{await restore(data.record.config);toast('配置已填写，尚未提交构建；后台密码使用所选来源。');}catch(error){toast(error.message);}finally{reuse.disabled=false;}});container.append(reuse);
+    if(data.record.rebuild?.status==='available'&&data.record.rebuild.run_id===String(run.id)&&/^[a-f0-9]{64}$/.test(data.record.rebuild.manifest_sha256||'')){
+      const rebuild=node('button','用归档软件离线重建','button secondary');rebuild.type='button';rebuild.addEventListener('click',async()=>{const git=state.git;if(!git||state.busy||state.pending)return toast('请等待当前请求完成后再提交。');rebuild.disabled=true;state.busy=true;try{const requestId=crypto.randomUUID();state.pending={id:requestId,at:Date.now(),repo:git.repo};savePending();pendingPanel();await git.dispatch(data.record.config,requestId,String(run.id));if(git!==state.git)return;toast('已提交离线重建，使用归档的软件和原配置。');await refreshRuns(false);}catch(error){toast(error.message);}finally{if(git===state.git){state.busy=false;rebuild.disabled=false;buildAvailability();}}});container.append(document.createTextNode(' '),rebuild);
+      container.append(node('p','已私有保存构建器、软件包和打包来源。离线重建使用原配置，密码等私密设置读取构建时的当前值；不承诺文件逐字节相同。','help'));
+    }
   }else container.append(node('p','旧任务没有逐项记录，或记录尚在保存。请从 GitHub 任务摘要 / ZIP 内清单查看映像 SHA256；不会将旧固件误标为已验收。','help'));
   if(run.conclusion==='success'&&state.git?.private){
     const saved=state.archives.find(a=>a.runId===String(run.id));
@@ -463,7 +475,7 @@ async function refreshUpstream(){
   upstreamBusy=true;upstreamAt=Date.now();$('refresh-upstream').disabled=true;
   const body=$('upstream-body');
   try{
-    const [data,runs,devices,deviceRuns]=await Promise.allSettled([git.approvedUpstream(),git.upstreamRuns(),git.deviceApproved(),git.deviceUpstreamRuns()]);
+    const [data,runs,devices,deviceRuns,boxes]=await Promise.allSettled([git.approvedUpstream(),git.upstreamRuns(),git.deviceApproved(),git.deviceUpstreamRuns(),git.readJSON('updates/box-approved.json')]);
     if(git!==state.git)return;
     const parts=[];
     if(runs.status==='fulfilled'){
@@ -506,9 +518,15 @@ async function refreshUpstream(){
       const run=deviceRuns.value.workflow_runs?.[0];if(run)parts.push(node('p',`多型号最近检查：${new Date(run.updated_at).toLocaleString()} · ${active(run)?'检查 / 编译中':runStatus(run)}`));
     }
     parts.push(externalLink('查看多型号更新验收记录 ↗',`https://github.com/${git.repo}/actions/workflows/device-upstream.yml`));
-    if(deferredConfig&&/^kwrt-25\.12-\d{8}-[a-f0-9]{8}$/.test(deferredConfig.version)&&!state.catalog.versions.includes(deferredConfig.version)){
+    if(deferredConfig&&/^kwrt-\d{2}\.\d{2}-\d{8}-[a-f0-9]{8}$/.test(deferredConfig.version)&&!state.catalog.versions.includes(deferredConfig.version)){
       const saved=deferredConfig,b=node('button','载入并恢复上次保存的历史版本','button secondary');b.type='button';b.addEventListener('click',async()=>{b.disabled=true;try{await restore(saved);b.remove();toast('已恢复历史配置。');}catch(e){toast(e.message);b.disabled=false;}});parts.push(b);
     }
+    if(boxes.status==='fulfilled'){
+      const box=await validateBoxCatalog(boxes.value);if(git!==state.git)return;
+      boxReleases.set(box.release,box);parts.push(node('p',`盒子更新：${box.release} · ${box.models.length} 个档案 · ${box.kernels.length} 个内核 · ${box.proofs.length} 组实际打包验收。`));
+      const button=node('button','使用已验收的盒子更新','button secondary');button.type='button';button.addEventListener('click',()=>{const c=readForm();boxCatalog=box;if(c.box){c.box.release=box.release;const m=box.models.find(m=>m.id===c.box.model);if(!m?.kernels.includes(c.box.kernel))c.box.kernel=m?.kernels[0]||'';}state.config=c;applyForm(c);update();toast('盒子资源已切换，尚未提交构建。');});parts.push(button);
+    }else if(boxes.reason.status!==404)parts.push(node('p',`盒子更新读取失败：${boxes.reason.message}，当前版本保留。`,'error'));
+    parts.push(externalLink('查看盒子自动更新与验收记录 ↗',`https://github.com/${git.repo}/actions/workflows/box-upstream.yml`));
     body.replaceChildren(...parts);renderDeviceUpdate();
   }catch(error){if(git===state.git)body.replaceChildren(node('p',error.message,'error'));}
   finally{if(git===state.git){upstreamBusy=false;$('refresh-upstream').disabled=false;}}
@@ -552,16 +570,34 @@ async function startBuild(){
     if(git!==state.git)return;const requestId=crypto.randomUUID();state.pending={id:requestId,at:Date.now(),repo:git.repo};savePending();pendingPanel();await git.dispatch(config,requestId);if(git!==state.git)return;toast('GitHub 已接受构建请求，进度会自动更新。');notice(`构建请求已提交：${config.version} / ${config.profile}。可关闭页面，构建仍会继续；返回时需重新连接授权。`);await refreshRuns(false);
   }catch(error){if(git!==state.git)return;if(error.status>=400&&error.status<500){state.pending=null;savePending();pendingPanel();}notice(error.message,'error');schedulePoll();}finally{if(git===state.git){state.busy=false;buildAvailability();button.replaceChildren(document.createTextNode('构建新固件 '),node('span','↗'));}}
 }
+function applyProfileCoverage(){
+  const device=state.device,release=device&&deviceReleases.get(device.version),entry=device&&profileCoverage.get(`${device.target}/${device.id}`);
+  if(!release||!entry||entry.policy_sha256!==release.policy_sha256||entry.target_fingerprint!==release.targets[device.target]?.target_fingerprint)return;
+  const status=$('device-test-status');
+  if(entry.status==='passed'&&entry.image_validation?.status==='passed'&&entry.image_validation.profile===device.id&&entry.image_validation.target===device.target&&entry.image_validation.hardware_tested===false)status.textContent='此型号已独立通过云端编译、软件清单和固件文件校验；实体开机尚未测试。';
+  else if(entry.status==='failed')status.textContent=profileFailureHelp(entry);
+  else return;
+  if(/^\d+$/.test(String(entry.run_id)))status.append(document.createTextNode(' '),externalLink('查看型号编译检查 ↗',`https://github.com/hadeschan1985/openwrt-personal-builder/actions/runs/${entry.run_id}`));
+}
+async function loadProfileCoverage(){
+  try{const data=await json('https://raw.githubusercontent.com/hadeschan1985/openwrt-personal-builder/main/updates/profile-coverage.json');if(data.schema_version!==1||!data.profiles||typeof data.profiles!=='object'||Object.keys(data.profiles).length>10000)return;for(const entry of Object.values(data.profiles))if(entry&&typeof entry.target==='string'&&typeof entry.profile==='string'&&entry.hardware_tested===false&&/^[a-f0-9]{64}$/.test(entry.policy_sha256||'')&&/^[a-f0-9]{64}$/.test(entry.target_fingerprint||''))profileCoverage.set(`${entry.target}/${entry.profile}`,entry);applyProfileCoverage();}catch{}
+}
 async function restore(config){
   const clean=safePreset(config);
-  if(!state.catalog?.versions.includes(clean.version)&&/^kwrt-25\.12-\d{8}-[a-f0-9]{8}$/.test(clean.version)){
+  let requestedBoxCatalog=baselineBoxCatalog;
+  if(clean.box?.release){
+    requestedBoxCatalog=boxReleases.get(clean.box.release);
+    if(!requestedBoxCatalog){const git=state.git;if(!git)throw new Error('请先连接私有仓库，载入此历史盒子资源。');requestedBoxCatalog=await validateBoxCatalog(await git.readJSON(`updates/box-catalogs/${clean.box.release}.json`));if(git!==state.git||requestedBoxCatalog.release!==clean.box.release)throw new Error('历史盒子版本身份不匹配');boxReleases.set(clean.box.release,requestedBoxCatalog);}
+  }
+  if(!state.catalog?.versions.includes(clean.version)&&/^kwrt-\d{2}\.\d{2}-\d{8}-[a-f0-9]{8}$/.test(clean.version)){
     const git=state.git;if(!git)throw new Error('请先连接私有仓库，以载入此历史验收版本');
     const approved=await git.deviceRelease(clean.version);if(git!==state.git)throw new Error('仓库连接已变更');
     if(approved.version!==clean.version)throw new Error('历史版本身份不匹配');installDeviceRelease(approved);
   }
-  const errors=formErrors(clean,null,state.catalog?.versions);if(errors.length)throw new Error(errors[0]);
+  const errors=[...validate(clean,null,state.catalog?.versions),...boxErrors(clean,requestedBoxCatalog)];if(errors.length)throw new Error(errors[0]);
   const device=state.catalog.devices.find(d=>d.version===clean.version&&d.target===clean.target&&d.id===clean.profile);if(!device)throw new Error('此配置的版本/设备不在当前目录中。');
-  if(!await selectDevice(device,clean))throw new Error('此设备资料未载入，配置尚未导入。');
+  const previousBoxCatalog=boxCatalog;boxCatalog=requestedBoxCatalog;
+  if(!await selectDevice(device,clean)){boxCatalog=previousBoxCatalog;throw new Error('此设备资料未载入，配置尚未导入。');}
   deferredConfig=null;persist();
 }
 async function init(){
@@ -599,8 +635,8 @@ async function init(){
   $('import-config').addEventListener('change',async e=>{try{const f=e.target.files[0];if(!f)return;if(f.size>60000)throw new Error('配置文件不能超过 60 KB。');await restore(JSON.parse(await f.text()));toast('配置已导入。');}catch(error){toast(error.message);}e.target.value='';});
   $('clear-overlay').addEventListener('click',()=>{clearSelectedFile();$('overlay-path').value='';update();toast('已清除本页选择；不会删除仓库中的文件。');});
   $('overlay-file').addEventListener('change',e=>{const file=e.target.files[0];if(!file)return;if(file.size>12*1024*1024||!/(\.zip|\.tgz|\.tar\.gz|\.7z)$/i.test(file.name)){e.target.value='';toast('请选择不超过 12 MiB 的 ZIP/TAR.GZ/TGZ/7Z。');return;}state.file=file;$('upload-label').textContent=`${file.name} · ${(file.size/1048576).toFixed(2)} MiB`;$('overlay-path').value='';update();});
-  try{boxCatalog=await json('data/box-builders.json').catch(()=>null);state.catalog=await json('data/catalog.json');$('version').replaceChildren(...state.catalog.versions.map(v=>new Option(versionLabel(v),v)));$('version').value=state.catalog.default_version;
-    $('metadata-date').textContent=`资料更新 ${new Date(state.catalog.updated).toLocaleDateString()}`;
+  try{boxCatalog=await json('data/box-builders.json').catch(()=>null);baselineBoxCatalog=boxCatalog;state.catalog=await json('data/catalog.json');$('version').replaceChildren(...state.catalog.versions.map(v=>new Option(versionLabel(v),v)));$('version').value=state.catalog.default_version;
+    $('metadata-date').textContent=`资料更新 ${new Date(state.catalog.updated).toLocaleDateString()}`;void loadProfileCoverage();
     const devices=state.catalog.devices.filter(d=>d.version===val('version'));$('device-count').textContent=`${devices.length.toLocaleString()} 个设备档案`;
     let saved=null;try{if(checked('autofill'))saved=JSON.parse(localStorage.getItem('pb-current')||'null');}catch{}
     if(saved)try{await restore(upgradeAutofill(saved));return;}catch{if(saved.version&&!state.catalog.versions.includes(saved.version)){deferredConfig=upgradeAutofill(saved);toast('上次配置使用自动更新版本，连接私有仓库后可恢复；原保存内容未覆盖。');}else toast('原保存配置不适用于当前目录，已恢复默认。');}

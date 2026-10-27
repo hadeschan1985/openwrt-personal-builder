@@ -1,8 +1,8 @@
 # 验收记录
 
-当前版本见 [RELEASE-11.md](RELEASE-11.md)：22 个非 x86 平台代表型号通过自动更新验收，N1 兼容修复通过，网页固定快照覆盖 865 档案。JavaScript 71 项、Python 105 项；Windows 两项外部工具检查在 Linux CI 执行。实体设备暂不可用，只完成云端范围。
+当前功能范围见 [DELIVERY.md](DELIVERY.md)。2026-10-28 的 [云端代码检查 40559507345](https://github.com/hadeschan1985/openwrt-personal-builds/actions/runs/40559507345) 已通过 JavaScript 79 项及 Python 153 项，共 232 项、零失败、零跳过。Windows 本地两项外部工具检查由 Linux CI 补齐。实体设备暂不可用，只完成云端范围；固件运行与流程验收另以各自实际报告为准。
 
-以下保留历史版本的验收范围与测试数量。当前 865 设备档案、平台回归、root 临时密码及逐文件下载验收见 [RELEASE-10.md](RELEASE-10.md) 和 [JSON 证据](release10-verification.json)。
+以下保留历史版本的验收范围与测试数量。此前玩客云、盒子和 23 个非 x86 平台完整回归见 [RELEASE-12.md](RELEASE-12.md)；这些历史成功记录不代替新代码、新资源的独立验收。
 
 本页只列已经观察到的结果；测试中的项目不算完成。所有云端开机测试使用临时密码/SSH 密钥，虚拟机不能访问外网，不共享宿主机目录；测试固件和密钥不作为可用产物上传。
 

@@ -1,4 +1,4 @@
-import {boxErrors} from './box.js?v=20261027-6';
+import {boxErrors} from './box.js?v=20261028-1';
 export const CORE = new Set(['base-files','busybox','libc','libgcc','libgcc1','kernel','netifd','procd','uci','fstools']);
 export const PACKAGE_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9+_.-]{0,120}$/;
 export const NFT_ONLY = new Set(['luci-app-homeproxy','luci-app-homeproxy-pro','luci-app-nikki','luci-app-xray-status','luci-app-fchomo']);

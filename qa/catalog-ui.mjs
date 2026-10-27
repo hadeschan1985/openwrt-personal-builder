@@ -1,0 +1,34 @@
+// Real page against the private API; read-only test, no firmware dispatch.
+import {readFile,writeFile,mkdir} from 'node:fs/promises';
+import {resolve} from 'node:path';
+import {pathToFileURL} from 'node:url';
+import {spawn} from 'node:child_process';
+import assert from 'node:assert/strict';
+const {chromium}=await import(pathToFileURL(resolve('work/web-e2e/node_modules/playwright/index.mjs')).href);
+const token=process.env.GH_TOKEN,repo=process.env.GITHUB_REPOSITORY;
+assert(token&&/^[A-Za-z0-9-]+\/[A-Za-z0-9_.-]+$/.test(repo));
+const directory=resolve('work/catalog-ui');await mkdir(directory,{recursive:true});
+async function api(path){const r=await fetch(`https://api.github.com/repos/${repo}${path}`,{headers:{Authorization:`Bearer ${token}`,Accept:'application/vnd.github+json'}});assert(r.ok,`Read-only API ${r.status}`);return r.json();}
+async function data(path){const item=await api('/contents/'+path);assert(item.encoding==='base64'&&item.size<4*1024**2);return JSON.parse(Buffer.from(item.content,'base64').toString('utf8'));}
+const latest=await data('updates/box-approved.json'),devices=await data('updates/devices-approved.json');
+const baseline=JSON.parse(await readFile('configs/box-builders.json','utf8'));
+const server=spawn('python',['-m','http.server','8773','--bind','127.0.0.1','--directory','site'],{stdio:'ignore'});
+const browser=await chromium.launch();const page=await browser.newPage();let dispatches=0;
+page.on('request',request=>{if(request.method()==='POST'&&request.url().endsWith('/dispatches'))dispatches++;});
+async function preview(){await page.locator('#preview-button:not([disabled])').click();const c=JSON.parse(await page.locator('#config-json').inputValue());await page.locator('#config-dialog').getByRole('button',{name:'关闭',exact:true}).click();return c;}
+async function importConfig(c){const file=resolve(directory,'input.json');await writeFile(file,JSON.stringify(c));await page.locator('#import-config').setInputFiles(file);await page.waitForFunction(c=>!document.querySelector('#import-config').value&&document.querySelector('#device-platform').textContent.includes(c.profile)&&document.querySelector('#version').value===c.version&&(!c.box||document.querySelector('#box-model').dataset.release===(c.box.release||'baseline')),c);await page.locator('#preview-button:not([disabled])').waitFor();}
+try{
+  for(let n=0;n<50;n++){try{if((await fetch('http://127.0.0.1:8773')).ok)break;}catch{}await new Promise(r=>setTimeout(r,100));}
+  await page.goto('http://127.0.0.1:8773/');await page.locator('#device-search:not([disabled])').waitFor();await page.locator('#preview-button:not([disabled])').waitFor();
+  const before=await preview();await page.locator('#connect-button').click();await page.locator('#repository').fill(repo);await page.locator('#github-token').fill(token);await page.locator('#confirm-connect').click();await page.locator('#connect-dialog').waitFor({state:'hidden',timeout:60000});
+  await page.locator('#upstream-body').getByText(new RegExp(latest.release)).waitFor({timeout:60000});assert.deepEqual(await preview(),before,'Connecting changed the current form');
+  const config=JSON.parse(await readFile('configs/x86-default.json','utf8'));Object.assign(config,{builder:'kwrt',version:devices.version,target:'armsr/armv8',profile:'box',build_mode:'device',packages:['curl'],box:{model:'s905d',kernel:'stable-6.12.114'}});config.system.password_secret=true;config.system.password_source='root';Object.assign(config.output,{rootfs:true,efi:false,legacy:false,vmdk:false,image_types:[]});
+  await importConfig(config);assert.equal(await page.locator('#box-model option').count(),baseline.models.length);assert.deepEqual((await preview()).box,config.box,'Legacy resource choice silently changed');
+  await page.getByRole('button',{name:'使用已验收的盒子更新',exact:true}).click();assert.equal(await page.locator('#box-model option').count(),latest.models.length);assert.equal((await preview()).box.release,latest.release);
+  await page.locator('#box-model').selectOption('s905x-tx9');await page.locator('#box-kernel').selectOption('stable-5.15.223');const selected=await preview();assert.deepEqual(selected.box,{model:'s905x-tx9',kernel:'stable-5.15.223',release:latest.release});assert.equal(await page.locator('#box-dtb').inputValue(),'meson-gxl-s905x-tx9.dtb');
+  const historical=await data('updates/box-catalogs/box-20261027-6a0c65eb.json');config.box.release=historical.release;await importConfig(config);assert.equal(await page.locator('#box-model option').count(),historical.models.length);assert.deepEqual((await preview()).box,config.box,'Historical catalog was replaced by the latest one');
+  delete config.box;Object.assign(config,{target:'mediatek/filogic',profile:'wavlink_wl-wn573hx3'});await importConfig(config);await page.getByRole('button',{name:'改用官方源生成完整升级镜像',exact:true}).click();await page.waitForFunction(()=>document.querySelector('#version').value==='25.12.6');await page.locator('#preview-button:not([disabled])').waitFor();const wavlink=await preview();assert.equal(wavlink.builder,'official');assert.deepEqual(wavlink.output.image_types,['WN573HX3-sysupgrade']);assert.equal(wavlink.output.rootfs,false);
+  const ip=await page.locator('#ip').inputValue();await page.locator('#ip').fill('999.1.1.1');await page.locator('#build-button').click();await page.getByText('后台 IPv4 地址格式不正确。',{exact:true}).first().waitFor();assert.equal(dispatches,0,'Read-only validation accidentally submitted a build');await page.locator('#ip').fill(ip);
+  await page.setViewportSize({width:390,height:844});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Mobile page overflows horizontally');await page.locator('#device').scrollIntoViewIfNeeded();await page.screenshot({path:resolve(directory,'mobile.png')});
+  const report={status:'passed',run_id:process.env.GITHUB_RUN_ID,source_commit:process.env.GITHUB_SHA,latest_box_release:latest.release,latest_models:latest.models.length,historical_box_release:historical.release,historical_models:historical.models.length,cases:['connect-preserves-form','legacy-resource-restore','explicit-latest-update','new-tx9-dtb','immutable-history-restore','official-wavlink-output','invalid-config-no-dispatch','mobile-no-horizontal-overflow'],firmware_dispatches:dispatches,hardware_tested:false};await writeFile(resolve(directory,'report.json'),JSON.stringify(report,null,2));console.log('CATALOG_UI_RESULT='+JSON.stringify(report));
+}catch(error){console.error(String(error.stack||error).replaceAll(token,'***'));process.exitCode=1;}finally{await browser.close();server.kill();}

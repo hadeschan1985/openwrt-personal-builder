@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {runStatus,active,latestBuildResults,requestRun,artifactInfo,verifyDownload,failureHelp,stageName} from '../site/lib/progress.js';
+import {runStatus,active,latestBuildResults,requestRun,artifactInfo,verifyDownload,failureHelp,stageName,profileFailureHelp} from '../site/lib/progress.js';
 import {SOFTWARE_PROFILES,applySoftwareProfile,softwareAdvice} from '../site/lib/software.js';
 import {defaultConfig,validate} from '../site/lib/model.js';
 import {GitHub} from '../site/lib/github.js';
@@ -11,6 +11,17 @@ test('statuses and stages are Chinese and unknown states do not claim success',(
   assert.equal(runStatus({status:'invented'}),'正在确认状态');
   assert.equal(active({status:'queued'}),true);assert.equal(active({status:'completed',conclusion:'failure'}),false);
   assert.match(stageName('Build firmware'),/依赖/);assert.match(failureHelp({name:'Build firmware'}),/预检/);
+});
+test('archived rebuild progress and failures explain the actual step in Chinese',()=>{
+  assert.equal(stageName('Restore original input snapshot in a separate transfer process'),'读取原版本的归档软件');
+  assert.match(stageName('Verify and retain private input snapshots without executing archived sources'),/归档/);
+  assert.match(failureHelp({name:'Restore original input snapshot in a separate transfer process'}),/原版本归档/);
+  assert.match(failureHelp({name:'Verify and retain private input snapshots without executing archived sources'}),/存储容量/);
+});
+test('individual profile failures expose bounded missing dependencies without claiming a pass',()=>{
+  const result=profileFailureHelp({diagnostic:'Cannot install package hwmon-drivetemp.\ncannot find dependency kmod-thermal for luci-app-fan\ncannot find dependency kmod-thermal for luci-app-fan'});
+  assert.match(result,/hwmon-drivetemp、kmod-thermal/);assert.equal(result.match(/kmod-thermal/g).length,1);
+  assert.match(profileFailureHelp({diagnostic:'network unavailable'}),/未通过/);assert.doesNotMatch(profileFailureHelp({diagnostic:'Cannot install package <script>'}),/script/);
 });
 test('request matching is exact, not a title substring',()=>{
   const runs=[{id:1,display_title:'Personal firmware · abc-extra'},{id:2,display_title:'Personal firmware · abc'}];

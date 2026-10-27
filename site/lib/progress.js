@@ -9,6 +9,8 @@ export function latestBuildResults(runs){
 }
 export function requestRun(runs,id){return runs.find(run=>typeof run.display_title==='string'&&run.display_title.endsWith(` · ${id}`));}
 export function stageName(name){
+  const rebuild={'Restore original input snapshot in a separate transfer process':'读取原版本的归档软件','Inventory public input cache for reproducible rebuild support':'核对本次使用的软件','Capture exact builders packages and fixed sources without generated private files':'整理历史重建所需的软件','Transfer private rebuild inputs to a fresh publication job':'传送私有重建资料','Verify and retain private input snapshots without executing archived sources':'核验并归档构建输入'};
+  if(rebuild[name])return rebuild[name];
   if(name==='Upload EFI VMDK disk')return '保存 EFI VMDK 单独下载';
   if(name==='Upload Legacy VMDK disk')return '保存 Legacy VMDK 单独下载';
   if(name==='Verify device firmware containers and file integrity')return '校验本次设备固件文件';
@@ -20,12 +22,18 @@ export function stageName(name){
 }
 export function failureHelp(step){
   if(!step)return '请打开 GitHub 日志查看具体原因；失败不会生成可用固件。';
+  if(/Restore original input snapshot/.test(step.name))return '原版本归档读取或校验失败。请查看原构建记录、仓库权限及此步骤日志。';
+  if(/Capture exact builders|Transfer private rebuild|Verify and retain private input/.test(step.name))return '保存重建资料失败。请查看私有存储容量、传输及此步骤日志，原有归档保留。';
   if(/Validate/.test(step.name))return '配置或私有仓库检查未通过。检查软件包、输出格式和仓库 Secrets 设置。';
   if(/Verify actual images/.test(step.name))return '本次映像启动、后台认证或本地服务验收未通过，不会交付为正式固件。请查看失败检查项；不要直接刷机。';
   if(/dependencies|Python|Checkout|cache/i.test(step.name))return '构建环境或下载准备失败，可能是上游或 GitHub 暂时不可用。请先查看日志，再决定重试。';
   if(/Build firmware/.test(step.name))return '依赖预检、上游下载或映像生成未通过。日志中“依赖预检”后的信息会指出缺包、冲突或下载问题；请勿直接反复提交。';
   if(/Upload/.test(step.name))return '保存产物失败。检查 GitHub 存储配额与日志；不要把此任务当作交付成功。';
   return '请打开 GitHub 日志查看此步骤的具体错误，再决定重试。';
+}
+export function profileFailureHelp(entry){
+  const missing=[...new Set([...(String(entry?.diagnostic||'').slice(-3000)).matchAll(/(?:Cannot install package|cannot find dependency) ([A-Za-z0-9][A-Za-z0-9+_.-]{0,120})/g)].map(match=>match[1].replace(/\.$/,'')))].slice(0,8);
+  return missing.length?'此型号默认软件组合编译未通过。当前上游缺少依赖：'+missing.join('、')+'。':'此型号最近一轮默认软件组合编译未通过；请查看具体原因后再提交。';
 }
 export function artifactInfo(artifact,now=Date.now()){
   const expires=Date.parse(artifact.expires_at),expired=artifact.expired||Number.isFinite(expires)&&expires<=now;

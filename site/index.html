@@ -4,10 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="个人 OpenWrt 固件定制工作台，使用 GitHub Pages 与 Actions，无会员。">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' https://api.github.com https://downloads.openwrt.org https://sysupgrade.openwrt.org; style-src 'self'; script-src 'self'; worker-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'self'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' https://api.github.com https://raw.githubusercontent.com https://downloads.openwrt.org https://sysupgrade.openwrt.org; style-src 'self'; script-src 'self'; worker-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'self'">
   <title>Personal Builder · 固件定制工作台</title>
   <link rel="stylesheet" href="styles.css?v=20261027-1">
-  <script type="module" src="app.js?v=20261027-5"></script>
+  <script type="module" src="app.js?v=20261028-1"></script>
 </head>
 <body>
   <a class="skip" href="#main">跳到主要内容</a>
@@ -29,9 +29,9 @@
         <div class="result-foot"><span id="results-privacy">固件保持私有，不会发布到公开网页</span><a href="#history">全部构建记录 ↓</a></div>
       </section>
       <section class="card latest-results" id="upstream" aria-labelledby="upstream-title">
-        <div class="section-head"><span class="result-icon" aria-hidden="true">↻</span><div><h2 id="upstream-title">自动跟进上游</h2><p>每日检查 OpenWrt 稳定版与 Kwrt 25.12；变化通过测试后才批准。</p></div><button id="refresh-upstream" type="button" class="button subtle">刷新状态 ↻</button></div>
+        <div class="section-head"><span class="result-icon" aria-hidden="true">↻</span><div><h2 id="upstream-title">自动跟进上游</h2><p>每日检查 OpenWrt、Kwrt 与盒子资源；变化通过测试后才批准。</p></div><button id="refresh-upstream" type="button" class="button subtle">刷新状态 ↻</button></div>
         <div id="upstream-body" role="status"><p class="help">连接私有构建仓库后查看验收结果，载入通过测试的 x86 与多型号版本。检查在 GitHub 执行，关闭网页仍会继续。</p></div>
-        <p class="fine">计划时间：x86 每天 04:23，多型号每天 05:07（北京时间 / 新加坡时间，可能延迟）。x86 检查虚拟机启动与登录；其他平台检查代表型号编译和文件完整性。失败保留已批准版本，不自动刷机或覆盖表单。Kwrt 跨大版本需重新适配。</p>
+        <p class="fine">计划时间：x86 每天 04:23，多型号每天 05:07，盒子每天 05:43（北京时间 / 新加坡时间，可能延迟）。新发行系列同样需要实际测试；资料格式无法识别时保留原版本。x86 检查虚拟机启动与登录；其他平台检查编译或打包和文件完整性。不会自动刷机或覆盖表单。</p>
       </section>
       <div class="workspace">
         <form id="builder-form" class="configuration" novalidate>
