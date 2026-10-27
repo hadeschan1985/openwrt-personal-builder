@@ -1,1 +1,1 @@
-2026-10-28: test the R3D hwmon-drivetemp package alias against the exact active campaign candidate, retaining the real kernel temperature driver. Reports only, no firmware publication or user secrets.
+2026-10-28: verify the corrected R3D temperature package alias and all four retained fan/temperature components, recording exact-policy structured evidence. Reports only, no firmware publication or user secrets.

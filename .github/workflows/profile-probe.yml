@@ -54,13 +54,18 @@ jobs:
         run: |
           python -m scripts.image_verify
           python - <<'PY'
+          import os
           from pathlib import Path
           from scripts import device_upstream as d
           from scripts.build import require
           manifests=list(Path('outputs').glob('*.manifest'));require(manifests,'Installed manifest missing')
           packages={line.split()[0] for path in manifests for line in path.read_text().splitlines() if line.strip()}
-          require('kmod-hwmon-drivetemp' in packages,'Replacement temperature driver is absent')
-          d.write('work/profile-probe-result.json',{'status':'passed','target':'ipq806x/generic','profile':'xiaomi_r3d','removed_alias':'hwmon-drivetemp','retained_driver':'kmod-hwmon-drivetemp','image_validation':d.read('outputs/image-report.json'),'hardware_tested':False})
+          retained=['kmod-hwmon-drivetemp','kmod-hwmon-emc2305','kmod-hwmon-lm75','luci-app-fan']
+          require(set(retained)<=packages,'A required temperature or fan component is absent')
+          candidate=d.read('work/profile-campaign/candidate.json');target='ipq806x/generic'
+          result={'schema_version':1,'status':'passed','target':target,'profile':'xiaomi_r3d','run_id':os.environ['GITHUB_RUN_ID'],'source_commit':os.environ['GITHUB_SHA'],'policy_sha256':candidate['policy_sha256'],'target_fingerprint':d.target_fingerprint(candidate['targets'][target]),'removed_alias':'hwmon-drivetemp','retained_driver':'kmod-hwmon-drivetemp','retained_components':retained,'config_sha256':d.digest(d.read('configs/profile-probe-qa.json')),'image_validation':d.read('outputs/image-report.json'),'hardware_tested':False}
+          d.write('work/profile-probe-result.json',result)
+          print('R3D_PROBE_RESULT='+d.canonical(result),flush=True)
           PY
       - if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
