@@ -1,6 +1,9 @@
 import copy
 import json
+import os
 from pathlib import Path
+import subprocess
+import sys
 import unittest
 from scripts.build import ConfigError
 from scripts import box_registry as registry,box_upstream as upstream
@@ -15,6 +18,12 @@ def candidate():
 
 
 class BoxUpdateTests(unittest.TestCase):
+    def test_legacy_script_entry_can_load_snapshot_and_box_modules(self):
+        c=json.loads((ROOT/'configs/x86-default.json').read_text());c.update(builder='kwrt',version='kwrt-25.12-20261012',target='armsr/armv8',profile='box',box={'model':'s905d','kernel':'stable-6.12.114'})
+        c['output'].update(rootfs=True,efi=False,legacy=False,vmdk=False,image_types=[])
+        result=subprocess.run([sys.executable,'scripts/build.py','--plan'],cwd=ROOT,env={**os.environ,'CONFIG_JSON':json.dumps(c)},capture_output=True,text=True)
+        self.assertEqual(result.returncode,0,result.stderr);self.assertEqual(json.loads(result.stdout)['config']['box'],c['box'])
+
     def test_all_resource_pairs_must_have_real_dtb_bytes(self):
         c=candidate();registry.validate(c)
         broken=copy.deepcopy(c);broken['models'][0]['dtb']='missing.dtb';broken['fingerprint']=registry.fingerprint(broken);broken['release']='box-20261027-'+broken['fingerprint'][:8]

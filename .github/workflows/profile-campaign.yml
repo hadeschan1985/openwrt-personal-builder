@@ -10,7 +10,7 @@ permissions:
   contents: read
 concurrency:
   group: profile-campaign-${{ github.repository }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 jobs:
   detect:
     if: '!github.event.repository.private'

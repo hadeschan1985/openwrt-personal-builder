@@ -26,7 +26,8 @@ import zipfile
 if __package__:
     from .builders import resolve as kwrt_builder,load_registry
 else:
-    from builders import resolve as kwrt_builder,load_registry
+    sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
+    from scripts.builders import resolve as kwrt_builder,load_registry
 
 BASE = "https://downloads.openwrt.org"
 REGISTRY = Path(__file__).resolve().parents[1] / "configs" / "builders.json"

@@ -1,1 +1,1 @@
-2026-10-28: actually compile all public Kwrt device profiles using synthetic defaults; publish checks only.
+2026-10-28 round 2: verify each profile against its own generated config; preserve failed diagnostics and publish checks only.

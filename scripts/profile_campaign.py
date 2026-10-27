@@ -59,6 +59,7 @@ def clean():
 
 def execute(command,log):
     env={k:v for k,v in os.environ.items() if k not in {'GH_TOKEN','GITHUB_TOKEN','ROUTER_PASSWORD','PPPOE_USERNAME','PPPOE_PASSWORD','WIFI_PASSWORD','CONFIG_JSON'} and not k.startswith('ACTIONS_')}
+    env['CONFIG_PATH']='configs/profile-campaign-qa.json'
     with log.open('w',encoding='utf-8') as output:
         process=subprocess.Popen(command,stdout=output,stderr=subprocess.STDOUT,env=env,start_new_session=True)
         try:return process.wait(timeout=900)
@@ -81,6 +82,7 @@ def run(batch):
         except (ValueError,OSError,subprocess.SubprocessError) as error:
             report.update(status='failed',reason=str(error)[:500],diagnostic=log.read_text(encoding='utf-8',errors='replace')[-1200:] if log.exists() else '')
         d.write(folder/(identity+'.json'),report);print('PROFILE_RESULT='+json.dumps({k:report[k] for k in ('target','profile','status','run_id')},separators=(',',':')),flush=True)
+        if report['status']=='failed':print('PROFILE_DIAGNOSTIC='+json.dumps({'target':target,'profile':profile,'reason':report['reason'],'diagnostic':report['diagnostic']},separators=(',',':')),flush=True)
     clean()
 
 

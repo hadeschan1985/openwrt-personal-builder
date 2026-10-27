@@ -1,10 +1,25 @@
 import copy
+import os
+import subprocess
+import tempfile
+from pathlib import Path
 import unittest
+from unittest.mock import patch
 from scripts import profile_campaign as p
 from tests.test_device_upstream import candidate
 
 
 class CampaignTests(unittest.TestCase):
+    def test_verifier_child_receives_same_config_without_credentials(self):
+        captured={}
+        class Child:
+            def __init__(self,*args,**kwargs):captured.update(kwargs)
+            def wait(self,timeout):return 0
+        with tempfile.TemporaryDirectory() as temp,patch.dict(os.environ,{'GH_TOKEN':'never-child','CONFIG_PATH':'wrong-config','ACTIONS_TEST':'never-child'}),patch.object(p.subprocess,'Popen',Child):
+            self.assertEqual(p.execute(['python','-m','scripts.image_verify'],Path(temp)/'log'),0)
+        self.assertEqual(captured['env']['CONFIG_PATH'],'configs/profile-campaign-qa.json')
+        self.assertNotIn('GH_TOKEN',captured['env']);self.assertNotIn('ACTIONS_TEST',captured['env'])
+
     def test_only_matching_successful_software_and_policy_proofs_are_reused(self):
         c=candidate();target='airoha/an7581';profile='fixture';identity=p.key(target,profile)
         self.assertEqual(p.required(c)[0]['profiles'],[profile])

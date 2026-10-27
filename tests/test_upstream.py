@@ -1,5 +1,6 @@
 import copy
 import io
+import http.client
 import json
 from pathlib import Path
 import tempfile
@@ -31,6 +32,22 @@ def evidence(c):
 
 
 class UpstreamTests(unittest.TestCase):
+    def test_truncated_transport_is_retried_but_bad_data_and_missing_files_are_not(self):
+        with patch.object(u.time,'sleep') as sleep:
+            operation=unittest.mock.Mock(side_effect=[http.client.IncompleteRead(b'partial',10),{'complete':True}])
+            self.assertEqual(u.remote(operation),{'complete':True});self.assertEqual(operation.call_count,2);sleep.assert_called_once()
+            operation=unittest.mock.Mock(side_effect=ValueError('invalid metadata'))
+            with self.assertRaises(ValueError):u.remote(operation)
+            self.assertEqual(operation.call_count,1)
+            operation=unittest.mock.Mock(side_effect=u.urllib.error.HTTPError('https://example.invalid',404,'missing',{},None))
+            with self.assertRaises(u.urllib.error.HTTPError):u.remote(operation)
+            self.assertEqual(operation.call_count,1)
+
+    def test_policy_changes_require_new_boot_evidence(self):
+        c=candidate();c['policy_sha256']=u.policy_digest();c['fingerprint']=u.digest(u.identity(c));u.validate_candidate(c)
+        old=evidence(c);c['policy_sha256']='e'*64;c['fingerprint']=u.digest(u.identity(c))
+        with self.assertRaises(ValueError):u.approval(c,old,'123','b'*40)
+
     def test_new_release_and_same_day_builder_change_get_distinct_pins(self):
         c = candidate()
         original = copy.deepcopy(c["registry"])
@@ -172,7 +189,22 @@ class UpstreamTests(unittest.TestCase):
             with patch.dict("os.environ", {"GITHUB_RUN_ID": "123", "GITHUB_SHA": "b" * 40, "GH_TOKEN": "ephemeral"}), patch.object(u, "api", return_value={"object": {"sha": "c" * 40}}) as api:
                 with self.assertRaisesRegex(ValueError, "Branch changed"):
                     u.publish(root / "candidate.json", root / "reports")
-                self.assertEqual(api.call_count, 1)
+                self.assertEqual(api.call_count, 2)
+
+    def test_concurrent_snapshot_records_preserved_when_only_data_changed(self):
+        c=candidate();calls=[]
+        def api(path,token,method='GET',body=None):
+            calls.append((path,method,body))
+            if path=='/git/ref/heads/main':return {'object':{'sha':'f'*40}}
+            if path.startswith('/compare/'):return {'status':'ahead','files':[{'filename':'snapshots/456.json'},{'filename':'records/456.json'}]}
+            if path.startswith('/git/commits/'):return {'tree':{'sha':'c'*40}}
+            return {'sha':'d'*40}
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp);u.write_json(root/'candidate.json',c)
+            for source,report in evidence(c).items():u.write_json(root/'reports'/f'{source}.json',report)
+            with patch.dict('os.environ',{'GITHUB_RUN_ID':'123','GITHUB_SHA':'b'*40,'GH_TOKEN':'ephemeral'}),patch.object(u,'api',side_effect=api):u.publish(root/'candidate.json',root/'reports')
+        tree=next(body for path,method,body in calls if path=='/git/trees');self.assertEqual(tree['base_tree'],'c'*40)
+        self.assertEqual(calls[-1][2],{'sha':'d'*40,'force':False})
 
 
 if __name__ == "__main__":

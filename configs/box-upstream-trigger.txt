@@ -1,1 +1,1 @@
-2026-10-28: revalidate automatic box source updates against final snapshot and repacking policy.
+2026-10-28 round 2: revalidate consistent script imports and final source snapshot policy.

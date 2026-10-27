@@ -9,10 +9,13 @@ import argparse
 import copy
 import datetime as dt
 import hashlib
+import http.client
 import json
 import os
 from pathlib import Path
 import re
+import time
+import urllib.error
 import urllib.request
 
 from scripts import catalog
@@ -28,6 +31,26 @@ SHA = re.compile(r"[a-f0-9]{64}")
 OFFICIAL_VERSION = re.compile(r"\d{2}\.\d{2}\.\d+")
 KWRT_VERSION = re.compile(r"kwrt-\d{2}\.\d{2}-\d{8}(?:-[a-f0-9]{8})?")
 LIMIT = 4 * 1024 * 1024
+POLICY_FILES=('scripts/upstream.py','scripts/catalog.py','scripts/build.py','scripts/builders.py','scripts/smoke.py','scripts/delivery_qa.py','scripts/image_verify.py','scripts/rebuild.py','scripts/box_registry.py','scripts/n1_compat.py','configs/x86-default.json')
+
+
+def policy_digest():
+    return digest({p:hashlib.sha256((ROOT/p).read_bytes()).hexdigest() for p in POLICY_FILES})
+
+
+def identity(candidate):
+    value={k:candidate[k] for k in ('sources','registry')}
+    if 'policy_sha256' in candidate:value['policy_sha256']=candidate['policy_sha256']
+    return value
+
+
+def remote(operation):
+    for attempt in range(3):
+        try:return operation()
+        except (http.client.IncompleteRead,urllib.error.URLError,TimeoutError,ConnectionError) as error:
+            if isinstance(error,urllib.error.HTTPError) and error.code not in (408,429,500,502,503,504):raise
+            if attempt==2:raise
+            time.sleep(2**attempt)
 
 
 def canonical(value):
@@ -83,7 +106,8 @@ def validate_candidate(candidate):
         require(all(re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9+_.-]{0,120}", p) for p in metadata["packages"]), "Invalid package names")
         if name == "kwrt":
             require(version in registry and source["builder_sha256"] == registry[version]["sha256"], "Registry checksum mismatch")
-    require(candidate.get("fingerprint") == digest({"sources": sources, "registry": registry}), "Candidate fingerprint mismatch")
+    if 'policy_sha256' in candidate:require(SHA.fullmatch(candidate['policy_sha256']),'Invalid validation policy')
+    require(candidate.get("fingerprint") == digest(identity(candidate)), "Candidate fingerprint mismatch")
     require(len(canonical(candidate).encode()) <= LIMIT, "Candidate too large")
     return candidate
 
@@ -117,12 +141,13 @@ def discover(registry):
         {"source": "kwrt", "version": version, "label": spec["label"], "builder_sha256": kwrt_sha, "metadata": catalog.kwrt_data(spec)},
     ]
     result = {"schema_version": 1, "created_at": dt.datetime.now(dt.timezone.utc).isoformat(), "sources": sources, "registry": registry}
-    result["fingerprint"] = digest({"sources": sources, "registry": registry})
+    result['policy_sha256']=policy_digest()
+    result["fingerprint"] = digest(identity(result))
     return validate_candidate(result)
 
 
 def detect(destination):
-    candidate = discover(read_json(ROOT / REGISTRY))
+    candidate = remote(lambda:discover(read_json(ROOT / REGISTRY)))
     previous = read_json(ROOT / APPROVED) if (ROOT / APPROVED).exists() else {}
     changed = previous.get("fingerprint") != candidate["fingerprint"]
     write_json(destination, candidate)
@@ -137,7 +162,7 @@ def guard(config):
     if config['builder']=='kwrt' and config['target']!='x86/64':
         spec=resolve(config['version'],config['target'])
         require(not spec.get('blocked_reason'),spec.get('blocked_reason',''))
-        metadata=catalog.kwrt_data(spec)
+        metadata=remote(lambda:catalog.kwrt_data(spec))
         fingerprint=hashlib.sha256(json.dumps(metadata,sort_keys=True,separators=(',',':')).encode()).hexdigest()
         require(fingerprint==spec.get('metadata_fingerprint') and builder_checksum(spec['base'],spec['archive'])==spec['sha256'],'此平台上游构建器或软件包已变化，暂停构建，等待重新同步和测试。')
         print('Pinned device metadata and ImageBuilder verified; no hardware boot approval is implied.')
@@ -151,7 +176,7 @@ def guard(config):
         return
     if config["builder"] == "kwrt":
         spec = read_json(ROOT / REGISTRY)[config["version"]]
-        metadata = catalog.kwrt_data(spec)
+        metadata = remote(lambda:catalog.kwrt_data(spec))
         checksum = builder_checksum(spec["base"], spec["archive"])
     else:
         metadata = catalog.target_data(config["version"], "x86/64")
@@ -184,7 +209,7 @@ def attest(candidate_path, source, destination):
     expected = {"bios", "uefi", "native-vmdk-bios" if source == "kwrt" else "vmdk-bios"}
     require({r["mode"] for r in report["results"]} == expected and all(r["status"] == "passed" for r in report["results"]), "Incomplete boot tests")
     # Re-read upstream after build/boot: rolling feeds must not change mid-test.
-    current = discover(candidate["registry"])
+    current = remote(lambda:discover(candidate["registry"]))
     require(current["fingerprint"] == candidate["fingerprint"], "Upstream changed during QA; retry on next check")
     write_json(destination, {"source": source, "version": selected["version"], "fingerprint": candidate["fingerprint"],
                              "run_id": os.environ.get("GITHUB_RUN_ID", ""), "report": report})
@@ -196,6 +221,7 @@ def approval(candidate, evidence, run_id, commit):
     result = {"schema_version": 1, "fingerprint": candidate["fingerprint"],
               "approved_at": dt.datetime.now(dt.timezone.utc).isoformat(), "run_id": str(run_id),
               "source_commit": commit, "sources": []}
+    if 'policy_sha256' in candidate:result['policy_sha256']=candidate['policy_sha256']
     for selected in candidate["sources"]:
         source = selected["source"]
         proof = evidence[source]
@@ -226,15 +252,19 @@ def publish(candidate_path, reports):
     evidence = {source: read_json(reports / f"{source}.json") for source in ("official", "kwrt")}
     approved = approval(candidate, evidence, os.environ["GITHUB_RUN_ID"], os.environ["GITHUB_SHA"])
     token = os.environ["GH_TOKEN"]
-    ref = api("/git/ref/heads/main", token)
-    parent = ref["object"]["sha"]
-    require(parent == os.environ["GITHUB_SHA"], "Branch changed during QA; do not overwrite newer work. Next daily check will retry.")
-    base = api("/git/commits/" + parent, token)["tree"]["sha"]
     entries = [{"path": path, "mode": "100644", "type": "blob", "content": canonical(value)}
                for path, value in ((REGISTRY, candidate["registry"]), (APPROVED, approved))]
-    tree = api("/git/trees", token, "POST", {"base_tree": base, "tree": entries})["sha"]
-    commit = api("/git/commits", token, "POST", {"message": "Approve tested upstream " + candidate["fingerprint"][:12], "tree": tree, "parents": [parent]})["sha"]
-    api("/git/refs/heads/main", token, "PATCH", {"sha": commit, "force": False})
+    for attempt in range(3):
+        parent=api('/git/ref/heads/main',token)['object']['sha']
+        if parent!=os.environ['GITHUB_SHA']:
+            diff=api('/compare/'+os.environ['GITHUB_SHA']+'...'+parent,token)
+            require(diff.get('status') in ('ahead','identical') and all(f['filename'].startswith(('records/','snapshots/','updates/','docs/')) or f['filename']=='README.md' for f in diff.get('files',[])),"Branch changed during QA; next check will retry.")
+        base=api('/git/commits/'+parent,token)['tree']['sha']
+        tree=api('/git/trees',token,'POST',{'base_tree':base,'tree':entries})['sha']
+        commit=api('/git/commits',token,'POST',{'message':'Approve tested upstream '+candidate['fingerprint'][:12],'tree':tree,'parents':[parent]})['sha']
+        try:api('/git/refs/heads/main',token,'PATCH',{'sha':commit,'force':False});break
+        except urllib.error.HTTPError as error:
+            if error.code not in (409,422) or attempt==2:raise
     print("Approved upstream data committed atomically. Existing private files preserved.")
     if os.environ.get("GITHUB_STEP_SUMMARY"):
         with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as stream:

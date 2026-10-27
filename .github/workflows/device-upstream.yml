@@ -11,7 +11,7 @@ permissions:
   contents: read
 concurrency:
   group: device-upstream-${{ github.repository }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 jobs:
   detect:
     if: github.event.repository.private

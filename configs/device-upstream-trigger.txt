@@ -1,1 +1,1 @@
-2026-10-28: revalidate final multi-series policy, source snapshots and full profile compilation policy.
+2026-10-28 round 2: revalidate consistent command entry and per-profile report configuration.
