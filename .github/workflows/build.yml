@@ -79,6 +79,8 @@ jobs:
           with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
               output.write('builder_key=' + config['version'] + '-' + config['target'].replace('/', '-') + '\n')
               output.write('build_mode=' + config['build_mode'] + '\n')
+              output.write('x86=' + str(config['target'].startswith('x86/')).lower() + '\n')
+              output.write('box=' + str(bool(config.get('box'))).lower() + '\n')
               output.write('router_secret=' + str(config['system']['password_secret'] and config['system'].get('password_source')!='root').lower() + '\n')
               output.write('pppoe_secret=' + str(config['network']['pppoe_secret']).lower() + '\n')
               output.write('wifi_secret=' + str(config['network']['wifi_password_secret']).lower() + '\n')
@@ -88,10 +90,18 @@ jobs:
         env:
           ROUTER_PASSWORD: ${{ steps.config.outputs.router_secret == 'true' && secrets.ROUTER_PASSWORD || '' }}
       - name: Install ImageBuilder dependencies
+        timeout-minutes: 20
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends build-essential libncurses-dev libssl-dev \
-            zlib1g-dev gawk gettext unzip zip file rsync wget curl zstd qemu-utils qemu-system-x86 ovmf openssh-client sshpass smbclient 7zip openssl android-sdk-libsparse-utils btrfs-progs dosfstools e2fsprogs parted u-boot-tools uuid-runtime pigz kmod
+          packages=(build-essential libncurses-dev libssl-dev zlib1g-dev gawk gettext unzip zip file rsync wget curl zstd 7zip openssl android-sdk-libsparse-utils e2fsprogs)
+          if [ "$BUILD_X86" = true ]; then packages+=(qemu-utils); fi
+          if [ "$BUILD_MODE" = release ]; then packages+=(qemu-system-x86 ovmf openssh-client sshpass smbclient); fi
+          if [ "$BUILD_BOX" = true ]; then packages+=(btrfs-progs dosfstools parted u-boot-tools uuid-runtime pigz kmod); fi
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=60 -o Acquire::https::Timeout=60 update -qq
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=60 -o Acquire::https::Timeout=60 install -y --no-install-recommends "${packages[@]}"
+        env:
+          BUILD_X86: ${{ steps.config.outputs.x86 }}
+          BUILD_MODE: ${{ steps.config.outputs.build_mode }}
+          BUILD_BOX: ${{ steps.config.outputs.box }}
       - name: Restore verified ImageBuilder download cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
