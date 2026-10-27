@@ -30,6 +30,7 @@ permissions:
 concurrency:
   group: firmware-${{ github.repository }}
   cancel-in-progress: false
+  queue: max
 
 jobs:
   firmware:
