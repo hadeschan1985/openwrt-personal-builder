@@ -3,9 +3,9 @@
   "status": "cloud-verification-passed",
   "date": "2026-10-27",
   "web_version": "20261027-5",
-  "public_source_commit": "fb3bf08baa67736197c5265a3619bf54bfcc79f7",
+  "public_source_commit": "d03c77422718fc680e66b7427c0d94686bdf0179",
   "private_validation_commit": "bf201ec6833b6db76bddf0faa70c26b7e70a3725",
-  "source_tree": "3d05261aab1d00f89706054d3de1e873f8433846",
+  "source_tree": "042ef66ca20f7baaee062c893594a6c021a18d5d",
   "catalog": {
     "kwrt_profiles": 865,
     "platforms": 24,
@@ -20,12 +20,14 @@
   },
   "code_checks": {
     "status": "passed",
-    "run_id": 40499546719,
+    "run_id": 40501902223,
     "javascript": 75,
     "python": 127,
     "cloud_total_passed": 202,
     "cloud_skipped": 0,
-    "windows_skipped": 2
+    "windows_skipped": 2,
+    "repository": "hadeschan1985/openwrt-personal-builder",
+    "private_run_id": 40501909012
   },
   "onecloud": {
     "status": "passed",
@@ -818,10 +820,11 @@
       "no horizontal overflow"
     ],
     "production_verified": true,
-    "production_verified_version": "20261027-4",
+    "production_verified_version": "20261027-5",
     "original_form_restored": true,
-    "final_cosmetic_revision": "20261027-5",
-    "screenshot": "release12-production-box.png"
+    "screenshot": "release12-production-box-v5.png",
+    "native_controls_hidden_for_box": true,
+    "rootfs_and_x86_switching_passed": true
   },
   "hardware_tested": false
 }
