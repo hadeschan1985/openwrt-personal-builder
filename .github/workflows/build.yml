@@ -103,12 +103,11 @@ jobs:
           BUILD_MODE: ${{ steps.config.outputs.build_mode }}
           BUILD_BOX: ${{ steps.config.outputs.box }}
       - name: Restore verified ImageBuilder download cache
+        if: inputs.rebuild_run_id == ''
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: work/downloads
-          key: imagebuilder-v1-${{ runner.os }}-${{ steps.config.outputs.builder_key }}
-          restore-keys: |
-            imagebuilder-v1-${{ runner.os }}-
+          key: imagebuilder-v2-${{ runner.os }}-${{ steps.config.outputs.builder_key }}
       - name: Restore separately verified private source when needed
         if: inputs.rebuild_run_id == ''
         run: python -m scripts.source_cache prepare --config "${CONFIG_PATH:-configs/x86-default.json}"
