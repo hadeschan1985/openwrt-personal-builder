@@ -1,0 +1,38 @@
+{
+  "config_sha256": "28685cb7695b85ec6efcc0224a1b0adfbc71e40112dfc361860a711a862264ef",
+  "hardware_tested": false,
+  "image_validation": {
+    "boot_tested": false,
+    "files": [
+      {
+        "bytes": 17152256,
+        "check": "tar-header-checked",
+        "name": "kwrt-ipq806x-generic-xiaomi_r3d-squashfs-sysupgrade.bin",
+        "sha256": "99eefc5244d5919a225016c99e7b416d30aa8d3f08692392df7f5c3d585f405c"
+      }
+    ],
+    "hardware_tested": false,
+    "profile": "xiaomi_r3d",
+    "schema_version": 1,
+    "status": "passed",
+    "target": "ipq806x/generic",
+    "verification_level": "build-and-integrity-only",
+    "version": "kwrt-25.12-20261028-52ef400d"
+  },
+  "policy_sha256": "349927ce2404e2d067a6a5fe81d152f13eebe2327c921859317f30bca61a0a3e",
+  "profile": "xiaomi_r3d",
+  "removed_alias": "hwmon-drivetemp",
+  "retained_components": [
+    "kmod-hwmon-drivetemp",
+    "kmod-hwmon-emc2305",
+    "kmod-hwmon-lm75",
+    "luci-app-fan"
+  ],
+  "retained_driver": "kmod-hwmon-drivetemp",
+  "run_id": "40570951627",
+  "schema_version": 1,
+  "source_commit": "536809398aea0020ff6c2abab6addc317bdd3024",
+  "status": "passed",
+  "target": "ipq806x/generic",
+  "target_fingerprint": "a609945c8612115d96bb32a4a78353aa6992558a5ef41af813ccb8391ac49882"
+}

@@ -34,4 +34,5 @@ jobs:
           path: |
             work/catalog-ui/report.json
             work/catalog-ui/mobile.png
+            work/catalog-ui/r3d-correction.png
           retention-days: 3

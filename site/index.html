@@ -7,7 +7,7 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' https://api.github.com https://raw.githubusercontent.com https://downloads.openwrt.org https://sysupgrade.openwrt.org; style-src 'self'; script-src 'self'; worker-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'self'">
   <title>Personal Builder · 固件定制工作台</title>
   <link rel="stylesheet" href="styles.css?v=20261027-1">
-  <script type="module" src="app.js?v=20261028-2"></script>
+  <script type="module" src="app.js?v=20261028-3"></script>
 </head>
 <body>
   <a class="skip" href="#main">跳到主要内容</a>
@@ -42,6 +42,7 @@
             <div class="device-tile"><span class="device-icon" aria-hidden="true">▦</span><div><h3 id="device-name">载入设备中</h3><p id="device-platform">从上方搜索选择一个设备</p></div><span class="pill green" id="builder-label">官方 ImageBuilder</span></div>
             <div class="facts"><div><span>目标平台</span><strong id="target-label">—</strong></div><div><span>软件包架构</span><strong id="arch-label">—</strong></div><div><span>内核</span><strong id="kernel-label">—</strong></div></div>
             <p id="device-test-status" class="help">正在读取此型号的构建资料。</p>
+            <div id="device-compatibility" hidden></div>
             <details class="downloads"><summary>查看官方预编译映像与 SHA256 <span>↗</span></summary><div id="official-images"></div></details>
           </section>
 

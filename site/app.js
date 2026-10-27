@@ -7,11 +7,13 @@ import {verifyDownload,verificationTarget} from './lib/verification.js?v=2026102
 import {mergeApproved} from './lib/upstream.js?v=20261027-6';
 import {mergeDeviceApproved,validateDeviceMetadata} from './lib/device-upstream.js?v=20261027-6';
 import {boxProfile,boxErrors,validateBoxCatalog} from './lib/box.js?v=20261028-1';
+import {r3dCorrection,applyR3dCorrection} from './lib/compatibility.js?v=20261028-3';
 
 const $=id=>document.getElementById(id);
 const state={catalog:null,device:null,target:null,available:new Set(),config:defaultConfig(),git:null,file:null,loadId:0,loading:false,metadataReady:false,busy:false,pending:null,runs:[],latestRuns:[],success:null,historyPage:1,totalRuns:0,archives:[],archiving:new Map(),expanded:null,details:new Map(),refreshing:false,resultsLoaded:false,result:null,runError:''};
 const targetCache=new Map();
 let boxCatalog=null;
+let r3dProof=null;
 let baselineBoxCatalog=null;
 const boxReleases=new Map();
 const profileCoverage=new Map();
@@ -90,6 +92,7 @@ function update(){
   if(!state.device)return;
   state.config=readForm();
   const c=state.config,errors=formErrors(c,state.available,state.catalog?.versions);
+  renderCompatibility();
   $('delivery-help').textContent=c.build_mode==='release'?'x86 启动验收：本次所选磁盘均须通过虚拟机启动和登录测试。使用私有仓库、密码和 HTTPS；实体硬件仍未验证。':c.build_mode==='device'?'设备编译校验：检查包依赖、固件文件和 SHA256。没有替你验证这台设备能否开机；首次刷机须核对型号和恢复方法。':'实验模式：不执行启动验收。';
   $('summary-device').textContent=state.device.name;$('summary-version').textContent=c.version;
   if(c.box)$('summary-device').textContent=boxCatalog?.models.find(m=>m.id===c.box.model)?.name||c.box.model;
@@ -582,6 +585,18 @@ function applyProfileCoverage(){
 async function loadProfileCoverage(){
   try{const data=await json('https://raw.githubusercontent.com/hadeschan1985/openwrt-personal-builder/main/updates/profile-coverage.json');if(data.schema_version!==1||!data.profiles||typeof data.profiles!=='object'||Object.keys(data.profiles).length>10000)return;for(const entry of Object.values(data.profiles))if(entry&&typeof entry.target==='string'&&typeof entry.profile==='string'&&entry.hardware_tested===false&&/^[a-f0-9]{64}$/.test(entry.policy_sha256||'')&&/^[a-f0-9]{64}$/.test(entry.target_fingerprint||''))profileCoverage.set(`${entry.target}/${entry.profile}`,entry);applyProfileCoverage();}catch{}
 }
+function renderCompatibility(){
+  const panel=$('device-compatibility');panel.replaceChildren();panel.hidden=true;
+  const release=deviceReleases.get(state.config.version),correction=r3dCorrection(state.config,release,state.target,r3dProof);
+  if(!correction)return;
+  panel.hidden=false;
+  panel.append(node('p',correction.applied?'已应用温度驱动包名修正。此组合已实际编译并校验，实体开机未测试。':'上游默认包名 hwmon-drivetemp 不存在。已有保留风扇和温度监测组件的修正组合通过实际编译；应用后会替换为 kmod-hwmon-drivetemp。','help'));
+  if(!correction.applied){const button=node('button','应用已验证的温度驱动包名修正','button secondary');button.type='button';button.addEventListener('click',()=>{try{state.config=applyR3dCorrection(readForm(),deviceReleases.get(state.config.version),state.target,r3dProof);applyForm(state.config);renderPackages();update();toast('已修正温度驱动包名，其他个人设置已保留。');}catch(error){toast(error.message);}});panel.append(button,document.createTextNode(' '));}
+  panel.append(externalLink('查看修正组合编译检查 ↗',`https://github.com/hadeschan1985/openwrt-personal-builder/actions/runs/${r3dProof.run_id}`));
+}
+async function loadCompatibility(){
+  try{r3dProof=await json('./data/r3d-correction.json');renderCompatibility();}catch{}
+}
 async function restore(config){
   const clean=safePreset(config);
   let requestedBoxCatalog=baselineBoxCatalog;
@@ -636,7 +651,7 @@ async function init(){
   $('clear-overlay').addEventListener('click',()=>{clearSelectedFile();$('overlay-path').value='';update();toast('已清除本页选择；不会删除仓库中的文件。');});
   $('overlay-file').addEventListener('change',e=>{const file=e.target.files[0];if(!file)return;if(file.size>12*1024*1024||!/(\.zip|\.tgz|\.tar\.gz|\.7z)$/i.test(file.name)){e.target.value='';toast('请选择不超过 12 MiB 的 ZIP/TAR.GZ/TGZ/7Z。');return;}state.file=file;$('upload-label').textContent=`${file.name} · ${(file.size/1048576).toFixed(2)} MiB`;$('overlay-path').value='';update();});
   try{boxCatalog=await json('data/box-builders.json').catch(()=>null);baselineBoxCatalog=boxCatalog;state.catalog=await json('data/catalog.json');$('version').replaceChildren(...state.catalog.versions.map(v=>new Option(versionLabel(v),v)));$('version').value=state.catalog.default_version;
-    $('metadata-date').textContent=`资料更新 ${new Date(state.catalog.updated).toLocaleDateString()}`;void loadProfileCoverage();
+    $('metadata-date').textContent=`资料更新 ${new Date(state.catalog.updated).toLocaleDateString()}`;void loadProfileCoverage();void loadCompatibility();
     const devices=state.catalog.devices.filter(d=>d.version===val('version'));$('device-count').textContent=`${devices.length.toLocaleString()} 个设备档案`;
     let saved=null;try{if(checked('autofill'))saved=JSON.parse(localStorage.getItem('pb-current')||'null');}catch{}
     if(saved)try{await restore(upgradeAutofill(saved));return;}catch{if(saved.version&&!state.catalog.versions.includes(saved.version)){deferredConfig=upgradeAutofill(saved);toast('上次配置使用自动更新版本，连接私有仓库后可恢复；原保存内容未覆盖。');}else toast('原保存配置不适用于当前目录，已恢复默认。');}

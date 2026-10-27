@@ -1,0 +1,1 @@
+2026-10-28: verify explicit R3D package-name correction, retained settings, approved catalogs, history and mobile layout without build dispatch.
