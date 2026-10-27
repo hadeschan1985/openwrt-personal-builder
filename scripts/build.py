@@ -24,9 +24,9 @@ import urllib.request
 import zipfile
 
 if __package__:
-    from .builders import resolve as kwrt_builder
+    from .builders import resolve as kwrt_builder,load_registry
 else:
-    from builders import resolve as kwrt_builder
+    from builders import resolve as kwrt_builder,load_registry
 
 BASE = "https://downloads.openwrt.org"
 REGISTRY = Path(__file__).resolve().parents[1] / "configs" / "builders.json"
@@ -71,12 +71,12 @@ def normalize(raw):
     if builder == "official":
         require(isinstance(version, str) and re.fullmatch(r"\d{2}\.\d{2}\.\d+(?:-rc\d+)?", version), "Use a fixed OpenWrt release")
     else:
-        require(isinstance(version, str) and version in json.loads(REGISTRY.read_text(encoding="utf-8")), "Use a checksum-pinned Kwrt builder")
+        require(isinstance(version, str) and version in load_registry(REGISTRY), "Use a checksum-pinned Kwrt builder")
     target, profile = raw.get("target", ""), raw.get("profile", "")
     require(isinstance(target, str) and re.fullmatch(r"[a-z0-9_-]+/[a-z0-9_-]+", target), "Invalid target")
     require(isinstance(profile, str) and re.fullmatch(r"[A-Za-z0-9_,.+-]+", profile), "Invalid profile")
     if builder == "kwrt":
-        try:kwrt_builder(version,target,json.loads(REGISTRY.read_text(encoding='utf-8')))
+        try:kwrt_builder(version,target,load_registry(REGISTRY))
         except ValueError as error:raise ConfigError(str(error)) from None
     build_mode = raw.get("build_mode", "experiment")
     require(build_mode in ("release", "device", "experiment"), "Invalid build mode")
@@ -210,7 +210,7 @@ def package_plan(config):
     if config["features"]["usb_wireless"]:
         remove.update(["wpad-basic-mbedtls", "wpad-basic-wolfssl"])
     if config["builder"] == "kwrt":
-        spec = kwrt_builder(config['version'],config['target'],json.loads(REGISTRY.read_text(encoding='utf-8')))
+        spec = kwrt_builder(config['version'],config['target'],load_registry(REGISTRY))
         require(not packages.intersection(spec["exclude_defaults"]), "Selected Kwrt package has missing upstream dependencies")
         remove.update(spec["exclude_defaults"])
         packages.update(p for p in spec["replacement_packages"] if p not in remove)
@@ -602,7 +602,7 @@ def build(config, root=Path(".")):
     root = root.resolve()
     workspace = root / "work" / "builder"
     require(not workspace.exists(), "Build directory already exists; use a fresh workspace")
-    kwrt = kwrt_builder(config['version'],config['target'],json.loads(REGISTRY.read_text(encoding='utf-8'))) if config['builder']=='kwrt' else None
+    kwrt = kwrt_builder(config['version'],config['target'],load_registry(REGISTRY)) if config['builder']=='kwrt' else None
     require(not kwrt or not kwrt.get('blocked_reason'),kwrt.get('blocked_reason','') if kwrt else '')
     base = kwrt["base"] if kwrt else f"{BASE}/releases/{config['version']}/targets/{config['target']}"
     metadata = get_json(base+'/'+(kwrt.get('profiles_file','profiles.json') if kwrt else 'profiles.json'))
@@ -639,6 +639,10 @@ def build(config, root=Path(".")):
     builders[0].rename(workspace)
     if kwrt:
         prepare_kwrt(workspace)
+        if kwrt.get('compatibility_recipe'):
+            from scripts.n1_compat import RECIPE,create_package
+            require(kwrt['compatibility_recipe']==RECIPE and config['target']=='amlogic/meson' and config['profile']=='phicomm_n1','Wrong device for N1 compatibility recipe')
+            create_package(workspace)
     overlay = workspace / "personal-files"
     if config["overlay"]:
         extract_overlay(root / config["overlay"], overlay, allow_ipk=bool(kwrt))
@@ -686,6 +690,9 @@ def build(config, root=Path(".")):
         require(len(roots) == 1, "Kwrt translation compatibility verification needs ROOTFS output")
         with tarfile.open(manifests[0].parent / roots[0]["name"], "r:gz") as root_archive:
             names = {m.name.removeprefix("./") for m in root_archive}
+            if kwrt.get('compatibility_recipe'):
+                from scripts.n1_compat import verify_rootfs
+                verify_rootfs(root_archive)
         require("usr/lib/lua/luci/i18n/base.zh-cn.lmo" in names, "Kwrt embedded Chinese translation missing")
         require(all("root/personal-packages/" + p["sha256"] + ".ipk.payload" in names for p in custom_packages), "Custom IPK payload was lost before device-side installation")
         if "usr/lib/opkg/info/luci-i18n-ttyd-zh-cn.control" in names:

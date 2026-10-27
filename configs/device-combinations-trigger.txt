@@ -1,0 +1,1 @@
+2026-10-27: validate twelve approved device/software combinations.

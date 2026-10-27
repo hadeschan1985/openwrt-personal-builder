@@ -63,18 +63,33 @@ export class GitHub {
     await this.request('/actions/workflows/archive.yml/dispatches',{method:'POST',body:JSON.stringify({ref:this.ref,inputs:{run_id:String(runId)}})});
   }
   archiveRuns(){return this.request('/actions/workflows/archive.yml/runs?per_page=3');}
-  async readJSON(path,limit=4*1024*1024){
-    if(!/^(updates\/approved|records\/\d+)\.json$/.test(path))throw new Error('资料路径无效。');
+  async readJSON(path,limit=4*1024*1024,expectedSHA=null){
+    const standard=/^(updates\/(?:approved|devices-approved)|records\/\d+)\.json$/;
+    const release=/^updates\/device-catalogs\/kwrt-25\.12-\d{8}-[a-f0-9]{8}\.json$/;
+    const metadata=/^updates\/device-metadata\/[a-f0-9]{64}\/[a-z0-9_-]+\/[a-z0-9_-]+\.json$/;
+    if(!standard.test(path)&&!release.test(path)&&!metadata.test(path))throw new Error('资料路径无效。');
+    if(expectedSHA!==null&&!/^[a-f0-9]{64}$/.test(expectedSHA))throw new Error('资料校验值无效。');
     let file=await this.request(`/contents/${path}?ref=${encodeURIComponent(this.ref)}`);
     if(!Number.isInteger(file.size)||file.size<1||file.size>limit)throw new Error('上游版本资料大小无效。');
+    const size=file.size;
     if(file.encoding==='none'&&/^[a-f0-9]{40}$/.test(file.sha))file=await this.request(`/git/blobs/${file.sha}`);
     if(file.encoding!=='base64'||typeof file.content!=='string'||file.content.length>6*1024*1024)throw new Error('上游版本资料格式无效。');
-    return JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(Uint8Array.from(atob(file.content.replace(/\s/g,'')),c=>c.charCodeAt(0))));
+    const bytes=Uint8Array.from(atob(file.content.replace(/\s/g,'')),c=>c.charCodeAt(0));
+    if(expectedSHA!==null){
+      const hash=[...new Uint8Array(await crypto.subtle.digest('SHA-256',bytes))].map(n=>n.toString(16).padStart(2,'0')).join('');
+      if(bytes.length!==size||hash!==expectedSHA)throw new Error('设备资料 SHA256 不一致，未加载此更新。');
+    }
+    if(this.closed)throw new Error('此页授权已断开；不会载入旧会话的结果。');
+    if(this.blocked)throw this.pauseError();
+    return JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes));
   }
   upstreamRuns(){return this.request('/actions/workflows/upstream.yml/runs?per_page=1');}
   async approvedUpstream(){
     return this.readJSON('updates/approved.json');
   }
+  deviceApproved(){return this.readJSON('updates/devices-approved.json');}
+  deviceRelease(version){if(!/^kwrt-25\.12-\d{8}-[a-f0-9]{8}$/.test(version))throw new Error('设备更新版本无效。');return this.readJSON(`updates/device-catalogs/${version}.json`);}
+  deviceUpstreamRuns(){return this.request('/actions/workflows/device-upstream.yml/runs?per_page=1');}
   artifacts(runId){if(!/^\d+$/.test(String(runId)))throw new Error('任务 ID 无效');return this.request(`/actions/runs/${runId}/artifacts`);}
   jobs(runId){if(!/^\d+$/.test(String(runId)))throw new Error('任务 ID 无效');return this.request(`/actions/runs/${runId}/jobs?per_page=100`);}
   async upload(file) {

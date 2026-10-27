@@ -8,7 +8,7 @@ export const SOFTWARE_PROFILES=[
 export function applySoftwareProfile(config,id,available){
   const profile=SOFTWARE_PROFILES.find(item=>item.id===id);
   if(!profile)throw new Error('找不到此软件模板。');
-  if(config.builder!==profile.source)throw new Error(`请先切换到 ${profile.source==='kwrt'?'Kwrt x86/64':'OpenWrt 官方'}版本，再应用此模板。`);
+  if(config.builder!==profile.source)throw new Error(`请先切换到 ${profile.source==='kwrt'?'Kwrt':'OpenWrt 官方'}版本，再应用此模板。`);
   if(profile.nft&&config.firewall!=='nftables')throw new Error('此模板需要 nftables，请先调整防火墙。');
   const names=[...profile.packages,...profile.proxies||[]];
   const missing=names.filter(name=>!available.has(name));

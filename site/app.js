@@ -1,14 +1,16 @@
 import {COMMON,CORE,NFT_ONLY,PROXIES,THEMES,defaultConfig,tokenize,validate,privateContent,safePreset,deviceOutput,deviceMatches,upgradeAutofill} from './lib/model.js?v=20261027-1';
-import {GitHub,repositoryName} from './lib/github.js?v=20261027-1';
+import {GitHub,repositoryName} from './lib/github.js?v=20261027-2';
 import {internalRun,firmwareArtifact,firmwareFile,downloadLabel,deliveryLabel,buildRecord,privateArchives,artifactFile} from './lib/delivery.js?v=20261027-1';
-import {SOFTWARE_PROFILES,applySoftwareProfile,softwareAdvice} from './lib/software.js?v=20261026-3';
+import {SOFTWARE_PROFILES,applySoftwareProfile,softwareAdvice} from './lib/software.js?v=20261027-2';
 import {runStatus,stepStatus,active,requestRun,stageName,failureHelp,artifactInfo} from './lib/progress.js?v=20261027-1';
 import {verifyDownload,verificationTarget} from './lib/verification.js?v=20261026-8';
 import {mergeApproved} from './lib/upstream.js?v=20261026-3';
+import {mergeDeviceApproved,validateDeviceMetadata} from './lib/device-upstream.js?v=20261027-2';
 
 const $=id=>document.getElementById(id);
 const state={catalog:null,device:null,target:null,available:new Set(),config:defaultConfig(),git:null,file:null,loadId:0,loading:false,metadataReady:false,busy:false,pending:null,runs:[],latestRuns:[],success:null,historyPage:1,totalRuns:0,archives:[],archiving:new Map(),expanded:null,details:new Map(),refreshing:false,resultsLoaded:false,result:null,runError:''};
 const targetCache=new Map();
+const deviceReleases=new Map();
 const verifiedFiles=new Map();
 let toastTimer,pollTimer;
 let upstreamBusy=false,upstreamAt=0,approvedFingerprint='';
@@ -17,7 +19,7 @@ let connectAttempt=null;
 let verification=null,verificationController=null,verificationSequence=0;
 function toast(message){$('toast').textContent=message;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,4500);}
 function notice(message,kind=''){const n=$('notice');n.textContent=message;n.className='notice '+kind;}
-async function json(url){const r=await fetch(url);if(!r.ok)throw new Error(`资料读取失败（${r.status}）`);return r.json();}
+async function json(url){const r=await fetch(url,{cache:'no-store'});if(!r.ok)throw new Error(`资料读取失败（${r.status}）`);return r.json();}
 function node(tag,text,className){const e=document.createElement(tag);if(text!==undefined)e.textContent=text;if(className)e.className=className;return e;}
 const val=id=>$(id).value;
 const checked=id=>$(id).checked;
@@ -153,6 +155,14 @@ function renderPackages(){
 async function targetData(device){
   const key=`${device.version}/${device.target}`;
   if(targetCache.has(key))return targetCache.get(key);
+  if(device.private_metadata){
+    const git=state.git;if(!git)throw new Error('请连接私有构建仓库后读取自动更新的设备资料');
+    const release=deviceReleases.get(device.version);if(!release)throw new Error('此版本的验收记录尚未载入');
+    const expected=release.targets[device.target];
+    const data=validateDeviceMetadata(await git.readJSON(device.metadata,4*1024*1024,expected.metadata_sha256),device,release);
+    if(git!==state.git||git.closed)throw new Error('仓库连接已变更，请重新选择设备');
+    targetCache.set(key,data);return data;
+  }
   let data;
   try{data=await json(`data/${device.metadata}`);}catch{
     if(device.builder==='kwrt')throw new Error('Kwrt 固定版本资料不可用，请稍后重试；不会混用官方软件源');
@@ -189,7 +199,8 @@ async function selectDevice(device,config=null){
     const rootfsOnly=!fs.has('squashfs')&&!fs.has('ext4')&&fs.has('targz');
     if(rootfsOnly){$('filesystem').disabled=true;state.config.output.rootfs=true;}else $('filesystem').disabled=false;
     $('rootfs').disabled=rootfsOnly||!fs.has('targz');
-    $('device-test-status').textContent=data.build_blocked|| (rootfsOnly?'此档案仅提供 ROOTFS 根文件系统，不提供可直接刷机的整机映像。':device.target==='x86/64'?'可对本次映像执行虚拟机启动验收；实体硬件未测试。':'提供此型号的构建档案。构建成功与文件校验不等于此型号已做实体开机测试。');
+    const proof=deviceReleases.get(device.version)?.targets[device.target]?.proof;
+    $('device-test-status').textContent=data.build_blocked|| (rootfsOnly?'此档案仅提供 ROOTFS 根文件系统，不提供可直接刷机的整机映像。':device.target==='x86/64'?'可对本次映像执行虚拟机启动验收；实体硬件未测试。':proof?`${proof.profile===device.id?'此型号':'此平台代表型号'}已通过实际编译和文件完整性检查。${proof.profile===device.id?'':'当前型号未单独编译验收。'}实体开机未测试。`:'提供此型号的构建档案。构建成功与文件校验不等于此型号已做实体开机测试。');
     $('official-images').replaceChildren();
     const imageBase=data.image_base||`https://downloads.openwrt.org/releases/${device.version}/targets/${device.target}`;
     for(const image of images){const row=node('div',undefined,'download-item');const link=node('a',`${image.type} · ${image.filesystem} · ${(image.size/1048576).toFixed(1)} MiB ↗`);link.href=`${imageBase}/${encodeURIComponent(image.name)}`;link.target='_blank';link.rel='noreferrer';row.append(link,node('code',`SHA256 ${image.sha256}`));$('official-images').append(row);}
@@ -197,7 +208,7 @@ async function selectDevice(device,config=null){
     const source=device.builder==='kwrt'?'Kwrt 固定构建包':'OpenWrt 官方';
     notice(data.build_blocked|| (data.package_metadata_errors.length?'设备资料已载入，但部分包索引不可用；请刷新后再构建。':`${source}资料已载入。`+(state.git?`已连接构建仓库 ${state.git.repo}。`:'可导出配置，在 GitHub 手动构建；连接仓库授权后也可直接提交。')),data.build_blocked||data.package_metadata_errors.length?'warning':'');
     state.metadataReady=!data.package_metadata_errors.length;return true;
-  }catch(error){if(requestId===state.loadId)notice(`设备资料载入失败：${error.message}。可重新选择或刷新。`,'error');return false;
+  }catch(error){if(requestId===state.loadId)notice(`设备资料载入失败：${error.message.replace(/[。.]$/,'')}。可重新选择或刷新。`,'error');return false;
   }finally{if(requestId===state.loadId){state.loading=false;$('device-search').disabled=false;buildAvailability();$('preview-button').disabled=!state.metadataReady;}}
 }
 function showDevices(){
@@ -422,7 +433,7 @@ async function refreshUpstream(){
   upstreamBusy=true;upstreamAt=Date.now();$('refresh-upstream').disabled=true;
   const body=$('upstream-body');
   try{
-    const [data,runs]=await Promise.allSettled([git.approvedUpstream(),git.upstreamRuns()]);
+    const [data,runs,devices,deviceRuns]=await Promise.allSettled([git.approvedUpstream(),git.upstreamRuns(),git.deviceApproved(),git.deviceUpstreamRuns()]);
     if(git!==state.git)return;
     const parts=[];
     if(runs.status==='fulfilled'){
@@ -449,9 +460,35 @@ async function refreshUpstream(){
     }else if(data.reason.status===404)parts.push(node('p','自动跟进已接入，尚无通过本流程的版本；首次校验完成后会自动加入版本列表。','help'));
     else parts.push(node('p',`更新资料读取失败：${data.reason.message} 已加载的版本仍保留。`,'error'));
     parts.push(externalLink('查看上游检查与测试记录 ↗',`https://github.com/${git.repo}/actions/workflows/upstream.yml`));
+    if(devices.status==='fulfilled'){
+      const approved=devices.value;installDeviceRelease(approved);
+      const targets=Object.values(approved.targets),passed=targets.filter(t=>t.status==='passed').length;
+      parts.push(node('p',`多型号更新：${new Date(approved.approved_at).toLocaleString()} · ${approved.devices.length} 个设备档案 · ${passed} 个平台验收通过 · ${targets.length-passed} 个平台暂缓。`));
+      parts.push(node('p','每天检查上游。有变化的平台须重新编译和校验，通过后才加入版本列表。此验收不包含实体开机；当前配置保持原样。','help'));
+      if(deferredConfig&&deferredConfig.version===approved.version){
+        const saved=deferredConfig,b=node('button','恢复上次保存的多型号配置','button secondary');b.type='button';b.addEventListener('click',async()=>{b.disabled=true;try{await restore(saved);b.remove();toast('已恢复上次配置。');}catch(e){toast(e.message);b.disabled=false;}});parts.push(b);
+      }
+      if(state.device&&state.config.version!==approved.version){
+        const next=state.catalog.devices.find(d=>d.version===approved.version&&d.target===state.device.target&&d.id===state.device.id);
+        if(next){const b=node('button','此设备使用最新验收版本','button secondary');b.type='button';b.addEventListener('click',async()=>{const file=state.file,c=readForm();c.version=next.version;b.disabled=true;try{await restore(c);state.file=file;if(file)$('upload-label').textContent=file.name;toast('已切换验收版本，软件与网络设置保留；请检查配置提示。');}catch(e){toast(e.message);b.disabled=false;}});parts.push(b);}
+      }
+    }else if(devices.reason.status===404)parts.push(node('p','多型号自动跟进正在等待首次全平台验收。现有固定版本可以继续使用。','help'));
+    else parts.push(node('p',`多型号更新读取失败：${devices.reason.message} 已加载版本保留。`,'error'));
+    if(deviceRuns.status==='fulfilled'){
+      const run=deviceRuns.value.workflow_runs?.[0];if(run)parts.push(node('p',`多型号最近检查：${new Date(run.updated_at).toLocaleString()} · ${active(run)?'检查 / 编译中':runStatus(run)}`));
+    }
+    parts.push(externalLink('查看多型号更新验收记录 ↗',`https://github.com/${git.repo}/actions/workflows/device-upstream.yml`));
+    if(deferredConfig&&/^kwrt-25\.12-\d{8}-[a-f0-9]{8}$/.test(deferredConfig.version)&&!state.catalog.versions.includes(deferredConfig.version)){
+      const saved=deferredConfig,b=node('button','载入并恢复上次保存的历史版本','button secondary');b.type='button';b.addEventListener('click',async()=>{b.disabled=true;try{await restore(saved);b.remove();toast('已恢复历史配置。');}catch(e){toast(e.message);b.disabled=false;}});parts.push(b);
+    }
     body.replaceChildren(...parts);
   }catch(error){if(git===state.git)body.replaceChildren(node('p',error.message,'error'));}
   finally{if(git===state.git){upstreamBusy=false;$('refresh-upstream').disabled=false;}}
+}
+function installDeviceRelease(approved){
+  const merged=mergeDeviceApproved(state.catalog,approved),selected=val('version');
+  state.catalog=merged.catalog;deviceReleases.set(approved.version,merged.release);
+  $('version').replaceChildren(...state.catalog.versions.map(v=>new Option(state.catalog.version_labels?.[v]||`OpenWrt ${v}`,v)));$('version').value=selected;
 }
 async function connect(){
   $('connect-error').textContent='';$('confirm-connect').disabled=true;
@@ -477,7 +514,13 @@ async function startBuild(){
   }catch(error){if(git!==state.git)return;if(error.status>=400&&error.status<500){state.pending=null;savePending();pendingPanel();}notice(error.message,'error');schedulePoll();}finally{if(git===state.git){state.busy=false;buildAvailability();button.replaceChildren(document.createTextNode('构建新固件 '),node('span','↗'));}}
 }
 async function restore(config){
-  const clean=safePreset(config),errors=validate(clean,null,state.catalog?.versions);if(errors.length)throw new Error(errors[0]);
+  const clean=safePreset(config);
+  if(!state.catalog?.versions.includes(clean.version)&&/^kwrt-25\.12-\d{8}-[a-f0-9]{8}$/.test(clean.version)){
+    const git=state.git;if(!git)throw new Error('请先连接私有仓库，以载入此历史验收版本');
+    const approved=await git.deviceRelease(clean.version);if(git!==state.git)throw new Error('仓库连接已变更');
+    if(approved.version!==clean.version)throw new Error('历史版本身份不匹配');installDeviceRelease(approved);
+  }
+  const errors=validate(clean,null,state.catalog?.versions);if(errors.length)throw new Error(errors[0]);
   const device=state.catalog.devices.find(d=>d.version===clean.version&&d.target===clean.target&&d.id===clean.profile);if(!device)throw new Error('此配置的版本/设备不在当前目录中。');
   if(!await selectDevice(device,clean))throw new Error('此设备资料未载入，配置尚未导入。');
   deferredConfig=null;persist();

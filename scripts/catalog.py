@@ -58,6 +58,9 @@ def kwrt_data(spec):
         digests=[hashlib.sha256(json.dumps(index,sort_keys=True,separators=(',',':')).encode()).hexdigest() for index in indexes]
         result={'profiles':profiles,'packages':sorted(packages),'package_metadata_errors':[],'image_base':spec['base'],'builder_sha256':spec['sha256'],'package_index_sha256':digests,'compatibility_adjustments':{'excluded_defaults':spec['exclude_defaults'],'replacements':spec['replacement_packages']}}
         if spec.get('blocked_reason'):result['build_blocked']=spec['blocked_reason']
+        if spec.get('compatibility_recipe'):
+            from scripts.n1_compat import metadata
+            result=metadata(result,spec)
         return result
     urls = [spec["kernel_feed"] + "/Packages"] + [spec["feeds"] + "/" + feed + "/Packages"
         for feed in ("base", "packages", "luci", "routing", "video", "kiddin9")]

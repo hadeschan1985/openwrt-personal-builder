@@ -1,0 +1,14 @@
+[
+  {"id":"flint2-passwall2","target":"mediatek/filogic","profile":"glinet_gl-mt6000","packages":["xray-core","sing-box","ca-bundle"],"proxies":["luci-app-passwall2"]},
+  {"id":"ax3000t-homeproxy","target":"mediatek/filogic","profile":"xiaomi_mi-router-ax3000t","packages":["sing-box","ca-bundle"],"proxies":["luci-app-homeproxy"]},
+  {"id":"ax6000-openclash","target":"mediatek/filogic","profile":"xiaomi_redmi-router-ax6000","packages":["mihomo","ca-bundle"],"proxies":["luci-app-openclash"]},
+  {"id":"r2s-utilities","target":"rockchip/armv8","profile":"friendlyarm_nanopi-r2s","packages":["luci-app-filebrowser-q","luci-app-vlmcsd","luci-app-uugamebooster","luci-app-turboacc","luci-app-natmap"]},
+  {"id":"r5s-passwall2-ext4","target":"rockchip/armv8","profile":"friendlyarm_nanopi-r5s","filesystem":"ext4","packages":["xray-core","sing-box","ca-bundle"],"proxies":["luci-app-passwall2"]},
+  {"id":"r6s-docker-storage","target":"rockchip/armv8","profile":"friendlyarm_nanopi-r6s","filesystem":"ext4","packages":["luci-app-dockerman","dockerd","luci-app-samba4","luci-app-hd-idle"]},
+  {"id":"rpi4-storage-ext4","target":"bcm27xx/bcm2711","profile":"rpi-4","filesystem":"ext4","packages":["luci-app-samba4","luci-app-minidlna","luci-app-transmission","luci-app-aria2","luci-app-hd-idle"]},
+  {"id":"rpi5-homeproxy","target":"bcm27xx/bcm2712","profile":"rpi-5","packages":["sing-box","ca-bundle"],"proxies":["luci-app-homeproxy"]},
+  {"id":"mi3g-network-dns","target":"ramips/mt7621","profile":"xiaomi_mi-router-3g","packages":["luci-app-ddns","luci-app-sqm","luci-proto-wireguard","luci-app-mosdns"]},
+  {"id":"ax3600-homeproxy","target":"qualcommax/ipq807x","profile":"xiaomi_ax3600","packages":["sing-box","ca-bundle"],"proxies":["luci-app-homeproxy"]},
+  {"id":"wrt3200-openclash","target":"mvebu/cortexa9","profile":"linksys_wrt3200acm","packages":["mihomo","ca-bundle"],"proxies":["luci-app-openclash"]},
+  {"id":"arm64-passwall2-ext4","target":"armsr/armv8","profile":"generic","filesystem":"ext4","packages":["xray-core","sing-box","ca-bundle"],"proxies":["luci-app-passwall2"]}
+]

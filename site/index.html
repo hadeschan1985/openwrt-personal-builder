@@ -7,7 +7,7 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' https://api.github.com https://downloads.openwrt.org https://sysupgrade.openwrt.org; style-src 'self'; script-src 'self'; worker-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'self'">
   <title>Personal Builder · 固件定制工作台</title>
   <link rel="stylesheet" href="styles.css?v=20261027-1">
-  <script type="module" src="app.js?v=20261027-1"></script>
+  <script type="module" src="app.js?v=20261027-2"></script>
 </head>
 <body>
   <a class="skip" href="#main">跳到主要内容</a>
@@ -30,8 +30,8 @@
       </section>
       <section class="card latest-results" id="upstream" aria-labelledby="upstream-title">
         <div class="section-head"><span class="result-icon" aria-hidden="true">↻</span><div><h2 id="upstream-title">自动跟进上游</h2><p>每日检查 OpenWrt 稳定版与 Kwrt 25.12；变化通过测试后才批准。</p></div><button id="refresh-upstream" type="button" class="button subtle">刷新状态 ↻</button></div>
-        <div id="upstream-body" role="status"><p class="help">连接私有构建仓库后查看检查结果，自动载入通过验证的 x86/64 版本。检查在 GitHub 执行，关闭网页仍会继续。</p></div>
-        <p class="fine">计划时间：每天 04:23（北京时间 / 新加坡时间，可能延迟）。失败不切换版本；不自动刷机，也不覆盖当前表单。其他架构与 Kwrt 跨大版本需另做适配验证。</p>
+        <div id="upstream-body" role="status"><p class="help">连接私有构建仓库后查看验收结果，载入通过测试的 x86 与多型号版本。检查在 GitHub 执行，关闭网页仍会继续。</p></div>
+        <p class="fine">计划时间：x86 每天 04:23，多型号每天 05:07（北京时间 / 新加坡时间，可能延迟）。x86 检查虚拟机启动与登录；其他平台检查代表型号编译和文件完整性。失败保留已批准版本，不自动刷机或覆盖表单。Kwrt 跨大版本需重新适配。</p>
       </section>
       <div class="workspace">
         <form id="builder-form" class="configuration" novalidate>

@@ -12,11 +12,12 @@ from scripts.builders import ROOT,ONECLOUD,validate_spec
 
 VERSION='kwrt-25.12-20261012'
 COMPAT={'ath79/nand':['autocore'],'ramips/mt7621':['autocore'],'siflower/sf21':['autocore','luci-app-fan']}
+ONECLOUD_BAD_DIGEST='e29abe52fea3bdaf77a0af313ccb5c6f06c6564a4f7cdb27d41fd9215d6926b5'
 BLOCKED={'amlogic/meson8b':'上游 ImageBuilder 实际 SHA256 与公布值不一致，已暂停构建；不能跳过校验。','amlogic/meson':'上游 N1 默认无线校准包 brcmfmac-nvram-43455-sdio-generic 已缺失，暂停构建，避免交付缺少无线校准数据的固件。'}
 
 def fingerprint(value):return hashlib.sha256(json.dumps(value,sort_keys=True,separators=(',',':')).encode()).hexdigest()
 
-def inspect(target):
+def inspect(target,dynamic_issues=False):
     base=ONECLOUD if target=='amlogic/meson8b' else ROOT+'/'+target
     profile_file='profiles.json.b' if target=='amlogic/meson8b' else 'profiles.json'
     profiles=catalog.get_json(base+'/'+profile_file)
@@ -33,6 +34,12 @@ def inspect(target):
     if target in BLOCKED:spec['blocked_reason']=BLOCKED[target]
     validate_spec(spec)
     data=catalog.kwrt_data(spec)
+    if dynamic_issues:
+        repaired=(target=='amlogic/meson8b' and spec['sha256']!=ONECLOUD_BAD_DIGEST) or (target=='amlogic/meson' and 'brcmfmac-nvram-43455-sdio-generic' in data['packages'])
+        if target=='amlogic/meson' and not repaired and 'brcmfmac-nvram-43455-sdio' in data['packages']:
+            from scripts.n1_compat import RECIPE,metadata
+            spec['compatibility_recipe']=RECIPE;data=metadata(data,spec);repaired=True
+        if repaired:spec.pop('blocked_reason',None);data.pop('build_blocked',None)
     spec['metadata_fingerprint']=fingerprint(data)
     return target,spec,data
 
