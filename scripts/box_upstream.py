@@ -15,7 +15,7 @@ from scripts.upstream import api
 ROOT=Path(__file__).resolve().parents[1]
 WORK=Path('work/box-upstream')
 POLICY=['scripts/build.py','scripts/builders.py','scripts/box_repack.py','scripts/box_resources.py','scripts/box_registry.py','scripts/box_upstream.py','scripts/image_verify.py','scripts/rebuild.py','scripts/onecloud_pack.py','scripts/n1_compat.py']
-BRANCHES={'stable':('6.6','6.12','6.18'),'rk35xx':('6.1','6.12'),'rk3588':('6.1','6.12')}
+BRANCHES={'stable':('5.15','6.6','6.12','6.18'),'rk35xx':('6.1','6.12'),'rk3588':('6.1','6.12')}
 
 
 def read(path):return json.loads(Path(path).read_text(encoding='utf-8'))
@@ -57,7 +57,8 @@ def cases(catalog):
         for platform in ('amlogic','rockchip','allwinner'):
             choices=[m for m in catalog['models'] if kernel['id'] in m['kernels'] and m['platform']==platform]
             if not choices:continue
-            model=next((m for m in choices if m['id']==preferred[platform]),next((m for m in choices if m['upstream_default']),choices[0]))
+            preferred_id='s905x-tx9' if platform=='amlogic' and kernel['tag']=='stable' and kernel['version'].startswith('5.15.') else preferred[platform]
+            model=next((m for m in choices if m['id']==preferred_id),next((m for m in choices if m['upstream_default']),choices[0]))
             rows.append({'model':model['id'],'kernel':kernel['id']})
     require(1<=len(rows)<=36,'Unexpected box regression matrix');return rows
 

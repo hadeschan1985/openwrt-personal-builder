@@ -43,6 +43,10 @@ class BoxUpdateTests(unittest.TestCase):
         self.assertEqual(rows[0]['version'],'6.12.10')
         with self.assertRaises(ConfigError):upstream.latest_assets({'assets':[]},'rk3588')
 
+    def test_legacy_kernel_expansion_tests_newly_supported_dtb(self):
+        c={'kernels':[{'id':'stable-5.15.223','tag':'stable','version':'5.15.223'}],'models':[{'id':m,'platform':'amlogic','upstream_default':False,'kernels':['stable-5.15.223']} for m in ('s905d','s905x-tx9')]}
+        self.assertEqual(upstream.cases(c),[{'model':'s905x-tx9','kernel':'stable-5.15.223'}])
+
     def test_history_paths_cannot_escape_registry(self):
         for release in ['../../secrets','box-20261027-zzzzzzzz','https://example.com']:
             with self.assertRaises(ConfigError):registry.load(release)
