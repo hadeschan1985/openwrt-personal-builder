@@ -33,13 +33,14 @@ def restore_rootfs_recipe(workspace):
 
 
 def selection(config):
-    box=config.get('box');require(isinstance(box,dict) and set(box)=={'model','kernel'},'Box selection needs a fixed model and kernel')
+    box=config.get('box');require(isinstance(box,dict) and set(box) in ({'model','kernel'},{'model','kernel','release'}),'Box selection needs a fixed model and kernel')
     require(config['builder']=='kwrt' and config['target']=='armsr/armv8' and config['profile']=='box','Box repacking requires the generic ARM64 box profile')
     require(config['output']['rootfs'] and not config['output'].get('image_types'),'Box repacking requires only its intermediate ROOTFS')
     require(not any(config['features'][k] for k in ('usb_net','usb_wireless','wwan')),'Box drivers come from the selected kernel; native OpenWrt driver switches cannot be mixed')
     require(not any(p.startswith(('kmod-','kernel')) for p in config['packages']),'Native OpenWrt kernel packages cannot be mixed with a box kernel')
-    data=json.loads(CATALOG.read_text(encoding='utf-8'));sources=source_config()
-    require(data['repositories']==sources['repositories'] and data['model_database_blob']==sources['model_database_blob'] and data['remake_blob']==sources['remake_blob'],'Box catalog source pins changed; regenerate and test first')
+    from scripts import box_registry
+    data=box_registry.load(box.get('release'));sources=box_registry.pins(data) if box.get('release') else source_config()
+    if not box.get('release'):require(data['repositories']==sources['repositories'] and data['model_database_blob']==sources['model_database_blob'] and data['remake_blob']==sources['remake_blob'],'Box catalog source pins changed; regenerate and test first')
     models=[m for m in data['models'] if m['id']==box['model']];kernels=[k for k in data['kernels'] if k['id']==box['kernel']]
     require(len(models)==len(kernels)==1 and box['kernel'] in models[0]['kernels'],'This box model/kernel combination has no verified DTB')
     model,kernel=models[0],kernels[0]
@@ -69,8 +70,8 @@ def patched_recipe(source,sources):
 }
 '''
     kernel='''download_kernel() {
-    [[ -d "${kernel_path}/stable/${specific_kernel[0]}" ]] || error_msg "Missing verified fixed kernel"
-    check_kernel "${kernel_path}/stable/${specific_kernel[0]}"
+    [[ -d "${kernel_path}/${BOX_KERNEL_TAG}/${specific_kernel[0]}" ]] || error_msg "Missing verified fixed kernel"
+    check_kernel "${kernel_path}/${BOX_KERNEL_TAG}/${specific_kernel[0]}"
 }
 '''
     for name,replacement in [('git_pull_dir',clone),('find_openwrt',find),('download_kernel',kernel)]:
@@ -160,7 +161,7 @@ def repack(rootfs,config,output,work):
     bundle=fetch(f"https://github.com/ophub/kernel/releases/download/kernel_{kernel['tag']}/{kernel['version']}.tar.gz",work/(kernel['id']+'.tar.gz'),kernel['bytes'],kernel['sha256'])
     actual=inspect_kernel(bundle,kernel,[model]);require(actual['release']==kernel['release'] and actual['dtbs'][model['dtb']]==kernel['dtbs'][model['dtb']],'Downloaded kernel DTB differs from approved resource catalog')
     kernel_dir=runner/'make-openwrt/kernel'/kernel['tag'];kernel_dir.mkdir(parents=True,exist_ok=True);extract_fixed_kernel(bundle,kernel_dir)
-    command=['sudo','env','BOX_SOURCE_ROOT='+str(checkouts),'bash',str(recipe),'-b',model['id'],'-k',kernel['version'],'-a','false','-s','384/1280','-n','PersonalBuilder']
+    command=['sudo','env','BOX_SOURCE_ROOT='+str(checkouts),'BOX_KERNEL_TAG='+kernel['tag'],'bash',str(recipe),'-b',model['id'],'-k',kernel['version'],'-a','false','-s','384/1280','-n','PersonalBuilder']
     log=output/'box-pack.log'
     with log.open('w',encoding='utf-8') as stream:
         process=subprocess.Popen(command,cwd=runner,env=clean_env(),stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,errors='replace')

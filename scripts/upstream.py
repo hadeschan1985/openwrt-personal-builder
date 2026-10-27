@@ -17,7 +17,7 @@ import urllib.request
 
 from scripts import catalog
 from scripts.build import require
-from scripts.builders import platforms,resolve
+from scripts.builders import platforms,resolve,series,validate_spec
 
 ROOT = Path(__file__).resolve().parents[1]
 APPROVED = "updates/approved.json"
@@ -26,7 +26,7 @@ KWRT_BASE = "https://dl.openwrt.ai/releases/targets/x86/64"
 KWRT_ARCHIVE = "kwrt-imagebuilder-x86-64.Linux-x86_64.tar.zst"
 SHA = re.compile(r"[a-f0-9]{64}")
 OFFICIAL_VERSION = re.compile(r"\d{2}\.\d{2}\.\d+")
-KWRT_VERSION = re.compile(r"kwrt-25\.12-\d{8}(?:-[a-f0-9]{8})?")
+KWRT_VERSION = re.compile(r"kwrt-\d{2}\.\d{2}-\d{8}(?:-[a-f0-9]{8})?")
 LIMIT = 4 * 1024 * 1024
 
 
@@ -69,8 +69,8 @@ def validate_candidate(candidate):
         require(KWRT_VERSION.fullmatch(version), "Unexpected Kwrt release family")
         require(spec["target"] == "x86/64" and spec["base"] == KWRT_BASE and spec["archive"] == KWRT_ARCHIVE, "Untrusted builder location")
         require(SHA.fullmatch(spec["sha256"]), "Invalid builder digest")
-        require(spec["feeds"] == "https://dl.openwrt.ai/releases/25.12/packages/x86_64", "Unexpected Kwrt feeds")
-        require(re.fullmatch(r"https://dl\.openwrt\.ai/releases/25\.12/targets/x86/64/\d+\.\d+\.\d+", spec["kernel_feed"]), "Unexpected kernel feed")
+        validate_spec(spec);branch=version.split('-')[1]
+        require(spec['feeds']=='https://dl.openwrt.ai/releases/'+branch+'/packages/x86_64' and series(spec)==branch,'Unexpected Kwrt feeds')
         require(spec["exclude_defaults"] == ["kmod-i40evf", "kmod-usb-net-rtl8152-vendor", "luci-app-fan"]
                 and spec["replacement_packages"] == ["kmod-iavf", "kmod-usb-net-rtl8152"], "Unexpected compatibility policy")
     for source in sources:
@@ -96,17 +96,19 @@ def discover(registry):
     archive = f"openwrt-imagebuilder-{stable}-x86-64.Linux-x86_64.tar.zst"
     official_sha = builder_checksum(base, archive)
     profiles = catalog.get_json(KWRT_BASE + "/profiles.json")
-    require(profiles["version_number"] == "25.12-SNAPSHOT", "New Kwrt release family requires compatibility review")
+    match=re.fullmatch(r'(\d{2}\.\d{2})-SNAPSHOT',profiles.get('version_number',''));require(match,'Unrecognized Kwrt release family');branch=match.group(1)
+    require(isinstance(profiles.get('linux_kernel'),dict) and 'version' in profiles['linux_kernel'] and type(profiles.get('source_date_epoch')) is int,'Incomplete new release metadata requires compatibility review')
     kernel = profiles["linux_kernel"]["version"]
     require(re.fullmatch(r"\d+\.\d+\.\d+", kernel), "Invalid kernel version")
     kwrt_sha = builder_checksum(KWRT_BASE, KWRT_ARCHIVE)
     # Reuse an existing pinned ID; different bytes on the same date get a new ID.
-    existing = next((v for v, s in registry.items() if s["sha256"] == kwrt_sha), None)
+    existing = next((v for v, s in registry.items() if s["sha256"] == kwrt_sha and series(s)==branch), None)
     date = dt.datetime.fromtimestamp(profiles["source_date_epoch"], dt.timezone.utc).strftime("%Y%m%d")
-    version = existing or f"kwrt-25.12-{date}-{kwrt_sha[:8]}"
+    version = existing or f"kwrt-{branch}-{date}-{kwrt_sha[:8]}"
     spec = copy.deepcopy(next(iter(registry.values())))
-    spec.update(label=f"Kwrt 25.12 · {date} · {kwrt_sha[:8]}（自动验证）", sha256=kwrt_sha,
-                kernel_feed=f"https://dl.openwrt.ai/releases/25.12/targets/x86/64/{kernel}")
+    spec.update(label=f"Kwrt {branch} · {date} · {kwrt_sha[:8]}（自动验证）", sha256=kwrt_sha,
+                feeds=f'https://dl.openwrt.ai/releases/{branch}/packages/x86_64',kernel_feed=f"https://dl.openwrt.ai/releases/{branch}/targets/x86/64/{kernel}")
+    if not existing:spec.pop('targets',None)
     if existing:
         spec["label"] = registry[existing]["label"]
     registry = {**registry, version: spec}

@@ -102,3 +102,4 @@ test('overlay upload normalizes uppercase extensions and stays private',async()=
   assert.equal(calls.at(-1).options.method,'PUT');
   assert.ok(!calls.at(-1).options.body.includes('temporary-token'));
 });
+test('offline rebuild dispatch binds original run ID without putting credentials in the body',async()=>{const calls=[];const api=new GitHub('test-owner/builds','session-token','main',async(url,options)=>{calls.push({url,options});return {ok:true,status:204};});await api.dispatch(defaultConfig(),'request-offline','123');const body=JSON.parse(calls[0].options.body);assert.equal(body.inputs.rebuild_run_id,'123');assert.ok(!calls[0].options.body.includes('session-token'));await assert.rejects(api.dispatch(defaultConfig(),'request-offline','../123'),/重建/);});

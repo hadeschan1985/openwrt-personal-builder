@@ -606,10 +606,13 @@ def build(config, root=Path(".")):
     root = root.resolve()
     workspace = root / "work" / "builder"
     require(not workspace.exists(), "Build directory already exists; use a fresh workspace")
+    from scripts import rebuild
+    offline=rebuild.context(config)
+    archived_inputs=rebuild.read('work/rebuild-source-inputs.json') if offline else None
     kwrt = kwrt_builder(config['version'],config['target'],load_registry(REGISTRY)) if config['builder']=='kwrt' else None
     require(not kwrt or not kwrt.get('blocked_reason'),kwrt.get('blocked_reason','') if kwrt else '')
     base = kwrt["base"] if kwrt else f"{BASE}/releases/{config['version']}/targets/{config['target']}"
-    metadata = get_json(base+'/'+(kwrt.get('profiles_file','profiles.json') if kwrt else 'profiles.json'))
+    metadata = archived_inputs['metadata'] if offline else get_json(base+'/'+(kwrt.get('profiles_file','profiles.json') if kwrt else 'profiles.json'))
     require(config["profile"] in metadata["profiles"], "Profile not found in the selected target")
     available_images = metadata["profiles"][config["profile"]]["images"]
     require(selected_images(available_images, config) or (kwrt and config["target"] == "x86/64" and config["output"]["filesystem"] == "ext4"), "Requested output is unavailable in this builder")
@@ -618,7 +621,8 @@ def build(config, root=Path(".")):
     private = os.environ.get("REPOSITORY_PRIVATE", "true") == "true"
     require(private or not has_private_content(config), "Use a private build repository for scripts, overlays or secrets")
     sums_path = root / "work" / "sha256sums"
-    download(base + "/sha256sums", sums_path)
+    if offline:sums_path.parent.mkdir(parents=True,exist_ok=True);sums_path.write_text(archived_inputs['builder_sha256']+'  '+archived_inputs['archive']+'\n')
+    else:download(base + "/sha256sums", sums_path)
     expected = {}
     for line in sums_path.read_text().splitlines():
         parts = line.split()
@@ -635,6 +639,7 @@ def build(config, root=Path(".")):
     if not archive.exists() or sha256(archive) != expected[archive.name]:
         download(base + "/" + archive.name, archive)
     require(sha256(archive) == expected[archive.name], "ImageBuilder checksum mismatch")
+    rebuild.write(root/'work/build-inputs.json',{'metadata':metadata,'archive':archive.name,'builder_sha256':expected[archive.name]})
     extract = root / "work" / "extracted"
     extract.mkdir(parents=True, exist_ok=True)
     subprocess.run(["tar", "-xf", str(archive), "-C", str(extract)], check=True)
@@ -653,6 +658,7 @@ def build(config, root=Path(".")):
             from scripts.n1_compat import RECIPE,create_package
             require(kwrt['compatibility_recipe']==RECIPE and config['target']=='amlogic/meson' and config['profile']=='phicomm_n1','Wrong device for N1 compatibility recipe')
             create_package(workspace)
+    if offline:rebuild.offline_packages(workspace)
     overlay = workspace / "personal-files"
     if config["overlay"]:
         extract_overlay(root / config["overlay"], overlay, allow_ipk=bool(kwrt))
@@ -761,6 +767,7 @@ def build(config, root=Path(".")):
     require(not custom_names.intersection(installed), "A custom IPK was unexpectedly installed on the build host")
     removed = {p[1:] for p in package_plan(config) if p.startswith("-")}
     require(not (removed & installed), "Removed packages are still installed")
+    if offline:rebuild.verify_installed(outputs)
     files = [{"name": p.name, "bytes": p.stat().st_size, "sha256": sha256(p)} for p in sorted(outputs.iterdir()) if p.is_file()]
     (outputs / "SHA256SUMS").write_text("".join(f"{f['sha256']}  {f['name']}\n" for f in files), encoding="utf-8")
     summary = {"schema_version": 1, "status": "built-not-boot-tested", "version": config["version"],
@@ -792,11 +799,12 @@ def main():
         if args.plan:
             print(json.dumps({"config": config, "packages": package_plan(config), "requires_private_repository": has_private_content(config)}, ensure_ascii=False, indent=2))
         else:
-            if os.environ.get("ENFORCE_APPROVED_UPSTREAM") == "true":
+            from scripts.rebuild import context
+            if os.environ.get("ENFORCE_APPROVED_UPSTREAM") == "true" and not context(config):
                 from scripts.upstream import guard
                 guard(config)
             build(config)
-            if os.environ.get("ENFORCE_APPROVED_UPSTREAM") == "true":
+            if os.environ.get("ENFORCE_APPROVED_UPSTREAM") == "true" and not context(config):
                 guard(config)
     except (ConfigError, ValueError, OSError, tarfile.TarError, zipfile.BadZipFile, subprocess.CalledProcessError) as error:
         print(f"Build failed: {error}", file=sys.stderr)

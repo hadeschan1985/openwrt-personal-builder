@@ -17,8 +17,8 @@ REPOSITORIES={'ophub/amlogic-s9xxx-openwrt','ophub/amlogic-s9xxx-armbian','ophub
 SHA=re.compile(r'[a-f0-9]{64}')
 NAME=re.compile(r'[A-Za-z0-9][A-Za-z0-9_.+-]{0,160}')
 
-def source_config(path=SOURCES):
-    value=json.loads(Path(path).read_text(encoding='utf-8'))
+def source_config(path=SOURCES,value=None):
+    value=json.loads(Path(path).read_text(encoding='utf-8')) if value is None else value
     require(value.get('schema_version')==1 and isinstance(value.get('repositories'),list) and len(value['repositories'])==5 and {r['repository'] for r in value['repositories']}==REPOSITORIES,'Unrecognized box source repositories')
     require(all(re.fullmatch(r'[a-f0-9]{40}',r['commit']) for r in value['repositories']),'Unpinned box source')
     require(all(re.fullmatch(r'[a-f0-9]{40}',value.get(k,'')) for k in ('model_database_blob','remake_blob')),'Unpinned box recipes')
@@ -97,8 +97,8 @@ def inspect_kernel(path,kernel,models):
                     data=dtbs.extractfile(member).read();result['dtbs'][name]={'sha256':hashlib.sha256(data).hexdigest(),'bytes':len(data),'compatible':dtb_compatible(data)}
     return result
 
-def generate():
-    sources=source_config();work=ROOT/'work/box-resources';work.mkdir(parents=True,exist_ok=True)
+def generate(sources=None,destination=None,emit=True):
+    sources=source_config(value=sources) if sources is not None else source_config();work=ROOT/'work/box-resources';work.mkdir(parents=True,exist_ok=True)
     repo=next(r for r in sources['repositories'] if r['repository']=='ophub/amlogic-s9xxx-openwrt')
     database=fetch(f"https://raw.githubusercontent.com/{repo['repository']}/{repo['commit']}/{DB_PATH}",work/'model_database.conf',limit=512*1024)
     raw=database.read_bytes();require(git_blob(raw)==sources['model_database_blob'],'Pinned device database mismatch')
@@ -113,7 +113,8 @@ def generate():
         if choices:available.append({**m,'kernels':choices})
         else:excluded.append({'id':m['id'],'reason':'No matching fixed kernel and device-tree bytes'})
     result={**sources,'status':'resources-verified','models':available,'excluded_models':excluded,'kernels':kernels}
-    path=ROOT/'outputs/box-resources.json';path.parent.mkdir(exist_ok=True);path.write_text(json.dumps(result,ensure_ascii=False,sort_keys=True,separators=(',',':'))+'\n',encoding='utf-8')
-    print('BOX_RESOURCE_CATALOG='+json.dumps(result,ensure_ascii=False,sort_keys=True,separators=(',',':')),flush=True)
+    path=Path(destination) if destination else ROOT/'outputs/box-resources.json';path.parent.mkdir(parents=True,exist_ok=True);path.write_text(json.dumps(result,ensure_ascii=False,sort_keys=True,separators=(',',':'))+'\n',encoding='utf-8')
+    if emit:print('BOX_RESOURCE_CATALOG='+json.dumps(result,ensure_ascii=False,sort_keys=True,separators=(',',':')),flush=True)
+    return result
 
 if __name__=='__main__':generate()

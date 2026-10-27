@@ -1,0 +1,107 @@
+name: Automatically approve tested box resources
+on:
+  schedule:
+    - cron: '43 21 * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['configs/box-upstream-trigger.txt']
+permissions:
+  contents: read
+concurrency:
+  group: box-upstream-${{ github.repository }}
+  cancel-in-progress: false
+jobs:
+  detect:
+    if: github.event.repository.private
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    outputs:
+      changed: ${{ steps.detect.outputs.changed }}
+      matrix: ${{ steps.detect.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - id: detect
+        run: python -m scripts.box_upstream detect
+      - if: steps.detect.outputs.changed == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: box-upstream-candidate
+          path: work/box-upstream/candidate.json
+          if-no-files-found: error
+          retention-days: 3
+  validate:
+    needs: detect
+    if: needs.detect.outputs.changed == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix: ${{ fromJSON(needs.detect.outputs.matrix) }}
+    env:
+      REPOSITORY_PRIVATE: 'true'
+      ENFORCE_APPROVED_UPSTREAM: 'true'
+      CONFIG_PATH: configs/box-upstream-qa.json
+      BOX_MODEL: ${{ matrix.model }}
+      BOX_KERNEL: ${{ matrix.kernel }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0
+        with:
+          name: box-upstream-candidate
+          path: work/box-upstream
+      - name: Prepare fixed candidate without user credentials
+        run: python -m scripts.box_upstream prepare --model "$BOX_MODEL" --kernel "$BOX_KERNEL"
+      - name: Install isolated image tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends build-essential libncurses-dev libssl-dev zlib1g-dev gawk gettext unzip zip file rsync wget curl zstd openssl 7zip btrfs-progs dosfstools e2fsprogs parted u-boot-tools uuid-runtime pigz kmod
+      - run: python -m scripts.build --config "$CONFIG_PATH"
+      - run: python -m scripts.image_verify
+      - run: python -m scripts.box_upstream attest --model "$BOX_MODEL" --kernel "$BOX_KERNEL"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: box-passed-${{ strategy.job-index }}
+          path: work/box-upstream/reports/*.json
+          if-no-files-found: error
+          retention-days: 3
+      - if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: box-diagnostics-${{ strategy.job-index }}
+          path: |
+            outputs/build.log
+            outputs/build-summary.json
+            outputs/image-report.json
+            outputs/box-pack.log
+            outputs/box-pack-report.json
+          retention-days: 3
+  approve:
+    needs: [detect, validate]
+    if: needs.detect.outputs.changed == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0
+        with:
+          name: box-upstream-candidate
+          path: work/box-upstream
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0
+        with:
+          pattern: box-passed-*
+          path: work/box-upstream/reports
+          merge-multiple: true
+      - name: Publish verified catalog only; retain all old releases
+        run: python -m scripts.box_upstream publish
+        env:
+          GH_TOKEN: ${{ github.token }}

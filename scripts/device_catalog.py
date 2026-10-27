@@ -17,18 +17,19 @@ BLOCKED={'amlogic/meson8b':'上游 ImageBuilder 实际 SHA256 与公布值不一
 
 def fingerprint(value):return hashlib.sha256(json.dumps(value,sort_keys=True,separators=(',',':')).encode()).hexdigest()
 
-def inspect(target,dynamic_issues=False):
-    base=ONECLOUD if target=='amlogic/meson8b' else ROOT+'/'+target
+def inspect(target,dynamic_issues=False,series='25.12'):
+    if not re.fullmatch(r'\d{2}\.\d{2}',series):raise ValueError('Invalid source series')
+    base='https://dl.openwrt.ai/releases/'+series+'/targets/'+target if target=='amlogic/meson8b' else ROOT+'/'+target
     profile_file='profiles.json.b' if target=='amlogic/meson8b' else 'profiles.json'
     profiles=catalog.get_json(base+'/'+profile_file)
-    if profiles.get('version_number')!='25.12-SNAPSHOT' or profiles.get('target')!=target:raise ValueError('Unexpected target release family')
+    if profiles.get('version_number')!=series+'-SNAPSHOT' or profiles.get('target')!=target:raise ValueError('Unexpected target release family')
     with urllib.request.urlopen(urllib.request.Request(base+'/sha256sums',headers={'User-Agent':'OpenWrt-Personal-Builder/0.1'}),timeout=60) as response:sums=response.read(1024*1024).decode()
     found=[]
     for line in sums.splitlines():
         parts=line.split()
         if len(parts)==2 and re.fullmatch(r'[a-f0-9]{64}',parts[0]) and re.fullmatch(r'kwrt-imagebuilder-[A-Za-z0-9_.+-]+\.Linux-x86_64\.tar\.(?:zst|xz)',parts[1].lstrip('*')):found.append((parts[1].lstrip('*'),parts[0]))
     if len(found)!=1:raise ValueError('Missing unique ImageBuilder checksum')
-    spec={'target':target,'base':base,'archive':found[0][0],'sha256':found[0][1],'feeds':'https://dl.openwrt.ai/releases/25.12/packages/'+profiles['arch_packages'],'kernel_feed':'https://dl.openwrt.ai/releases/25.12/targets/'+target+'/'+profiles['linux_kernel']['version'],'exclude_defaults':[],'replacement_packages':[],'metadata_source':'selector'}
+    spec={'target':target,'base':base,'archive':found[0][0],'sha256':found[0][1],'feeds':'https://dl.openwrt.ai/releases/'+series+'/packages/'+profiles['arch_packages'],'kernel_feed':'https://dl.openwrt.ai/releases/'+series+'/targets/'+target+'/'+profiles['linux_kernel']['version'],'exclude_defaults':[],'replacement_packages':[],'metadata_source':'selector'}
     if profile_file!='profiles.json':spec['profiles_file']=profile_file
     spec['exclude_defaults']=COMPAT.get(target,[])
     if target in BLOCKED:spec['blocked_reason']=BLOCKED[target]

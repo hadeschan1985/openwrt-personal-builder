@@ -145,7 +145,12 @@ def save_record(path):
     for attempt in range(3):
         parent = api("/git/ref/heads/main", token)["object"]["sha"]
         base = api("/git/commits/" + parent, token)["tree"]["sha"]
-        tree = api("/git/trees", token, "POST", {"base_tree": base, "tree": [{"path": f"records/{value['run_id']}.json", "mode": "100644", "type": "blob", "content": json.dumps(value, ensure_ascii=False, separators=(",", ":"))}]})["sha"]
+        entries=[{"path": f"records/{value['run_id']}.json", "mode": "100644", "type": "blob", "content": json.dumps(value, ensure_ascii=False, separators=(",", ":"))}]
+        if value.get('rebuild'):
+            from scripts import rebuild
+            manifest=rebuild.validate(rebuild.read('work/rebuild-manifest.json'));require(manifest['run_id']==value['run_id'] and rebuild.digest(manifest)==value['rebuild']['manifest_sha256'],'Invalid input snapshot publication')
+            entries.append({'path':f"snapshots/{value['run_id']}.json",'mode':'100644','type':'blob','content':rebuild.canonical(manifest)})
+        tree = api("/git/trees", token, "POST", {"base_tree": base, "tree": entries})["sha"]
         commit = api("/git/commits", token, "POST", {"message": f"Record private build {value['run_number']}", "tree": tree, "parents": [parent]})["sha"]
         try:
             api("/git/refs/heads/main", token, "PATCH", {"sha": commit, "force": False})

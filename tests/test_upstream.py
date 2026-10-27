@@ -46,13 +46,20 @@ class UpstreamTests(unittest.TestCase):
             self.assertEqual(discovered["registry"][key], value)
         self.assertEqual(c["registry"], original)
 
-    def test_unknown_kwrt_major_family_stops_for_review(self):
+    def test_incomplete_new_major_metadata_stops_for_review(self):
         c = candidate()
         with patch.object(u.catalog, "get_json", side_effect=[{"stable_version": "25.12.7"}, {"version_number": "26.12-SNAPSHOT"}]), \
              patch.object(u.catalog, "target_data", return_value=c["sources"][0]["metadata"]), \
              patch.object(u, "builder_checksum", return_value="a" * 64):
             with self.assertRaisesRegex(ValueError, "compatibility review"):
                 u.discover(c["registry"])
+
+    def test_new_series_is_a_distinct_candidate_and_cannot_reuse_old_evidence(self):
+        c=candidate();profile={'version_number':'26.12-SNAPSHOT','linux_kernel':{'version':'6.18.59'},'source_date_epoch':1791811088}
+        with patch.object(u.catalog,'get_json',side_effect=[{'stable_version':'26.12.1'},profile]),patch.object(u.catalog,'target_data',return_value=c['sources'][0]['metadata']),patch.object(u.catalog,'kwrt_data',return_value=c['sources'][1]['metadata']),patch.object(u,'builder_checksum',side_effect=['a'*64,'c'*64]):
+            new=u.discover(c['registry'])
+        version=new['sources'][1]['version'];self.assertTrue(version.startswith('kwrt-26.12-'));self.assertIn('/26.12/packages/',new['registry'][version]['feeds'])
+        with self.assertRaises(ValueError):u.approval(new,evidence(c),'123','b'*40)
 
     def test_normal_build_checks_guard_before_and_after_build(self):
         calls = []

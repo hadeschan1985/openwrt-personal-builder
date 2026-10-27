@@ -1,0 +1,39 @@
+name: Verify real webpage build download and reuse
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['configs/web-build-e2e-trigger.txt']
+permissions:
+  contents: read
+  actions: write
+concurrency:
+  group: web-build-e2e-${{ github.repository }}
+  cancel-in-progress: false
+jobs:
+  browser:
+    if: github.event.repository.private
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Install exact browser test runtime from npm
+        run: |
+          npm install --prefix work/web-e2e --ignore-scripts --no-audit --no-fund playwright@1.64.1
+          work/web-e2e/node_modules/.bin/playwright install --with-deps chromium
+      - name: Exercise the actual page and private build workflow
+        run: node qa/web-build-e2e.mjs
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: Preserve reports and screenshots without credentials or firmware copies
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: webpage-build-e2e-report
+          path: |
+            work/web-e2e/report.json
+            work/web-e2e/failure.json
+            work/web-e2e/*-success.png
+          retention-days: 7

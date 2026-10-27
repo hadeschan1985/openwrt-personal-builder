@@ -31,7 +31,7 @@ SHA=re.compile(r'[a-f0-9]{64}')
 COMMIT=re.compile(r'[a-f0-9]{40}')
 PROFILE=re.compile(r'[A-Za-z0-9_,.+-]{1,180}')
 PACKAGE=re.compile(r'[A-Za-z0-9][A-Za-z0-9+_.-]{0,120}')
-POLICY_FILES=['scripts/build.py','scripts/builders.py','scripts/catalog.py','scripts/delivery.py','scripts/image_verify.py','scripts/platform_qa.py','scripts/device_catalog.py','scripts/device_upstream.py','scripts/n1_compat.py','scripts/source_cache.py','scripts/onecloud_provenance.py','scripts/onecloud_pack.py','scripts/box_repack.py','scripts/box_resources.py','configs/x86-default.json']
+POLICY_FILES=['scripts/build.py','scripts/builders.py','scripts/catalog.py','scripts/delivery.py','scripts/image_verify.py','scripts/platform_qa.py','scripts/device_catalog.py','scripts/device_upstream.py','scripts/n1_compat.py','scripts/source_cache.py','scripts/onecloud_provenance.py','scripts/onecloud_pack.py','scripts/box_repack.py','scripts/box_resources.py','scripts/box_registry.py','scripts/rebuild.py','scripts/archive.py','scripts/profile_campaign.py','configs/x86-default.json']
 
 def read(path,limit=20*1024*1024):
     path=Path(path);require(path.is_file() and path.stat().st_size<=limit,'Device update data missing or oversized')
@@ -48,7 +48,7 @@ def validate_metadata(target,spec,data):
     require(target!='x86/64' and spec['target']==target,'Invalid device target')
     require(spec['exclude_defaults']==device_catalog.COMPAT.get(target,[]) and spec['replacement_packages']==[],'Unexpected device compatibility policy')
     meta=data.get('profiles',{})
-    require(meta.get('target')==target and meta.get('version_number')=='25.12-SNAPSHOT' and meta.get('arch_packages')==spec['feeds'].rsplit('/',1)[1],'Device metadata identity mismatch')
+    require(meta.get('target')==target and meta.get('version_number')==builders.series(spec)+'-SNAPSHOT' and meta.get('arch_packages')==spec['feeds'].rsplit('/',1)[1],'Device metadata identity mismatch')
     require(data.get('image_base')==spec['base'] and data.get('builder_sha256')==spec['sha256'],'Device builder metadata mismatch')
     require(not data.get('package_metadata_errors') and isinstance(data.get('packages'),list) and 100<len(data['packages'])<=40000 and all(isinstance(p,str) and PACKAGE.fullmatch(p) for p in data['packages']),'Incomplete device packages')
     profiles=meta.get('profiles')
@@ -82,20 +82,21 @@ def choose_profile(data):
     return PREFERRED[target] if PREFERRED.get(target) in ids else ids[0]
 
 def discover(previous=None):
-    overview=catalog.get_json('https://openwrt.ai/json/v1/releases/25.12/overview.json')
-    require(overview.get('release')=='25.12' and isinstance(overview.get('profiles'),list),'Unexpected selector release')
+    rolling=catalog.get_json(builders.ROOT+'/x86/64/profiles.json');match=re.fullmatch(r'(\d{2}\.\d{2})-SNAPSHOT',rolling.get('version_number',''));require(match,'Unrecognized Kwrt release number');series=match.group(1)
+    overview=catalog.get_json('https://openwrt.ai/json/v1/releases/'+series+'/overview.json')
+    require(overview.get('release')==series and isinstance(overview.get('profiles'),list),'Unexpected selector release')
     targets=sorted({p['target'] for p in overview['profiles']} - {'x86/64'})
     require(1<=len(targets)<=128,'Unexpected selector target count')
     entries={}
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
-        for target,spec,data in pool.map(lambda t:device_catalog.inspect(t,dynamic_issues=True),targets):
+        for target,spec,data in pool.map(lambda t:device_catalog.inspect(t,dynamic_issues=True,series=series),targets):
             validate_metadata(target,spec,data);entries[target]={'spec':spec,'metadata':data}
     expected={(p['target'],p['id']) for p in overview['profiles'] if p['target']!='x86/64'}
     actual={(t,p) for t,e in entries.items() for p in e['metadata']['profiles']['profiles']}
     require(expected==actual,'Selector profile set and device metadata disagree')
     policy_sha=policy_digest();fingerprint=digest({'policy_sha256':policy_sha,'targets':{t:target_fingerprint(e) for t,e in entries.items()}})
     date=dt.datetime.now(dt.timezone(dt.timedelta(hours=8))).strftime('%Y%m%d')
-    version=previous['version'] if previous and previous.get('fingerprint')==fingerprint else f'kwrt-25.12-{date}-{fingerprint[:8]}'
+    version=previous['version'] if previous and previous.get('fingerprint')==fingerprint else f'kwrt-{series}-{date}-{fingerprint[:8]}'
     return validate_candidate({'schema_version':1,'created_at':dt.datetime.now(dt.timezone.utc).isoformat(),'source_commit':os.environ.get('GITHUB_SHA','0'*40),'version':version,'fingerprint':fingerprint,'policy_sha256':policy_sha,'targets':entries})
 
 def detect():
@@ -215,7 +216,7 @@ def publish(candidate_path=WORK/'candidate.json',reports=WORK/'reports'):
         parent=api('/git/ref/heads/main',token)['object']['sha']
         if parent!=os.environ['GITHUB_SHA']:
             comparison=api('/compare/'+os.environ['GITHUB_SHA']+'...'+parent,token)
-            require(comparison.get('status') in ('ahead','identical') and all(f['filename'].startswith(('records/','updates/','docs/')) or f['filename']=='README.md' for f in comparison.get('files',[])),'Source changed during validation; next check will retry')
+            require(comparison.get('status') in ('ahead','identical') and all(f['filename'].startswith(('records/','snapshots/','updates/','docs/')) or f['filename']=='README.md' for f in comparison.get('files',[])),'Source changed during validation; next check will retry')
         extension=api_json(REGISTRY,token,parent,{'schema_version':1,'versions':{}})
         require(set(extension)=={'schema_version','versions'} and extension['schema_version']==1 and isinstance(extension['versions'],dict) and len(extension['versions'])<512,'Invalid or full device history registry')
         existing=extension['versions'].get(candidate['version'])

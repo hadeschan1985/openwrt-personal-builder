@@ -1,1 +1,1 @@
-2026-10-26: validate changed kiddin9 feed with the complete pinned device registry preserved.
+2026-10-28: verify current upstream series discovery and x86 boot gates after offline rebuild support.

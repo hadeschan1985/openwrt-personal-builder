@@ -10,7 +10,7 @@ from pathlib import Path
 import re
 import urllib.request
 
-from scripts.builders import platforms
+from scripts.builders import platforms,series
 
 DOWNLOADS = "https://downloads.openwrt.org"
 ASU = "https://sysupgrade.openwrt.org"
@@ -52,7 +52,8 @@ def kwrt_data(spec):
     profiles["default_packages"] = sorted((set(profiles.get("default_packages", [])) - set(spec["exclude_defaults"])) | set(spec["replacement_packages"]))
     if spec.get('metadata_source')=='selector':
         arch=profiles['arch_packages']
-        urls=[f"https://openwrt.ai/json/v1/releases/25.12/targets/{spec['target']}/index.json",f"https://openwrt.ai/json/v1/releases/packages-25.12/{arch}-index.json"]
+        branch=series(spec)
+        urls=[f"https://openwrt.ai/json/v1/releases/{branch}/targets/{spec['target']}/index.json",f"https://openwrt.ai/json/v1/releases/packages-{branch}/{arch}-index.json"]
         indexes=[get_json(url) for url in urls]
         packages=set(indexes[0]['packages'])|set(indexes[1])
         digests=[hashlib.sha256(json.dumps(index,sort_keys=True,separators=(',',':')).encode()).hexdigest() for index in indexes]

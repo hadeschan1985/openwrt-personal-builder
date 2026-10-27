@@ -1,0 +1,1 @@
+2026-10-28: revalidate automatic box source updates against final snapshot and repacking policy.
