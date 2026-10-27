@@ -1,1 +1,1 @@
-2026-10-28 round 2: verify each profile against its own generated config; preserve failed diagnostics and publish checks only.
+2026-10-28 final policy: compile every public profile, verify its own images and publish exact-policy coverage without firmware or private inputs.

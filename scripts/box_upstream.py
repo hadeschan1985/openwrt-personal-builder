@@ -10,11 +10,11 @@ import urllib.request
 import urllib.error
 from scripts import box_resources as resources,box_registry as registry
 from scripts.build import normalize,require
-from scripts.upstream import api
+from scripts.upstream import api,assert_policy_current
 
 ROOT=Path(__file__).resolve().parents[1]
 WORK=Path('work/box-upstream')
-POLICY=['scripts/build.py','scripts/builders.py','scripts/box_repack.py','scripts/box_resources.py','scripts/box_registry.py','scripts/box_upstream.py','scripts/image_verify.py','scripts/rebuild.py','scripts/onecloud_pack.py','scripts/n1_compat.py']
+POLICY=['scripts/build.py','scripts/builders.py','scripts/box_repack.py','scripts/box_resources.py','scripts/box_registry.py','scripts/box_upstream.py','scripts/image_verify.py','scripts/rebuild.py','scripts/onecloud_pack.py','scripts/n1_compat.py','scripts/upstream.py']
 BRANCHES={'stable':('5.15','6.6','6.12','6.18'),'rk35xx':('6.1','6.12'),'rk3588':('6.1','6.12')}
 
 
@@ -113,9 +113,9 @@ def publish():
     approved={**candidate,'status':'representative-repack-verified','approved_at':dt.datetime.now(dt.timezone.utc).isoformat(),'run_id':os.environ['GITHUB_RUN_ID'],'source_commit':os.environ['GITHUB_SHA'],'verification_level':'repack-and-integrity-only','hardware_tested':False,'proofs':proofs}
     for attempt in range(3):
         parent=api('/git/ref/heads/main',token)['object']['sha']
-        if parent!=os.environ['GITHUB_SHA']:
-            diff=api('/compare/'+os.environ['GITHUB_SHA']+'...'+parent,token);require(diff.get('status') in ('ahead','identical') and all(f['filename'].startswith(('records/','snapshots/','updates/','docs/')) or f['filename']=='README.md' for f in diff.get('files',[])),'Code changed during box validation; next check will retry')
-        base=api('/git/commits/'+parent,token)['tree']['sha'];entries=[{'path':p,'mode':'100644','type':'blob','content':registry.canonical(approved)} for p in ['updates/box-approved.json','updates/box-catalogs/'+candidate['release']+'.json']]
+        base=api('/git/commits/'+parent,token)['tree']['sha']
+        if parent!=os.environ['GITHUB_SHA']:assert_policy_current(base,token,POLICY,root=ROOT,request=api)
+        entries=[{'path':p,'mode':'100644','type':'blob','content':registry.canonical(approved)} for p in ['updates/box-approved.json','updates/box-catalogs/'+candidate['release']+'.json']]
         tree=api('/git/trees',token,'POST',{'base_tree':base,'tree':entries})['sha'];commit=api('/git/commits',token,'POST',{'tree':tree,'parents':[parent],'message':'Approve tested box resources '+candidate['release']})['sha']
         try:api('/git/refs/heads/main',token,'PATCH',{'sha':commit,'force':False});break
         except urllib.error.HTTPError as error:

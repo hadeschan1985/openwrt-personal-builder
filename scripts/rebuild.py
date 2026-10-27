@@ -6,6 +6,7 @@ Publication runs in a fresh job which executes no captured source code.
 """
 import argparse
 import base64
+import gzip
 import hashlib
 import json
 import os
@@ -105,6 +106,16 @@ def add_asset(path,kind,destination,folder):
     return {'kind':kind,'name':target.name,'sha256':checksum,'bytes':path.stat().st_size,'destination':destination}
 
 
+def archive_packages(cache,destination):
+    # Equal package bytes produce the same private asset across normal builds.
+    # Download timestamps and runner owners are not meaningful build inputs.
+    with Path(destination).open('wb') as raw,gzip.GzipFile(filename='',mode='wb',fileobj=raw,mtime=0,compresslevel=1) as compressed,tarfile.open(fileobj=compressed,mode='w') as out:
+        for path in sorted(Path(cache).iterdir()):
+            require(path.is_file() and not path.is_symlink() and re.fullmatch(r'[A-Za-z0-9_.+~-]+\.(ipk|apk)',path.name),'Invalid package snapshot member')
+            info=out.gettarinfo(str(path),arcname=path.name);info.mtime=0;info.uid=info.gid=0;info.uname=info.gname='';info.mode=0o644
+            with path.open('rb') as source:out.addfile(info,source)
+
+
 def stage(config):
     folder=Path('work/rebuild-upload');folder.mkdir(parents=True,exist_ok=True)
     inputs=read('work/build-inputs.json');workspace=Path('work/builder')
@@ -121,8 +132,7 @@ def stage(config):
             else:os.link(path,destination)
     require(any(cache.iterdir()),'No actual package archives were captured')
     cache_tar=Path('work/rebuild-packages.tar.gz')
-    with tarfile.open(cache_tar,'w:gz',compresslevel=1) as out:
-        for p in sorted(cache.iterdir()):out.add(p,arcname=p.name,recursive=False)
+    archive_packages(cache,cache_tar)
     assets=[add_asset(Path('work/downloads')/inputs['archive'],'builder','work/downloads/'+inputs['archive'],folder),add_asset(cache_tar,'packages','work/rebuild-packages.tar.gz',folder)]
     paths=['scripts','firmware-assets','configs/builders.json','configs/box-builders.json','configs/box-sources.json','configs/rebuild-original.json','updates/device-builders.json','work/rebuild-source-inputs.json']
     if config['overlay']:paths.append(config['overlay'])

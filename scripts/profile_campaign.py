@@ -18,7 +18,7 @@ import sys
 import urllib.error
 from scripts import device_upstream as d
 from scripts.build import require
-from scripts.upstream import api
+from scripts.upstream import api,assert_policy_current
 
 WORK=Path('work/profile-campaign')
 CHUNK=8
@@ -102,8 +102,7 @@ def summarize(publish=False):
     token=os.environ['GH_TOKEN'];require(not api('',token)['private'],'Full synthetic profile campaign uses public standard runners')
     for attempt in range(3):
         parent=api('/git/ref/heads/main',token)['object']['sha'];base=api('/git/commits/'+parent,token)['tree']['sha']
-        diff=api('/compare/'+os.environ['GITHUB_SHA']+'...'+parent,token)
-        require(parent==os.environ['GITHUB_SHA'] or diff.get('status') in ('ahead','identical') and all(f['filename'].startswith(('updates/','docs/','site/','qa/','tests/','.github/')) or f['filename']=='README.md' for f in diff.get('files',[])),'Source changed during campaign; retain reports for review, no current-coverage promotion')
+        if parent!=os.environ['GITHUB_SHA']:assert_policy_current(base,token,d.POLICY_FILES+d.PUBLISH_POLICY,root=d.ROOT,request=api)
         tree=api('/git/trees',token,'POST',{'base_tree':base,'tree':[{'path':'updates/profile-coverage.json','mode':'100644','type':'blob','content':d.canonical(ledger)}]})['sha']
         commit=api('/git/commits',token,'POST',{'tree':tree,'parents':[parent],'message':'Record actual profile compilation coverage'})['sha']
         try:api('/git/refs/heads/main',token,'PATCH',{'sha':commit,'force':False});return

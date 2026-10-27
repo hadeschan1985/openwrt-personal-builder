@@ -1,1 +1,1 @@
-2026-10-28 round 3: validate actual stable 5.15 DTB resources and newly supported TX9/B860AV2.1U, plus all current kernel platforms.
+2026-10-28 final policy: test all eight published kernel variants, TX9/B860AV2.1U DTBs and exact concurrent source policy checks.

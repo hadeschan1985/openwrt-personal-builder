@@ -9,12 +9,16 @@ permissions:
   actions: write
 concurrency:
   group: web-build-e2e-${{ github.repository }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 jobs:
   browser:
     if: github.event.repository.private
     runs-on: ubuntu-24.04
     timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        case: [onecloud, box, wavlink]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -27,11 +31,12 @@ jobs:
         run: node qa/web-build-e2e.mjs
         env:
           GH_TOKEN: ${{ github.token }}
+          WEB_E2E_CASE: ${{ matrix.case }}
       - name: Preserve reports and screenshots without credentials or firmware copies
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
-          name: webpage-build-e2e-report
+          name: webpage-build-e2e-report-${{ matrix.case }}
           path: |
             work/web-e2e/report.json
             work/web-e2e/failure.json

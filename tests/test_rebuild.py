@@ -20,6 +20,17 @@ def manifest():
 
 
 class RebuildTests(unittest.TestCase):
+    def test_package_archive_is_identical_when_only_file_metadata_changes(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp);cache=root/'packages';cache.mkdir()
+            for name in ('z_2_all.ipk','a-1.apk'):(cache/name).write_bytes(b'original '+name.encode())
+            first=root/'first.tar.gz';second=root/'second.tar.gz';r.archive_packages(cache,first)
+            for path in cache.iterdir():os.utime(path,(1000,2000));path.chmod(stat.S_IRUSR|stat.S_IWUSR)
+            r.archive_packages(cache,second);self.assertEqual(first.read_bytes(),second.read_bytes())
+            with tarfile.open(first) as archive:
+                self.assertEqual(archive.getnames(),['a-1.apk','z_2_all.ipk'])
+                for member in archive:self.assertEqual(archive.extractfile(member).read(),(cache/member.name).read_bytes())
+
     @unittest.skipUnless(shutil.which('git'),'Git is needed for detached source metadata regression')
     def test_empty_git_refs_directory_survives_source_capture(self):
         old=Path.cwd()

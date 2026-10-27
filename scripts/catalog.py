@@ -6,8 +6,11 @@ import concurrent.futures
 import datetime as dt
 import json
 import hashlib
+import http.client
 from pathlib import Path
 import re
+import time
+import urllib.error
 import urllib.request
 
 from scripts.builders import platforms,series
@@ -17,10 +20,25 @@ ASU = "https://sysupgrade.openwrt.org"
 REGISTRY = Path(__file__).resolve().parents[1] / "configs" / "builders.json"
 
 
+def fetch_bytes(url,limit=32*1024**2):
+    for attempt in range(3):
+        try:
+            request=urllib.request.Request(url,headers={'User-Agent':'OpenWrt-Personal-Builder/0.1'})
+            with urllib.request.urlopen(request,timeout=90) as response:
+                length=response.headers.get('Content-Length');expected=int(length) if length and length.isdigit() else None
+                if expected is not None and expected>limit:raise ValueError('Upstream metadata exceeds size limit')
+                raw=response.read(limit+1)
+                if len(raw)>limit:raise ValueError('Upstream metadata exceeds size limit')
+                if expected is not None and len(raw)!=expected:raise http.client.IncompleteRead(raw,expected-len(raw))
+                return raw
+        except (http.client.IncompleteRead,urllib.error.URLError,TimeoutError,ConnectionError) as error:
+            if isinstance(error,urllib.error.HTTPError) and error.code not in (408,429,500,502,503,504):raise
+            if attempt==2:raise
+            time.sleep(2**attempt)
+
+
 def get_json(url: str):
-    request = urllib.request.Request(url, headers={"User-Agent": "OpenWrt-Personal-Builder/0.1"})
-    with urllib.request.urlopen(request, timeout=60) as response:
-        return json.load(response)
+    return json.loads(fetch_bytes(url))
 
 
 def title(item):
@@ -66,10 +84,8 @@ def kwrt_data(spec):
     urls = [spec["kernel_feed"] + "/Packages"] + [spec["feeds"] + "/" + feed + "/Packages"
         for feed in ("base", "packages", "luci", "routing", "video", "kiddin9")]
     def names(url):
-        request = urllib.request.Request(url, headers={"User-Agent": "OpenWrt-Personal-Builder/0.1"})
-        with urllib.request.urlopen(request, timeout=90) as response:
-            raw = response.read()
-            return re.findall(r"^Package: (\S+)$", raw.decode(), re.MULTILINE), hashlib.sha256(raw).hexdigest()
+        raw=fetch_bytes(url)
+        return re.findall(r"^Package: (\S+)$", raw.decode(), re.MULTILINE), hashlib.sha256(raw).hexdigest()
     packages = set()
     digests = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:

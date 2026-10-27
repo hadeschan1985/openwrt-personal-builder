@@ -247,6 +247,20 @@ def api(path, token, method="GET", body=None):
         return json.load(response)
 
 
+def assert_policy_current(tree, token, files, *, root=None, request=None):
+    """Accept concurrent data/UI updates only when every tested policy blob matches."""
+    root = root or ROOT
+    request = request or api
+    listing = request('/git/trees/' + tree + '?recursive=1', token)
+    require(listing.get('truncated') is False and isinstance(listing.get('tree'), list)
+            and len(listing['tree']) <= 100000, 'Branch changed; complete policy tree unavailable')
+    blobs = {item['path']: item.get('sha') for item in listing['tree'] if item.get('type') == 'blob'}
+    for name in files:
+        raw = (root / name).read_bytes()
+        expected = hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest()
+        require(blobs.get(name) == expected, 'Branch changed; tested policy differs: ' + name)
+
+
 def publish(candidate_path, reports):
     candidate = validate_candidate(read_json(candidate_path))
     evidence = {source: read_json(reports / f"{source}.json") for source in ("official", "kwrt")}
@@ -256,10 +270,8 @@ def publish(candidate_path, reports):
                for path, value in ((REGISTRY, candidate["registry"]), (APPROVED, approved))]
     for attempt in range(3):
         parent=api('/git/ref/heads/main',token)['object']['sha']
-        if parent!=os.environ['GITHUB_SHA']:
-            diff=api('/compare/'+os.environ['GITHUB_SHA']+'...'+parent,token)
-            require(diff.get('status') in ('ahead','identical') and all(f['filename'].startswith(('records/','snapshots/','updates/','docs/')) or f['filename']=='README.md' for f in diff.get('files',[])),"Branch changed during QA; next check will retry.")
         base=api('/git/commits/'+parent,token)['tree']['sha']
+        if parent!=os.environ['GITHUB_SHA']:assert_policy_current(base,token,POLICY_FILES)
         tree=api('/git/trees',token,'POST',{'base_tree':base,'tree':entries})['sha']
         commit=api('/git/commits',token,'POST',{'message':'Approve tested upstream '+candidate['fingerprint'][:12],'tree':tree,'parents':[parent]})['sha']
         try:api('/git/refs/heads/main',token,'PATCH',{'sha':commit,'force':False});break

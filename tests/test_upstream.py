@@ -186,17 +186,18 @@ class UpstreamTests(unittest.TestCase):
             u.write_json(root / "candidate.json", c)
             for source, report in evidence(c).items():
                 u.write_json(root / "reports" / f"{source}.json", report)
-            with patch.dict("os.environ", {"GITHUB_RUN_ID": "123", "GITHUB_SHA": "b" * 40, "GH_TOKEN": "ephemeral"}), patch.object(u, "api", return_value={"object": {"sha": "c" * 40}}) as api:
+            with patch.dict("os.environ", {"GITHUB_RUN_ID": "123", "GITHUB_SHA": "b" * 40, "GH_TOKEN": "ephemeral"}), patch.object(u, "api", side_effect=[{"object": {"sha": "c" * 40}}, {"tree": {"sha": "d" * 40}}, {"truncated": False, "tree": []}]) as api:
                 with self.assertRaisesRegex(ValueError, "Branch changed"):
                     u.publish(root / "candidate.json", root / "reports")
-                self.assertEqual(api.call_count, 2)
+                self.assertEqual(api.call_count, 3)
 
     def test_concurrent_snapshot_records_preserved_when_only_data_changed(self):
         c=candidate();calls=[]
         def api(path,token,method='GET',body=None):
             calls.append((path,method,body))
             if path=='/git/ref/heads/main':return {'object':{'sha':'f'*40}}
-            if path.startswith('/compare/'):return {'status':'ahead','files':[{'filename':'snapshots/456.json'},{'filename':'records/456.json'}]}
+            if path.startswith('/git/trees/'):
+                return {'truncated':False,'tree':[{'path':name,'type':'blob','sha':u.hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()} for name in u.POLICY_FILES for raw in [(u.ROOT/name).read_bytes()]]}
             if path.startswith('/git/commits/'):return {'tree':{'sha':'c'*40}}
             return {'sha':'d'*40}
         with tempfile.TemporaryDirectory() as temp:
@@ -205,6 +206,17 @@ class UpstreamTests(unittest.TestCase):
             with patch.dict('os.environ',{'GITHUB_RUN_ID':'123','GITHUB_SHA':'b'*40,'GH_TOKEN':'ephemeral'}),patch.object(u,'api',side_effect=api):u.publish(root/'candidate.json',root/'reports')
         tree=next(body for path,method,body in calls if path=='/git/trees');self.assertEqual(tree['base_tree'],'c'*40)
         self.assertEqual(calls[-1][2],{'sha':'d'*40,'force':False})
+
+    def test_policy_blob_check_rejects_changed_missing_and_truncated_trees(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp);(root/'policy.py').write_bytes(b'tested code\n')
+            blob={'path':'policy.py','type':'blob','sha':u.hashlib.sha1(b'blob 12\0tested code\n').hexdigest()}
+            listing={'truncated':False,'tree':[blob,{'path':'unrelated.txt','type':'blob','sha':'f'*40}]}
+            request=unittest.mock.Mock(return_value=listing)
+            u.assert_policy_current('a'*40,'ephemeral',['policy.py'],root=root,request=request)
+            for broken in ({'truncated':True,'tree':[blob]},{'truncated':False,'tree':[]},{'truncated':False,'tree':[{**blob,'sha':'e'*40}]}):
+                request.return_value=broken
+                with self.assertRaisesRegex(ValueError,'Branch changed'):u.assert_policy_current('a'*40,'ephemeral',['policy.py'],root=root,request=request)
 
 
 if __name__ == "__main__":

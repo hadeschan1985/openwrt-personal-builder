@@ -95,7 +95,8 @@ class DeviceUpstreamTests(unittest.TestCase):
             if path=='':return {'private':True}
             if path=='/git/blobs':return {'sha':'a'*40}
             if path=='/git/ref/heads/main':return {'object':{'sha':'e'*40}}
-            if path.startswith('/compare/'):return {'status':'ahead','files':[{'filename':'records/987.json'}]}
+            if path.startswith('/git/trees/'):
+                return {'truncated':False,'tree':[{'path':name,'type':'blob','sha':u.hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()} for name in u.POLICY_FILES+u.PUBLISH_POLICY for raw in [(u.ROOT/name).read_bytes()]]}
             if path.startswith('/contents/'):
                 raw=json.dumps(old_registry).encode();return {'size':len(raw),'encoding':'base64','content':base64.b64encode(raw).decode()}
             if path=='/git/commits/'+'e'*40:return {'tree':{'sha':'f'*40}}

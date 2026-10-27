@@ -1,1 +1,1 @@
-2026-10-28 round 2: revalidate consistent command entry and per-profile report configuration.
+2026-10-28 final policy: validate all platform representatives with complete source policy and preserve concurrent records.

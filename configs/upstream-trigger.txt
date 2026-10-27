@@ -1,1 +1,1 @@
-2026-10-28 round 2: verify transport retry, policy-bound x86 boot approval and concurrent private build records.
+2026-10-28 final policy: bounded metadata retry, deterministic package snapshots and exact policy blob checks; validate both sources in all three boot modes.

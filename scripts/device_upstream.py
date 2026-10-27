@@ -21,7 +21,7 @@ from scripts import builders,catalog,device_catalog
 from scripts.build import normalize,require,selected_images,package_plan
 from scripts.delivery import policy
 from scripts.platform_qa import output_options,PREFERRED
-from scripts.upstream import api,canonical,digest,builder_checksum
+from scripts.upstream import api,canonical,digest,builder_checksum,assert_policy_current
 
 ROOT=Path(__file__).resolve().parents[1]
 REGISTRY='updates/device-builders.json'
@@ -31,6 +31,7 @@ SHA=re.compile(r'[a-f0-9]{64}')
 COMMIT=re.compile(r'[a-f0-9]{40}')
 PROFILE=re.compile(r'[A-Za-z0-9_,.+-]{1,180}')
 PACKAGE=re.compile(r'[A-Za-z0-9][A-Za-z0-9+_.-]{0,120}')
+PUBLISH_POLICY=['scripts/upstream.py']
 POLICY_FILES=['scripts/build.py','scripts/builders.py','scripts/catalog.py','scripts/delivery.py','scripts/image_verify.py','scripts/platform_qa.py','scripts/device_catalog.py','scripts/device_upstream.py','scripts/n1_compat.py','scripts/source_cache.py','scripts/onecloud_provenance.py','scripts/onecloud_pack.py','scripts/box_repack.py','scripts/box_resources.py','scripts/box_registry.py','scripts/rebuild.py','scripts/archive.py','scripts/profile_campaign.py','configs/x86-default.json']
 
 def read(path,limit=20*1024*1024):
@@ -41,7 +42,7 @@ def write(path,value):
     path=Path(path);path.parent.mkdir(parents=True,exist_ok=True);path.write_text(canonical(value),encoding='utf-8')
 
 def policy_digest():
-    return digest({p:hashlib.sha256((ROOT/p).read_bytes()).hexdigest() for p in POLICY_FILES})
+    return digest({p:hashlib.sha256((ROOT/p).read_bytes()).hexdigest() for p in POLICY_FILES+PUBLISH_POLICY})
 
 def validate_metadata(target,spec,data):
     builders.validate_spec(spec)
@@ -214,16 +215,15 @@ def publish(candidate_path=WORK/'candidate.json',reports=WORK/'reports'):
         blobs.append({'path':path,'mode':'100644','type':'blob','sha':sha})
     for attempt in range(3):
         parent=api('/git/ref/heads/main',token)['object']['sha']
-        if parent!=os.environ['GITHUB_SHA']:
-            comparison=api('/compare/'+os.environ['GITHUB_SHA']+'...'+parent,token)
-            require(comparison.get('status') in ('ahead','identical') and all(f['filename'].startswith(('records/','snapshots/','updates/','docs/')) or f['filename']=='README.md' for f in comparison.get('files',[])),'Source changed during validation; next check will retry')
+        base=api('/git/commits/'+parent,token)['tree']['sha']
+        if parent!=os.environ['GITHUB_SHA']:assert_policy_current(base,token,POLICY_FILES+PUBLISH_POLICY,root=ROOT,request=api)
         extension=api_json(REGISTRY,token,parent,{'schema_version':1,'versions':{}})
         require(set(extension)=={'schema_version','versions'} and extension['schema_version']==1 and isinstance(extension['versions'],dict) and len(extension['versions'])<512,'Invalid or full device history registry')
         existing=extension['versions'].get(candidate['version'])
         require(not existing or existing==family(candidate),'Device version collision')
         extension['versions'][candidate['version']]=family(candidate)
         entries=blobs+[{'path':p,'mode':'100644','type':'blob','content':canonical(v)} for p,v in [(REGISTRY,extension),(APPROVED,approved),(f"updates/device-catalogs/{candidate['version']}.json",approved)]]
-        base=api('/git/commits/'+parent,token)['tree']['sha'];tree=api('/git/trees',token,'POST',{'base_tree':base,'tree':entries})['sha']
+        tree=api('/git/trees',token,'POST',{'base_tree':base,'tree':entries})['sha']
         commit=api('/git/commits',token,'POST',{'message':'Approve tested device release '+candidate['version'],'tree':tree,'parents':[parent]})['sha']
         try:api('/git/refs/heads/main',token,'PATCH',{'sha':commit,'force':False});break
         except urllib.error.HTTPError as error:
