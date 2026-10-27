@@ -2,7 +2,7 @@
 
 本文是当前使用入口。历史报告中的设备范围、测试数量和旧链接以本文及 [当前交付范围](DELIVERY.md) 为准。
 
-[打开工作台](https://hadeschan1985.github.io/openwrt-personal-builder/?v=20261027-4) · [私有构建记录](https://github.com/hadeschan1985/openwrt-personal-builds/actions/workflows/build.yml)
+[打开工作台](https://hadeschan1985.github.io/openwrt-personal-builder/?v=20261027-5) · [私有构建记录](https://github.com/hadeschan1985/openwrt-personal-builds/actions/workflows/build.yml)
 
 ## 选择设备和软件
 
@@ -66,7 +66,7 @@ ChatGPT 的仓库连接不自动传给 Pages 网页。网页用自己的短期�
 
 无变化时复用同一构建器、设备资料和验证规则对应的证据，不重复编译。历史配置会读取其原验收版本，不偷偷改用新版。网页逐目标平台读取资料并校验 SHA256；错误时保留原配置、阻止提交。
 
-当前多型号版本有 864 个非 x86 档案，22 个平台已通过代表型号编译验收、1 个平台暂停。x86 单独保留自己的版本；全部 Kwrt 档案合计 865。代表型号通过不等于同平台每个型号都编译过，页面会明确区分。没有实体设备时，本项目不声称实机开机、无线、USB/WWAN 或 ESXi 宿主机验收已完成。
+当前多型号版本 `kwrt-25.12-20261027-8ca6d8b4` 有 864 个非 x86 档案，23 个平台已通过代表型号编译验收、0 个平台暂停。x86 单独保留自己的版本；全部 Kwrt 档案合计 865。代表型号通过不等于同平台每个型号都编译过，页面会明确区分。没有实体设备时，本项目不声称实机开机、无线、USB/WWAN 或 ESXi 宿主机验收已完成。
 
 滚动源再次变化时，尚未重新批准的旧版本会暂停新构建；原有固件下载按原期限保留。盒子内核资源使用上述固定版本，尚未自动提升到新的 ophub 内核；项目不会自动刷机。
 

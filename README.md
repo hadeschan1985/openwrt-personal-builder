@@ -2,7 +2,7 @@
 
 个人固件定制工作台：GitHub Pages 展示网页，GitHub Actions 构建，没有 VPS、会员或收费系统。
 
-- [打开工作台](https://hadeschan1985.github.io/openwrt-personal-builder/?v=20261027-4)
+- [打开工作台](https://hadeschan1985.github.io/openwrt-personal-builder/?v=20261027-5)
 - [日常使用说明](docs/USAGE.md)
 - [当前交付范围和限制](docs/DELIVERY.md)
 - [本轮测试证据](docs/RELEASE-12.md)

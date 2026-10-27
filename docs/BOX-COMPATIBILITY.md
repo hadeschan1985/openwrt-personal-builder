@@ -21,6 +21,8 @@
 5. 仅在隔离的 Linux GitHub runner 中创建本轮镜像文件和相应 loop 设备；不会访问个人电脑物理盘或家庭网络。
 6. 对压缩后的实际成品解压、只读回读，核对型号 DTB 的 SHA256/compatible、引导配置、内核模块 vermagic 和个人设置脚本摘要。失败停止交付。
 
+回读调试发现当前 GitHub 内核已移除旧的独立 `nologreplay` 挂载参数，现使用 `ro,rescue=nologreplay`。这与 [Btrfs 内核变更记录](https://btrfs.readthedocs.io/en/latest/Kernel-by-version.html) 中的替代写法一致，保持只读和禁止日志回放。
+
 ## 内核驱动与验证边界
 
 盒子使用所选内核自带的完整模块集，不能混装 Kwrt 原生内核的 `kmod-*`。网页和构建端均拦截显式混装，以及原生 USB 网卡、USB 无线、WWAN 驱动开关。打包过程用匹配模块替换原模块；后续驱动更新也必须与盒子内核配套。

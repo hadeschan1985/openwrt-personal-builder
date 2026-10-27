@@ -1,0 +1,827 @@
+{
+  "schema_version": 1,
+  "status": "cloud-verification-passed",
+  "date": "2026-10-27",
+  "web_version": "20261027-5",
+  "public_source_commit": "fb3bf08baa67736197c5265a3619bf54bfcc79f7",
+  "private_validation_commit": "bf201ec6833b6db76bddf0faa70c26b7e70a3725",
+  "source_tree": "3d05261aab1d00f89706054d3de1e873f8433846",
+  "catalog": {
+    "kwrt_profiles": 865,
+    "platforms": 24,
+    "box_resource_profiles": 209,
+    "excluded_box_profiles": 37,
+    "box_kernel_versions": [
+      "6.6.160",
+      "6.12.114",
+      "6.18.58"
+    ],
+    "box_count_is_not_additive": true
+  },
+  "code_checks": {
+    "status": "passed",
+    "run_id": 40499546719,
+    "javascript": 75,
+    "python": 127,
+    "cloud_total_passed": 202,
+    "cloud_skipped": 0,
+    "windows_skipped": 2
+  },
+  "onecloud": {
+    "status": "passed",
+    "run_id": 40496482362,
+    "builder_sha256": "e29abe52fea3bdaf77a0af313ccb5c6f06c6564a4f7cdb27d41fd9215d6926b5",
+    "author_artifact_id": 11760922364,
+    "source_verification_run_id": 40455959521,
+    "private_cache_run_id": 40456423339,
+    "crc_checked": true,
+    "partition_roundtrips": [
+      "boot",
+      "rootfs"
+    ],
+    "hardware_tested": false
+  },
+  "boxes": {
+    "run_id": 40498698494,
+    "source_commit": "1b3479620f9fee77e8666485f4e9de46041d989c",
+    "status": "passed",
+    "boot_tested": false,
+    "hardware_tested": false,
+    "cases": [
+      {
+        "status": "passed",
+        "model": "s905d",
+        "kernel": "stable-6.6.160",
+        "kernel_release": "6.6.160-ophub",
+        "filesystem": "btrfs",
+        "dtb": "meson-gxl-s905d-phicomm-n1.dtb",
+        "dtb_sha256": "7098d51d29ba76e2184f2a7ef116e2f428be9509a20c96fbc6df926939b28cf9",
+        "compatible": [
+          "phicomm,n1",
+          "amlogic,s905d",
+          "amlogic,meson-gxl"
+        ],
+        "module_vermagic_checked": 2668,
+        "personal_defaults_sha256": "1d14bc8a06acfabc242d35827ca360270418523d10f1ec24d79fceae853a9422",
+        "boot_tested": false,
+        "hardware_tested": false,
+        "schema_version": 1,
+        "repositories": [
+          {
+            "repository": "ophub/amlogic-s9xxx-openwrt",
+            "commit": "52ad5239e6720f5b56c9afafcd7080cbe3cf2881"
+          },
+          {
+            "repository": "ophub/amlogic-s9xxx-armbian",
+            "commit": "72621c6f32942e40757deb1a5de63dca575c7658"
+          },
+          {
+            "repository": "ophub/u-boot",
+            "commit": "e06036570fc7a3ff810d7d5e8b4cb32f3a925f31"
+          },
+          {
+            "repository": "ophub/firmware",
+            "commit": "a9d0e8337cc8aa2ca4b482acd7b19c74ce05860f"
+          },
+          {
+            "repository": "ophub/luci-app-amlogic",
+            "commit": "16df300f86e5b4e48e955cd66f337c5872d27d3c"
+          }
+        ],
+        "kernel_asset_sha256": "366bfdcaf4a13887d3e94e82996dcf43c7d8756ba7935daa85cf200f0ae73fb4",
+        "file": {
+          "name": "personal-box-s905d-6.6.160.img.gz",
+          "bytes": 232102700,
+          "sha256": "ef2ec0033c489338ce6761f20f225b3aad9f8455ec2dbd66c084f806c9fda246"
+        }
+      },
+      {
+        "status": "passed",
+        "model": "s905x3-hk1",
+        "kernel": "stable-6.12.114",
+        "kernel_release": "6.12.114-ophub",
+        "filesystem": "btrfs",
+        "dtb": "meson-sm1-hk1box-vontar-x3.dtb",
+        "dtb_sha256": "5b3e57e851c7e027e5627d14c8f818f817cc04ed43c3c8d7b8debfc3511d5f45",
+        "compatible": [
+          "amlogic,sm1"
+        ],
+        "module_vermagic_checked": 2897,
+        "personal_defaults_sha256": "4f02c3494267ae1205af77aba7cd7fb23e3e6e073d76c286e8f1b7fd608a5901",
+        "boot_tested": false,
+        "hardware_tested": false,
+        "schema_version": 1,
+        "repositories": [
+          {
+            "repository": "ophub/amlogic-s9xxx-openwrt",
+            "commit": "52ad5239e6720f5b56c9afafcd7080cbe3cf2881"
+          },
+          {
+            "repository": "ophub/amlogic-s9xxx-armbian",
+            "commit": "72621c6f32942e40757deb1a5de63dca575c7658"
+          },
+          {
+            "repository": "ophub/u-boot",
+            "commit": "e06036570fc7a3ff810d7d5e8b4cb32f3a925f31"
+          },
+          {
+            "repository": "ophub/firmware",
+            "commit": "a9d0e8337cc8aa2ca4b482acd7b19c74ce05860f"
+          },
+          {
+            "repository": "ophub/luci-app-amlogic",
+            "commit": "16df300f86e5b4e48e955cd66f337c5872d27d3c"
+          }
+        ],
+        "kernel_asset_sha256": "4cf9646f4725817d4ec91a2b4889f42f30d2b2e1d584b4bfdba9bcc2477adae6",
+        "file": {
+          "name": "personal-box-s905x3-hk1-6.12.114.img.gz",
+          "bytes": 249355820,
+          "sha256": "5894fa87d278228603d5d54d81471fa595aec5d99320e91028ad436c4ea87ea3"
+        }
+      },
+      {
+        "status": "passed",
+        "model": "orangepi-zero3",
+        "kernel": "stable-6.18.58",
+        "kernel_release": "6.18.58-ophub",
+        "filesystem": "btrfs",
+        "dtb": "sun50i-h618-orangepi-zero3.dtb",
+        "dtb_sha256": "55b5848bd71116d9bb5edf08d6a9612b70de1ea17cd1895a8470a3a18118b1a7",
+        "compatible": [
+          "xunlong,orangepi-zero3",
+          "allwinner,sun50i-h618"
+        ],
+        "module_vermagic_checked": 3159,
+        "personal_defaults_sha256": "ad9f7ee2f2ac3f479bd17be024090fa68d7bb3f6d1537c3bd87039b65c57443b",
+        "boot_tested": false,
+        "hardware_tested": false,
+        "schema_version": 1,
+        "repositories": [
+          {
+            "repository": "ophub/amlogic-s9xxx-openwrt",
+            "commit": "52ad5239e6720f5b56c9afafcd7080cbe3cf2881"
+          },
+          {
+            "repository": "ophub/amlogic-s9xxx-armbian",
+            "commit": "72621c6f32942e40757deb1a5de63dca575c7658"
+          },
+          {
+            "repository": "ophub/u-boot",
+            "commit": "e06036570fc7a3ff810d7d5e8b4cb32f3a925f31"
+          },
+          {
+            "repository": "ophub/firmware",
+            "commit": "a9d0e8337cc8aa2ca4b482acd7b19c74ce05860f"
+          },
+          {
+            "repository": "ophub/luci-app-amlogic",
+            "commit": "16df300f86e5b4e48e955cd66f337c5872d27d3c"
+          }
+        ],
+        "kernel_asset_sha256": "a73f560d56fb2a179e35e308b51e4a1c6b14a114585cebe7e0ad4294dbc44ce0",
+        "file": {
+          "name": "personal-box-orangepi-zero3-6.18.58.img.gz",
+          "bytes": 233343145,
+          "sha256": "23e300f5ca55bf43b6788c3c26fda06fb2a19ef63e01a8c0cff3fe5f1e924b55"
+        }
+      },
+      {
+        "status": "passed",
+        "model": "orangepi-5-plus",
+        "kernel": "stable-6.18.58",
+        "kernel_release": "6.18.58-ophub",
+        "filesystem": "btrfs",
+        "dtb": "rk3588-orangepi-5-plus.dtb",
+        "dtb_sha256": "a7e1a6a3cc9a1024bf3d8eacd96fcf24db7ea9728d72b61c49bf11d6b8ec3270",
+        "compatible": [
+          "xunlong,orangepi-5-plus",
+          "rockchip,rk3588"
+        ],
+        "module_vermagic_checked": 3159,
+        "personal_defaults_sha256": "6f2c13cafeca264e65c7e2e5e46edae43dd6eddffab3fa2d2f843ca7a7c08f0d",
+        "boot_tested": false,
+        "hardware_tested": false,
+        "schema_version": 1,
+        "repositories": [
+          {
+            "repository": "ophub/amlogic-s9xxx-openwrt",
+            "commit": "52ad5239e6720f5b56c9afafcd7080cbe3cf2881"
+          },
+          {
+            "repository": "ophub/amlogic-s9xxx-armbian",
+            "commit": "72621c6f32942e40757deb1a5de63dca575c7658"
+          },
+          {
+            "repository": "ophub/u-boot",
+            "commit": "e06036570fc7a3ff810d7d5e8b4cb32f3a925f31"
+          },
+          {
+            "repository": "ophub/firmware",
+            "commit": "a9d0e8337cc8aa2ca4b482acd7b19c74ce05860f"
+          },
+          {
+            "repository": "ophub/luci-app-amlogic",
+            "commit": "16df300f86e5b4e48e955cd66f337c5872d27d3c"
+          }
+        ],
+        "kernel_asset_sha256": "a73f560d56fb2a179e35e308b51e4a1c6b14a114585cebe7e0ad4294dbc44ce0",
+        "file": {
+          "name": "personal-box-orangepi-5-plus-6.18.58.img.gz",
+          "bytes": 208351999,
+          "sha256": "ca02ed481550c93486c194486149f20896fe54f48590a5e0cc7925788027072d"
+        }
+      }
+    ]
+  },
+  "platform_regression": {
+    "run_id": 40499546656,
+    "status": "passed",
+    "approval_commit": "8517c5b3f50a868ef771dc95fcfaca2b97c6d89a",
+    "version": "kwrt-25.12-20261027-8ca6d8b4",
+    "source_commit": "bf201ec6833b6db76bddf0faa70c26b7e70a3725",
+    "policy_sha256": "5e94518d85bf4ce5376b1d8338fea3e2f9831543e769f574610a42d025cb6a6a",
+    "platforms_passed": 23,
+    "platforms_blocked": 0,
+    "non_x86_profiles": 864,
+    "proofs": {
+      "airoha/an7581": {
+        "status": "passed",
+        "profile": "nokia_xg-040g-md",
+        "run_id": "40499546656",
+        "report": {
+          "boot_tested": false,
+          "files": [
+            {
+              "bytes": 18166026,
+              "check": "tar-header-checked",
+              "name": "kwrt-airoha-an7581-nokia_xg-040g-md-squashfs-sysupgrade.bin",
+              "sha256": "bf631b78a1e6e785beff51c578d95bc01466b75d027183cdfd91c41e0995c2f2"
+            }
+          ],
+          "hardware_tested": false,
+          "profile": "nokia_xg-040g-md",
+          "schema_version": 1,
+          "status": "passed",
+          "target": "airoha/an7581",
+          "verification_level": "build-and-integrity-only",
+          "version": "kwrt-25.12-20261027-8ca6d8b4"
+        }
+      },
+      "amlogic/meson": {
+        "status": "passed",
+        "profile": "phicomm_n1",
+        "run_id": "40499546656",
+        "report": {
+          "boot_tested": false,
+          "files": [
+            {
+              "bytes": 26125203,
+              "check": "gzip-crc-and-fwtool-checked",
+              "name": "kwrt-amlogic-meson-phicomm_n1-squashfs-sysupgrade.img.gz",
+              "sha256": "c9fa81a17a6a480d01f7f3c831f46f862b32f7e5d7178af14ae73831c0e8e24a"
+            }
+          ],
+          "hardware_tested": false,
+          "profile": "phicomm_n1",
+          "schema_version": 1,
+          "status": "passed",
+          "target": "amlogic/meson",
+          "verification_level": "build-and-integrity-only",
+          "version": "kwrt-25.12-20261027-8ca6d8b4"
+        }
+      },
+      "amlogic/meson8b": {
+        "status": "passed",
+        "profile": "thunder-onecloud",
+        "run_id": "40499546656",
+        "report": {
+          "boot_tested": false,
+          "files": [
+            {
+              "bytes": 21720249,
+              "check": "gzip-crc-checked",
+              "name": "kwrt-amlogic-meson8b-thunder-onecloud-ext4-emmc_burn.img.gz",
+              "sha256": "83fc7ec0d9543e2ed479883beddc7a5353388c8e3284070203cfa8521c1b6d05"
+            }
+          ],
+          "hardware_tested": false,
+          "onecloud_packaging": {
+            "container_crc": "verified-by-AmlImg",
+            "file": {
+              "bytes": 21720249,
+              "name": "kwrt-amlogic-meson8b-thunder-onecloud-ext4-emmc_burn.img.gz",
+              "sha256": "83fc7ec0d9543e2ed479883beddc7a5353388c8e3284070203cfa8521c1b6d05"
+            },
+            "hardware_tested": false,
+            "partitions": [
+              {
+                "bytes": 16777216,
+                "name": "boot",
+                "offset": 4194304,
+                "roundtrip": "identical",
+                "sha256": "860aef558636d4b7872d665121bbb7e68bacdffd751d59c109f807c4474515a1"
+              },
+              {
+                "bytes": 1052770304,
+                "name": "rootfs",
+                "offset": 25165824,
+                "roundtrip": "identical",
+                "sha256": "fbfcc78ff67bfc23650938bf566187bc2d846f8f2fde6e2a8795b96e947922c3"
+              }
+            ],
+            "schema_version": 1,
+            "status": "passed",
+            "template_sha256": "d33d979d23b8a607447c5af424b1e24003820e7e159e540c7f47c89d45cdc491",
+            "template_url": "https://github.com/hzyitc/u-boot/releases/download/build-20221028-0940/eMMC.burn.img",
+            "tool_commit": "5ede4ed30b27c10187af5258f7e2f61f9ad71e1e",
+            "tool_repository": "hzyitc/AmlImg",
+            "uncompressed_sha256": "17954f208b846ee2c84acc0972ea8df629c452686870c17c47c1a8e1488f69e1"
+          },
+          "profile": "thunder-onecloud",
+          "schema_version": 1,
+          "status": "passed",
+          "target": "amlogic/meson8b",
+          "verification_level": "build-and-integrity-only",
+          "version": "kwrt-25.12-20261027-8ca6d8b4"
+        }
+      },
+      "armsr/armv8": {
+        "status": "passed",
+        "profile": "generic",
+        "run_id": "40499546656",
+        "report": {
+          "boot_tested": false,
+          "files": [
+            {
+              "bytes": 26429447,
+              "check": "gzip-crc-checked",
+              "name": "kwrt-armsr-armv8-generic-ext4-combined-efi.img.gz",
+              "sha256": "bf1695d75361d60cffcb35c1d15c16bccd3229207fd6ec51928845e90e22bf26"
+            }
+          ],
+          "hardware_tested": false,
+          "profile": "generic",
+          "schema_version": 1,
+          "status": "passed",
+          "target": "armsr/armv8",
+          "verification_level": "build-and-integrity-only",
+          "version": "kwrt-25.12-20261027-8ca6d8b4"
+        }
+      },
+      "ath79/nand": {
+        "status": "passed",
+        "profile": "8dev_rambutan",
+        "run_id": "40499546656",
+        "report": {
+          "boot_tested": false,
+          "files": [
+            {
+              "bytes": 16025857,
+              "check": "tar-header-checked",
+              "name": "kwrt-ath79-nand-8dev_rambutan-squashfs-sysupgrade.tar",
+              "sha256": "3350e01cbf75c219369a629a97ca5f3d0f786a3277bc5fb011f5f968a86c3ddb"
+            }
+          ],
+          "hardware_tested": false,
+          "profile": "8dev_rambutan",
+          "schema_version": 1,
+          "status": "passed",
+          "target": "ath79/nand",
+          "verification_level": "build-and-integrity-only",
+          "version": "kwrt-25.12-20261027-8ca6d8b4"
+        }
+      },
+      "bcm27xx/bcm2709": {
+        "status": "passed",
+        "profile": "rpi-2",
+        "run_id": "40499546656",
+        "report": {
+          "boot_tested": false,
+          "files": [
+            {
+              "bytes": 30577472,
+              "check": "gzip-crc-and-fwtool-checked",
+              "name": "kwrt-bcm27xx-bcm2709-rpi-2-squashfs-sysupgrade.img.gz",
+              "sha256": "402a5db0a162edae4ba875438f809a07c3a12192aa3889a71ddac2ffc3c72a30"
+            }
+          ],
+          "hardware_tested": false,
+          "profile": "rpi-2",
+          "schema_version": 1,
+          "status": "passed",
+          "target": "bcm27xx/bcm2709",
+          "verification_level": "build-and-integrity-only",
+          "version": "kwrt-25.12-20261027-8ca6d8b4"
+        }
+      },
+      "bcm27xx/bcm2710": {
+        "status": "passed",
+        "profile": "rpi-3",
+        "run_id": "40499546656",
+        "report": {
+          "boot_tested": false,
+          "files": [
+            {
+              "bytes": 28567292,
+              "check": "gzip-crc-and-fwtool-checked",
+              "name": "kwrt-bcm27xx-bcm2710-rpi-3-squashfs-sysupgrade.img.gz",
+              "sha256": "e5e948d3926708d287f163849a3794175aabc839f50be97a45269e31858398ec"
+            }
+          ],
+          "hardware_tested": false,
+          "profile": "rpi-3",
+          "schema_version": 1,
+          "status": "passed",
+          "target": "bcm27xx/bcm2710",
+          "verification_level": "build-and-integrity-only",
+          "version": "kwrt-25.12-20261027-8ca6d8b4"
+        }
+      },
+      "bcm27xx/bcm2711": {
+        "status": "passed",
+        "profile": "rpi-4",
+        "run_id": "40499546656",
+        "report": {
+          "boot_tested": false,
+          "files": [
+            {
+              "bytes": 27863345,
+              "check": "gzip-crc-and-fwtool-checked",
+              "name": "kwrt-bcm27xx-bcm2711-rpi-4-squashfs-sysupgrade.img.gz",
+              "sha256": "e4dfe2e8ad7dafe73436ee06dd17e68a2864f7c1096f413bd650c236ee5be06f"
+            }
+          ],
+          "hardware_tested": false,
+          "profile": "rpi-4",
+          "schema_version": 1,
+          "status": "passed",
+          "target": "bcm27xx/bcm2711",
+          "verification_level": "build-and-integrity-only",
+          "version": "kwrt-25.12-20261027-8ca6d8b4"
+        }
+      },
+      "bcm27xx/bcm2712": {
+        "status": "passed",
+        "profile": "rpi-5",
+        "run_id": "40499546656",
+        "report": {
+          "boot_tested": false,
+          "files": [
+            {
+              "bytes": 24893237,
+              "check": "gzip-crc-and-fwtool-checked",
+              "name": "kwrt-bcm27xx-bcm2712-rpi-5-squashfs-sysupgrade.img.gz",
+              "sha256": "1501847d1068c078f57f99f08f47d7eb1df1d300ec399c014258c032e1f7c02f"
+            }
+          ],
+          "hardware_tested": false,
+          "profile": "rpi-5",
+          "schema_version": 1,
+          "status": "passed",
+          "target": "bcm27xx/bcm2712",
+          "verification_level": "build-and-integrity-only",
+          "version": "kwrt-25.12-20261027-8ca6d8b4"
+        }
+      },
+      "bcm53xx/generic": {
+        "status": "passed",
+        "profile": "asus_rt-ac88u",
+        "run_id": "40499546656",
+        "report": {
+          "boot_tested": false,
+          "files": [
+            {
+              "bytes": 18612224,
+              "check": "binary-output",
+              "name": "kwrt-bcm53xx-generic-asus_rt-ac88u-squashfs.trx",
+              "sha256": "5b62e0ece7b499d97913fdecb3c4d7ed994173bf0c22dcb819d098f31d392ea8"
+            }
+          ],
+          "hardware_tested": false,
+          "profile": "asus_rt-ac88u",
+          "schema_version": 1,
+          "status": "passed",
+          "target": "bcm53xx/generic",
+          "verification_level": "build-and-integrity-only",
+          "version": "kwrt-25.12-20261027-8ca6d8b4"
+        }
+      },
+      "ipq40xx/generic": {
+        "status": "passed",
+        "profile": "8dev_habanero-dvk",
+        "run_id": "40499546656",
+        "report": {
+          "boot_tested": false,
+          "files": [
+            {
+              "bytes": 17039919,
+              "check": "binary-output",
+              "name": "kwrt-ipq40xx-generic-8dev_habanero-dvk-squashfs-sysupgrade.bin",
+              "sha256": "a87f0bf766cb3040654d850de89491aa1537a13f2809761f8e89e0c8d5ce5155"
+            }
+          ],
+          "hardware_tested": false,
+          "profile": "8dev_habanero-dvk",
+          "schema_version": 1,
+          "status": "passed",
+          "target": "ipq40xx/generic",
+          "verification_level": "build-and-integrity-only",
+          "version": "kwrt-25.12-20261027-8ca6d8b4"
+        }
+      },
+      "ipq806x/generic": {
+        "status": "passed",
+        "profile": "netgear_r7800",
+        "run_id": "40499546656",
+        "report": {
+          "boot_tested": false,
+          "files": [
+            {
+              "bytes": 16753189,
+              "check": "tar-header-checked",
+              "name": "kwrt-ipq806x-generic-netgear_r7800-squashfs-sysupgrade.bin",
+              "sha256": "d74b34621fd752f5f327edc17eea8c55fe0609f943eb6c029e615e771cb44078"
+            }
+          ],
+          "hardware_tested": false,
+          "profile": "netgear_r7800",
+          "schema_version": 1,
+          "status": "passed",
+          "target": "ipq806x/generic",
+          "verification_level": "build-and-integrity-only",
+          "version": "kwrt-25.12-20261027-8ca6d8b4"
+        }
+      },
+      "mediatek/filogic": {
+        "status": "passed",
+        "profile": "xiaomi_redmi-router-ax6000",
+        "run_id": "40499546656",
+        "report": {
+          "boot_tested": false,
+          "files": [
+            {
+              "bytes": 15135009,
+              "check": "tar-header-checked",
+              "name": "kwrt-mediatek-filogic-xiaomi_redmi-router-ax6000-squashfs-sysupgrade.bin",
+              "sha256": "7effe8db4bd2a0393e91ab268314e1401515734d01b28f08f0b0c3c8a469d1d1"
+            }
+          ],
+          "hardware_tested": false,
+          "profile": "xiaomi_redmi-router-ax6000",
+          "schema_version": 1,
+          "status": "passed",
+          "target": "mediatek/filogic",
+          "verification_level": "build-and-integrity-only",
+          "version": "kwrt-25.12-20261027-8ca6d8b4"
+        }
+      },
+      "mediatek/mt7622": {
+        "status": "passed",
+        "profile": "asiarf_ap7622-wh1",
+        "run_id": "40499546656",
+        "report": {
+          "boot_tested": false,
+          "files": [
+            {
+              "bytes": 18616590,
+              "check": "tar-header-checked",
+              "name": "kwrt-mediatek-mt7622-asiarf_ap7622-wh1-squashfs-sysupgrade.bin",
+              "sha256": "377b55b17f99e177d7e4db86af5d4bc6dad52c20d855a8758279fdd0c2f1a099"
+            }
+          ],
+          "hardware_tested": false,
+          "profile": "asiarf_ap7622-wh1",
+          "schema_version": 1,
+          "status": "passed",
+          "target": "mediatek/mt7622",
+          "verification_level": "build-and-integrity-only",
+          "version": "kwrt-25.12-20261027-8ca6d8b4"
+        }
+      },
+      "mvebu/cortexa9": {
+        "status": "passed",
+        "profile": "buffalo_ls220de",
+        "run_id": "40499546656",
+        "report": {
+          "boot_tested": false,
+          "files": [
+            {
+              "bytes": 14172436,
+              "check": "tar-header-checked",
+              "name": "kwrt-mvebu-cortexa9-buffalo_ls220de-squashfs-sysupgrade.bin",
+              "sha256": "5bfea9485f8e26e189ee3ab306a2868109430bdba1045f25095acd1a246d774a"
+            }
+          ],
+          "hardware_tested": false,
+          "profile": "buffalo_ls220de",
+          "schema_version": 1,
+          "status": "passed",
+          "target": "mvebu/cortexa9",
+          "verification_level": "build-and-integrity-only",
+          "version": "kwrt-25.12-20261027-8ca6d8b4"
+        }
+      },
+      "qualcommax/ipq50xx": {
+        "status": "passed",
+        "profile": "cmcc_mr3000d-ci",
+        "run_id": "40499546656",
+        "report": {
+          "boot_tested": false,
+          "files": [
+            {
+              "bytes": 21504269,
+              "check": "tar-header-checked",
+              "name": "kwrt-qualcommax-ipq50xx-cmcc_mr3000d-ci-squashfs-sysupgrade.bin",
+              "sha256": "f5fdc08a66467134338a64803a708f7b31dc82d7b903cb6e136cb06542c47833"
+            }
+          ],
+          "hardware_tested": false,
+          "profile": "cmcc_mr3000d-ci",
+          "schema_version": 1,
+          "status": "passed",
+          "target": "qualcommax/ipq50xx",
+          "verification_level": "build-and-integrity-only",
+          "version": "kwrt-25.12-20261027-8ca6d8b4"
+        }
+      },
+      "qualcommax/ipq60xx": {
+        "status": "passed",
+        "profile": "8devices_mango-dvk",
+        "run_id": "40499546656",
+        "report": {
+          "boot_tested": false,
+          "files": [
+            {
+              "bytes": 20775208,
+              "check": "binary-output",
+              "name": "kwrt-qualcommax-ipq60xx-8devices_mango-dvk-squashfs-sysupgrade.bin",
+              "sha256": "3ea4f8393341926fe79c06736179d804846977ff79080903f2b1e4c17555ba8d"
+            }
+          ],
+          "hardware_tested": false,
+          "profile": "8devices_mango-dvk",
+          "schema_version": 1,
+          "status": "passed",
+          "target": "qualcommax/ipq60xx",
+          "verification_level": "build-and-integrity-only",
+          "version": "kwrt-25.12-20261027-8ca6d8b4"
+        }
+      },
+      "qualcommax/ipq807x": {
+        "status": "passed",
+        "profile": "aliyun_ap8220",
+        "run_id": "40499546656",
+        "report": {
+          "boot_tested": false,
+          "files": [
+            {
+              "bytes": 21934345,
+              "check": "tar-header-checked",
+              "name": "kwrt-qualcommax-ipq807x-aliyun_ap8220-squashfs-sysupgrade.bin",
+              "sha256": "9168703e5bafc2cf174cbdc5d0a465707d6847c8dc9be38e67233907109d9a4f"
+            }
+          ],
+          "hardware_tested": false,
+          "profile": "aliyun_ap8220",
+          "schema_version": 1,
+          "status": "passed",
+          "target": "qualcommax/ipq807x",
+          "verification_level": "build-and-integrity-only",
+          "version": "kwrt-25.12-20261027-8ca6d8b4"
+        }
+      },
+      "ramips/mt7621": {
+        "status": "passed",
+        "profile": "xiaomi_mi-router-3g",
+        "run_id": "40499546656",
+        "report": {
+          "boot_tested": false,
+          "files": [
+            {
+              "bytes": 16589411,
+              "check": "tar-header-checked",
+              "name": "kwrt-ramips-mt7621-xiaomi_mi-router-3g-squashfs-sysupgrade.bin",
+              "sha256": "b628e72e0b9928c2a9bf96e3705a1f39c6f58be423cfc1f5d000d7cfa656053b"
+            }
+          ],
+          "hardware_tested": false,
+          "profile": "xiaomi_mi-router-3g",
+          "schema_version": 1,
+          "status": "passed",
+          "target": "ramips/mt7621",
+          "verification_level": "build-and-integrity-only",
+          "version": "kwrt-25.12-20261027-8ca6d8b4"
+        }
+      },
+      "rockchip/armv8": {
+        "status": "passed",
+        "profile": "friendlyarm_nanopi-r4s",
+        "run_id": "40499546656",
+        "report": {
+          "boot_tested": false,
+          "files": [
+            {
+              "bytes": 26016957,
+              "check": "gzip-crc-and-fwtool-checked",
+              "name": "kwrt-rockchip-armv8-friendlyarm_nanopi-r4s-squashfs-sysupgrade.img.gz",
+              "sha256": "9469b1ca2e8989b3d56a8382505f1ce6e2a2888aa68c0a1153808787e2c980ca"
+            }
+          ],
+          "hardware_tested": false,
+          "profile": "friendlyarm_nanopi-r4s",
+          "schema_version": 1,
+          "status": "passed",
+          "target": "rockchip/armv8",
+          "verification_level": "build-and-integrity-only",
+          "version": "kwrt-25.12-20261027-8ca6d8b4"
+        }
+      },
+      "siflower/sf21": {
+        "status": "passed",
+        "profile": "bananapi_bpi-rv2-nand",
+        "run_id": "40499546656",
+        "report": {
+          "boot_tested": false,
+          "files": [
+            {
+              "bytes": 17629464,
+              "check": "binary-output",
+              "name": "kwrt-siflower-sf21-bananapi_bpi-rv2-nand-squashfs-sysupgrade.bin",
+              "sha256": "fcebd1b9d2a1eb95ed0a1c4576101ba61ce60583fe8878265816271af07789ac"
+            }
+          ],
+          "hardware_tested": false,
+          "profile": "bananapi_bpi-rv2-nand",
+          "schema_version": 1,
+          "status": "passed",
+          "target": "siflower/sf21",
+          "verification_level": "build-and-integrity-only",
+          "version": "kwrt-25.12-20261027-8ca6d8b4"
+        }
+      },
+      "sunxi/cortexa53": {
+        "status": "passed",
+        "profile": "friendlyarm_nanopi-neo-plus2",
+        "run_id": "40499546656",
+        "report": {
+          "boot_tested": false,
+          "files": [
+            {
+              "bytes": 20966051,
+              "check": "gzip-crc-checked",
+              "name": "kwrt-sunxi-cortexa53-friendlyarm_nanopi-neo-plus2-squashfs-sdcard.img.gz",
+              "sha256": "bcd1ec73044e1685adbdfbf6e9e742f5db7504e9c77712b7e1e060b96215424c"
+            }
+          ],
+          "hardware_tested": false,
+          "profile": "friendlyarm_nanopi-neo-plus2",
+          "schema_version": 1,
+          "status": "passed",
+          "target": "sunxi/cortexa53",
+          "verification_level": "build-and-integrity-only",
+          "version": "kwrt-25.12-20261027-8ca6d8b4"
+        }
+      },
+      "sunxi/cortexa7": {
+        "status": "passed",
+        "profile": "cubietech_cubieboard2",
+        "run_id": "40499546656",
+        "report": {
+          "boot_tested": false,
+          "files": [
+            {
+              "bytes": 17394048,
+              "check": "gzip-crc-checked",
+              "name": "kwrt-sunxi-cortexa7-cubietech_cubieboard2-squashfs-sdcard.img.gz",
+              "sha256": "423a2a31c773d6da5ce30e953232d584283198888b6161ed608f5d2f07e08400"
+            }
+          ],
+          "hardware_tested": false,
+          "profile": "cubietech_cubieboard2",
+          "schema_version": 1,
+          "status": "passed",
+          "target": "sunxi/cortexa7",
+          "verification_level": "build-and-integrity-only",
+          "version": "kwrt-25.12-20261027-8ca6d8b4"
+        }
+      }
+    }
+  },
+  "browser": {
+    "local_form_checks": [
+      "model-kernel-DTB binding",
+      "exact exported box choice",
+      "autofill after reload",
+      "saved template",
+      "native driver rejection",
+      "no horizontal overflow"
+    ],
+    "production_verified": true,
+    "production_verified_version": "20261027-4",
+    "original_form_restored": true,
+    "final_cosmetic_revision": "20261027-5",
+    "screenshot": "release12-production-box.png"
+  },
+  "hardware_tested": false
+}

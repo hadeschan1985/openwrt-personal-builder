@@ -59,7 +59,8 @@ function applyForm(c){
 }
 function renderBox(choice=null){
   const eligible=boxProfile(state.config);$('box-options').hidden=!eligible;
-  $('box-enabled').disabled=!boxCatalog;
+  const boxed=eligible&&checked('box-enabled');for(const id of ['native-image-options','native-boot-options','native-image-help'])$(id).hidden=boxed;
+  $('box-enabled').disabled=!boxCatalog&&!checked('box-enabled');
   if(!eligible)return;
   if(!boxCatalog){$('box-help').textContent='盒子资源目录暂时未载入。仍可导出原生 ROOTFS，刷新后重试型号打包。';return;}
   if(!$('box-model').options.length)for(const model of boxCatalog.models)$('box-model').add(new Option(`${model.name} · ${model.id}`,model.id));
@@ -71,7 +72,7 @@ function renderBox(choice=null){
   else if((model?.kernels||[]).includes('stable-6.12.114'))$('box-kernel').value='stable-6.12.114';
   $('box-dtb').value=model?.dtb||'';
   const enabled=checked('box-enabled');for(const id of ['box-model','box-kernel'])$(id).disabled=!enabled;
-  $('box-help').textContent=`${boxCatalog.models.length} 个型号档案；DTB 随型号和内核绑定。输出 Btrfs 磁盘镜像，ROOTFS 仅作中间输入。已验证代表组合的打包、DTB、模块版本和配置保留；具体设备开机未测试。`;
+  $('box-help').textContent=`${boxCatalog.models.length} 个型号档案；DTB 随型号和内核绑定。输出 Btrfs 磁盘镜像，逐文件下载。已验证代表组合的打包、DTB、模块版本和配置保留；具体设备开机未测试。`;
   if(enabled){$('rootfs').checked=true;$('image-types').replaceChildren();}
 }
 function browserSnapshot(c){const result=safePreset(c);result.defaults='';result.overlay='';return result;}
@@ -128,7 +129,7 @@ function conditionalFields(){
   $('pppoe-secret').disabled=side;if(side)$('pppoe-secret').checked=false;
   $('dhcp-help').textContent=side?'旁路由开启 DHCP 时，须关闭主路由 DHCP；关闭时需要终端正确指定网关和 DNS。':'主路由模式下通常开启 DHCP。';
   for(const id of ['wan-port','lan-ports','rootfs-size','efi','legacy','vmdk'])$(id).disabled=!x86;
-  $('device-output-field').hidden=x86;
+  $('device-output-field').hidden=x86||(boxProfile(state.config)&&checked('box-enabled'));
   $('password-source').disabled=!checked('password-secret');
   renderBox();
   if(!x86&&state.target){
