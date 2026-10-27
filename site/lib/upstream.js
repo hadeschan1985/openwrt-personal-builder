@@ -7,7 +7,7 @@ export function mergeApproved(catalog,approved){
   for(const item of approved.sources){
     const {source,version,metadata,tested_modes:modes}=item;
     if(!['official','kwrt'].includes(source)||sources.has(source))invalid();sources.add(source);
-    if(!(source==='kwrt'?/^kwrt-25\.12-\d{8}(?:-[a-f0-9]{8})?$/:/^\d{2}\.\d{2}\.\d+$/).test(version||''))invalid();
+    if(!(source==='kwrt'?/^kwrt-\d{2}\.\d{2}-\d{8}(?:-[a-f0-9]{8})?$/:/^\d{2}\.\d{2}\.\d+$/).test(version||''))invalid();
     const expected=['bios','uefi',source==='kwrt'?'native-vmdk-bios':'vmdk-bios'];
     if(!Array.isArray(modes)||modes.length!==3||expected.some(mode=>!modes.includes(mode))||!/^[a-f0-9]{64}$/.test(item.builder_sha256||''))invalid();
     if(metadata?.profiles?.target!=='x86/64'||metadata.profiles.arch_packages!=='x86_64'||!metadata.profiles.profiles?.generic||

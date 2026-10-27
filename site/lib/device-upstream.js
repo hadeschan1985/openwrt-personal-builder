@@ -1,5 +1,5 @@
 // Approved data only. No upstream code, credentials or arbitrary URLs are loaded.
-const VERSION=/^kwrt-25\.12-\d{8}-[a-f0-9]{8}$/;
+const VERSION=/^kwrt-\d{2}\.\d{2}-\d{8}-[a-f0-9]{8}$/;
 const SHA=/^[a-f0-9]{64}$/;
 const COMMIT=/^[a-f0-9]{40}$/;
 const PROFILE=/^[A-Za-z0-9_,.+-]{1,180}$/;
@@ -40,7 +40,8 @@ export function mergeDeviceApproved(catalog,approved){
 export function validateDeviceMetadata(data,device,approved){
   validateDeviceRelease(approved);const expected=approved.targets[device.target],profiles=data?.profiles;
   const base='https://dl.openwrt.ai/releases/targets/'+device.target;
-  if(!expected||device.version!==approved.version||profiles?.target!==device.target||profiles.version_number!=='25.12-SNAPSHOT'||data.builder_sha256!==expected.builder_sha256||!data.profiles.profiles?.[device.id]||Object.keys(data.profiles.profiles).length!==expected.profile_count||!Array.isArray(data.packages)||data.packages.length<100||data.packages.length>40000||data.packages.some(p=>typeof p!=='string'||!PACKAGE.test(p))||data.package_metadata_errors?.length||data.image_base!==base&&!(device.target==='amlogic/meson8b'&&data.image_base==='https://dl.openwrt.ai/releases/25.12/targets/amlogic/meson8b'))invalid();
+  const series=approved.version.split('-')[1];
+  if(!expected||device.version!==approved.version||profiles?.target!==device.target||profiles.version_number!==series+'-SNAPSHOT'||data.builder_sha256!==expected.builder_sha256||!data.profiles.profiles?.[device.id]||Object.keys(data.profiles.profiles).length!==expected.profile_count||!Array.isArray(data.packages)||data.packages.length<100||data.packages.length>40000||data.packages.some(p=>typeof p!=='string'||!PACKAGE.test(p))||data.package_metadata_errors?.length||data.image_base!==base&&!(device.target==='amlogic/meson8b'&&data.image_base===`https://dl.openwrt.ai/releases/${series}/targets/amlogic/meson8b`))invalid();
   for(const d of approved.devices.filter(d=>d.target===device.target))if(!profiles.profiles[d.id])invalid();
   if(expected.status==='blocked'?data.build_blocked!==expected.reason:Boolean(data.build_blocked))invalid();
   const images=profiles.profiles[device.id].images;

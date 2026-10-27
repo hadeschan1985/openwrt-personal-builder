@@ -47,11 +47,13 @@ export class GitHub {
   pauseError(status){const error=new Error(this.blocked||`GitHub 请求额度暂时用尽，暂停到 ${new Date(this.retryAt).toLocaleTimeString()} 后再读取；不会自动重提交构建。`);error.status=status|| (this.blocked?403:429);return error;}
   close(){this.closed=true;this.token='';this.controller.abort();}
   async connect(){const data=await this.request('');this.private=data.private;this.defaultBranch=data.default_branch;return data;}
-  async dispatch(config,requestId) {
+  async dispatch(config,requestId,rebuildRunId=null) {
     if(!this.token)throw new Error('直接启动构建需要仓库 Actions 写入授权。');
     const serialized=JSON.stringify(config);
     if(new TextEncoder().encode(serialized).length>60000)throw new Error('配置超过 60 KB。');
-    await this.request('/actions/workflows/build.yml/dispatches',{method:'POST',body:JSON.stringify({ref:this.ref,inputs:{config_json:serialized,request_id:requestId}})});
+    if(rebuildRunId!==null&&!/^[1-9][0-9]{0,19}$/.test(String(rebuildRunId)))throw new Error('历史重建编号无效。');
+    const inputs={config_json:serialized,request_id:requestId};if(rebuildRunId!==null)inputs.rebuild_run_id=String(rebuildRunId);
+    await this.request('/actions/workflows/build.yml/dispatches',{method:'POST',body:JSON.stringify({ref:this.ref,inputs})});
   }
   runs(page=1){if(!Number.isInteger(page)||page<1||page>1000)throw new Error('历史页码无效。');return this.request(`/actions/workflows/build.yml/runs?per_page=12&page=${page}`);}
   latestSuccess(){return this.request('/actions/workflows/build.yml/runs?status=success&per_page=10');}
@@ -64,10 +66,11 @@ export class GitHub {
   }
   archiveRuns(){return this.request('/actions/workflows/archive.yml/runs?per_page=3');}
   async readJSON(path,limit=4*1024*1024,expectedSHA=null){
-    const standard=/^(updates\/(?:approved|devices-approved)|records\/\d+)\.json$/;
-    const release=/^updates\/device-catalogs\/kwrt-25\.12-\d{8}-[a-f0-9]{8}\.json$/;
+    const standard=/^(updates\/(?:approved|devices-approved|box-approved)|records\/\d+)\.json$/;
+    const release=/^updates\/device-catalogs\/kwrt-\d{2}\.\d{2}-\d{8}-[a-f0-9]{8}\.json$/;
     const metadata=/^updates\/device-metadata\/[a-f0-9]{64}\/[a-z0-9_-]+\/[a-z0-9_-]+\.json$/;
-    if(!standard.test(path)&&!release.test(path)&&!metadata.test(path))throw new Error('资料路径无效。');
+    const box=/^updates\/box-catalogs\/box-\d{8}-[a-f0-9]{8}\.json$/;
+    if(!standard.test(path)&&!release.test(path)&&!metadata.test(path)&&!box.test(path))throw new Error('资料路径无效。');
     if(expectedSHA!==null&&!/^[a-f0-9]{64}$/.test(expectedSHA))throw new Error('资料校验值无效。');
     let file=await this.request(`/contents/${path}?ref=${encodeURIComponent(this.ref)}`);
     if(!Number.isInteger(file.size)||file.size<1||file.size>limit)throw new Error('上游版本资料大小无效。');
@@ -88,7 +91,7 @@ export class GitHub {
     return this.readJSON('updates/approved.json');
   }
   deviceApproved(){return this.readJSON('updates/devices-approved.json');}
-  deviceRelease(version){if(!/^kwrt-25\.12-\d{8}-[a-f0-9]{8}$/.test(version))throw new Error('设备更新版本无效。');return this.readJSON(`updates/device-catalogs/${version}.json`);}
+  deviceRelease(version){if(!/^kwrt-\d{2}\.\d{2}-\d{8}-[a-f0-9]{8}$/.test(version))throw new Error('设备更新版本无效。');return this.readJSON(`updates/device-catalogs/${version}.json`);}
   deviceUpstreamRuns(){return this.request('/actions/workflows/device-upstream.yml/runs?per_page=1');}
   artifacts(runId){if(!/^\d+$/.test(String(runId)))throw new Error('任务 ID 无效');return this.request(`/actions/runs/${runId}/artifacts`);}
   jobs(runId){if(!/^\d+$/.test(String(runId)))throw new Error('任务 ID 无效');return this.request(`/actions/runs/${runId}/jobs?per_page=100`);}

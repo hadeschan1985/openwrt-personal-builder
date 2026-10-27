@@ -1,4 +1,4 @@
-import {boxErrors} from './box.js?v=20261027-4';
+import {boxErrors} from './box.js?v=20261027-6';
 export const CORE = new Set(['base-files','busybox','libc','libgcc','libgcc1','kernel','netifd','procd','uci','fstools']);
 export const PACKAGE_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9+_.-]{0,120}$/;
 export const NFT_ONLY = new Set(['luci-app-homeproxy','luci-app-homeproxy-pro','luci-app-nikki','luci-app-xray-status','luci-app-fchomo']);
@@ -60,7 +60,7 @@ export function validate(c,available=null,versions=null) {
   const errors=[];
   if(c?.schema_version!==1) return ['配置版本不受支持。'];
   if(!['official','kwrt'].includes(c.builder)) errors.push('构建环境无效。');
-  const pinnedKwrt=/^kwrt-25\.12-\d{8}(?:-[a-f0-9]{8})?$/.test(c.version||'')&&(versions||['kwrt-25.12-20261012']).includes(c.version);
+  const pinnedKwrt=/^kwrt-\d{2}\.\d{2}-\d{8}(?:-[a-f0-9]{8})?$/.test(c.version||'')&&(versions||['kwrt-25.12-20261012']).includes(c.version);
   if(c.builder==='kwrt'?!pinnedKwrt:!/^\d{2}\.\d{2}\.\d+(?:-rc\d+)?$/.test(c.version||'')) errors.push('请选择已校验的固定构建版本。');
   if(versions&&!versions.includes(c.version))errors.push('此版本尚未通过上游更新校验。');
   if(!/^[a-z0-9_-]+\/[a-z0-9_-]+$/.test(c.target||'')||!/^[A-Za-z0-9_,.+-]+$/.test(c.profile||'')) errors.push('请选择有效设备。');
@@ -148,6 +148,6 @@ export function safePreset(c) {
   }
   if(c.system?.password_source===undefined)delete base.system.password_source;
   if(c.output?.image_types!==undefined)base.output.image_types=structuredClone(c.output.image_types);
-  if(c.box!==undefined)base.box={model:c.box?.model,kernel:c.box?.kernel};
+  if(c.box!==undefined){base.box={model:c.box?.model,kernel:c.box?.kernel};if(c.box?.release!==undefined)base.box.release=c.box.release;}
   return base;
 }
