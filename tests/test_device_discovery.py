@@ -2,8 +2,9 @@ import copy
 import json
 from pathlib import Path
 import unittest
+from unittest import mock
 import urllib.error
-from qa.device_discovery import metadata
+from qa.device_discovery import metadata,publisher_guard
 
 URL='https://openwrt.ai/json/v1/releases/packages-25.12/arm_cortex-a5_vfpv4-index.json'
 class DeviceDiscoveryTest(unittest.TestCase):
@@ -24,3 +25,10 @@ class DeviceDiscoveryTest(unittest.TestCase):
                 raise urllib.error.HTTPError(url,code,'missing',{},None)
             with self.assertRaises((urllib.error.HTTPError,ValueError)):metadata(spec,original)
             self.assertEqual(spec,before)
+    def test_publisher_binds_fallback_and_workflow_to_tested_branch_bytes(self):
+        guard=mock.Mock(side_effect=ValueError('Branch changed'));original_files=['scripts/build.py']
+        for tree in ('a'*40,'b'*40):
+            with self.assertRaisesRegex(ValueError,'Branch changed'):publisher_guard(guard)(tree,'synthetic-test-only',original_files,root=Path('.'))
+        self.assertEqual(original_files,['scripts/build.py'])
+        self.assertEqual(guard.call_count,2)
+        self.assertEqual(guard.call_args,mock.call('b'*40,'synthetic-test-only',['scripts/build.py','qa/device_discovery.py','.github/workflows/device-upstream.yml'],root=Path('.')))
