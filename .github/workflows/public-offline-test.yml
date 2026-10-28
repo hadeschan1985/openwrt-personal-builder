@@ -34,8 +34,7 @@ jobs:
           sudo -E unshare --net -- bash -euc '
             ip link set dev lo up
             python -m scripts.offline_namespace
-            python -m qa.offline_apk_mtime
-            exec setpriv --reuid "$1" --regid "$2" --init-groups python -m scripts.build --config "$3"
+            exec setpriv --reuid "$1" --regid "$2" --init-groups python -m qa.offline_build --config "$3"
           ' offline-qa "$(id -u)" "$(id -g)" "$CONFIG_PATH"
           python -m scripts.image_verify
           python -m qa.public_offline_test verify

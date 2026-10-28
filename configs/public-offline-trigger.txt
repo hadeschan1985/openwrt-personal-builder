@@ -1,1 +1,1 @@
-2026-10-28: actual official Wavlink build, deterministic source/package snapshot and isolated offline replay; synthetic settings only, reports only.
+2026-10-28 attempt 2: read canonical filenames from archived APK metadata; actual official Wavlink build and fully offline replay, reports only.
