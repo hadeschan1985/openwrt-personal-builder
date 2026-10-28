@@ -2,12 +2,12 @@ import {COMMON,CORE,NFT_ONLY,PROXIES,THEMES,defaultConfig,tokenize,validate,priv
 import {GitHub,repositoryName} from './lib/github.js?v=20261027-6';
 import {internalRun,firmwareArtifact,firmwareFile,downloadLabel,deliveryLabel,buildRecord,privateArchives,artifactFile} from './lib/delivery.js?v=20261027-4';
 import {SOFTWARE_PROFILES,applySoftwareProfile,softwareAdvice} from './lib/software.js?v=20261027-2';
-import {runStatus,stepStatus,active,requestRun,stageName,failureHelp,artifactInfo,profileFailureHelp} from './lib/progress.js?v=20261028-4';
+import {runStatus,stepStatus,active,requestRun,stageName,failureHelp,artifactInfo,profileFailureHelp} from './lib/progress.js?v=20261028-6';
 import {verifyDownload,verificationTarget} from './lib/verification.js?v=20261026-8';
 import {mergeApproved} from './lib/upstream.js?v=20261027-6';
 import {mergeDeviceApproved,validateDeviceMetadata} from './lib/device-upstream.js?v=20261027-6';
 import {boxProfile,boxErrors,validateBoxCatalog} from './lib/box.js?v=20261028-1';
-import {r3dCorrection,applyR3dCorrection} from './lib/compatibility.js?v=20261028-3';
+import {r3dCorrection,applyR3dCorrection} from './lib/compatibility.js?v=20261028-6';
 
 const $=id=>document.getElementById(id);
 const state={catalog:null,device:null,target:null,available:new Set(),config:defaultConfig(),git:null,file:null,loadId:0,loading:false,metadataReady:false,busy:false,pending:null,runs:[],latestRuns:[],success:null,historyPage:1,totalRuns:0,archives:[],archiving:new Map(),expanded:null,details:new Map(),refreshing:false,resultsLoaded:false,result:null,runError:''};

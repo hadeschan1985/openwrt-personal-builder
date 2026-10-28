@@ -37,7 +37,7 @@ export function profileFailureHelp(entry){
   if(/上游构建器或软件包已变化|Upstream changed/.test(diagnostic))return '测试期间上游资源已变更，本轮检查已停止；等待新资源重新同步和编译验收。旧版本的通过记录不会作为新资源的通过结论。';
   if(/IncompleteRead|Connection reset by peer|RemoteDisconnected|Temporary failure in name resolution|(?:connection|read|operation) timed out|HTTP Error (?:408|429|50[0234])/i.test(diagnostic))return '此型号最近检查因上游下载中断或暂时不可用而未完成；尚无本轮编译通过结论。后续检查会重试，无需修改设备或软件配置。';
   const missing=[...new Set([...diagnostic.matchAll(/(?:Cannot install package|cannot find dependency) ([A-Za-z0-9][A-Za-z0-9+_.-]{0,120})/g)].map(match=>match[1].replace(/\.$/,'')))].slice(0,8);
-  return missing.length?'此型号默认软件组合编译未通过。当前上游缺少依赖：'+missing.join('、')+'。':'此型号最近一轮默认软件组合编译未通过；请查看具体原因后再提交。';
+  return missing.length?'此型号默认软件组合编译未通过。日志报告以下包名或依赖问题：'+missing.join('、')+'。':'此型号最近一轮默认软件组合编译未通过；请查看具体原因后再提交。';
 }
 export function artifactInfo(artifact,now=Date.now()){
   const expires=Date.parse(artifact.expires_at),expired=artifact.expired||Number.isFinite(expires)&&expires<=now;

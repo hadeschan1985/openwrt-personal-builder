@@ -1,6 +1,6 @@
 # 验收记录
 
-当前功能范围见 [DELIVERY.md](DELIVERY.md)。2026-10-28 的 [云端代码检查 40559507345](https://github.com/hadeschan1985/openwrt-personal-builds/actions/runs/40559507345) 已通过 JavaScript 79 项及 Python 153 项，共 232 项、零失败、零跳过。Windows 本地两项外部工具检查由 Linux CI 补齐。实体设备暂不可用，只完成云端范围；固件运行与流程验收另以各自实际报告为准。
+当前功能范围见 [DELIVERY.md](DELIVERY.md)。2026-10-28 的 [云端代码检查 40622541659](https://github.com/hadeschan1985/openwrt-personal-builder/actions/runs/40622541659) 已通过 JavaScript 85 项及 Python 161 项，共 246 项、零失败、零跳过。Windows 本地两项外部工具检查由 Linux CI 补齐。实体设备暂不可用，只完成云端范围；固件运行与流程验收另以 [RELEASE-13.md](RELEASE-13.md) 中各自的实际报告为准。
 
 以下保留历史版本的验收范围与测试数量。此前玩客云、盒子和 23 个非 x86 平台完整回归见 [RELEASE-12.md](RELEASE-12.md)；这些历史成功记录不代替新代码、新资源的独立验收。
 

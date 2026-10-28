@@ -1,0 +1,31 @@
+name: Diagnose archived official APK index without network or firmware publication
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['configs/rebuild-diagnostics-trigger.txt']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    if: github.event.repository.private
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      REPOSITORY_PRIVATE: 'true'
+      CONFIG_JSON: ''
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Restore the known synthetic Wavlink test inputs
+        run: python -m scripts.rebuild restore --run 40567782332
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: Inspect local APK index command in an isolated network namespace
+        run: |
+          sudo -E unshare --net -- bash -euc '
+            ip link set dev lo up
+            python -m scripts.offline_namespace
+            exec setpriv --reuid "$1" --regid "$2" --init-groups python -m qa.offline_apk_diagnostic
+          ' offline-diagnostic "$(id -u)" "$(id -g)"

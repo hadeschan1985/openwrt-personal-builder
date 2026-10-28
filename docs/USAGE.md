@@ -2,7 +2,7 @@
 
 本文是当前使用入口。历史报告中的设备范围、测试数量和旧链接以本文及 [当前交付范围](DELIVERY.md) 为准。
 
-[打开工作台](https://hadeschan1985.github.io/openwrt-personal-builder/?v=20261028-1) · [私有构建记录](https://github.com/hadeschan1985/openwrt-personal-builds/actions/workflows/build.yml)
+[打开工作台](https://hadeschan1985.github.io/openwrt-personal-builder/?v=20261028-6) · [私有构建记录](https://github.com/hadeschan1985/openwrt-personal-builds/actions/workflows/build.yml)
 
 ## 选择设备和软件
 
@@ -74,4 +74,4 @@ Kwrt 当前公开目录合计 865 档案，x86 与非 x86 使用各自验收版�
 
 滚动源再次变化时，尚未重新批准的旧版本会暂停正常新构建；已有输入快照可用断网重建。原有固件下载按原期限保留。盒子更新也须验收后批准，历史配置保留原内核；项目不会自动刷机。
 
-最新测试与已知问题见 [本轮报告](RELEASE-12.md)。
+最新测试与已知问题见 [本轮报告](RELEASE-13.md)。

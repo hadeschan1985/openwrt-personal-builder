@@ -2,11 +2,12 @@
 
 个人固件定制工作台：GitHub Pages 展示网页，GitHub Actions 构建，没有 VPS、会员或收费系统。
 
-- [打开工作台](https://hadeschan1985.github.io/openwrt-personal-builder/?v=20261028-1)
+- [打开工作台](https://hadeschan1985.github.io/openwrt-personal-builder/?v=20261028-6)
 - [日常使用说明](docs/USAGE.md)
 - [当前交付范围和限制](docs/DELIVERY.md)
 - [归档软件与离线重建](docs/REBUILD.md)
 - [逐型号编译覆盖](docs/PROFILE-COVERAGE.md)
+- [本轮软件完善与云端验收](docs/RELEASE-13.md)
 
 已接入原站当前公开目录的 865 个 Kwrt 设备档案、24 个平台，以及独立的 OpenWrt 官方目录。N1 和玩客云的公开资源兼容修复已完成云端验证；修复由新验收版本启用，旧固定版本保留原状态。目录数量不是实体硬件实测数量。
 
