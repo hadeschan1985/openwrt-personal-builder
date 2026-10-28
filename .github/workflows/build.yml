@@ -119,9 +119,11 @@ jobs:
             sudo -E unshare --net -- bash -euc '
               ip link set dev lo up
               python -m scripts.offline_namespace
+              python -m qa.offline_apk_mtime
               exec setpriv --reuid "$1" --regid "$2" --init-groups python -m scripts.build --config "$3"
             ' offline-build "$(id -u)" "$(id -g)" "$CONFIG_PATH"
             cp work/offline-network-report.json outputs/offline-network-report.json
+            cp work/offline-apk-compat-report.json outputs/offline-apk-compat-report.json
           else
             python -m scripts.build --config "${CONFIG_PATH:-configs/x86-default.json}"
           fi
