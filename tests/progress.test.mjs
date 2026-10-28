@@ -4,6 +4,12 @@ import {runStatus,active,latestBuildResults,requestRun,artifactInfo,verifyDownlo
 import {SOFTWARE_PROFILES,applySoftwareProfile,softwareAdvice} from '../site/lib/software.js';
 import {defaultConfig,validate} from '../site/lib/model.js';
 import {GitHub} from '../site/lib/github.js';
+test('jobs rejected before execution point to GitHub without blaming package dependencies',()=>{
+  assert.match(failureHelp(undefined,[{conclusion:'failure',steps:[]}]),/尚未启动构建步骤/);
+  assert.doesNotMatch(failureHelp(undefined,[]),/尚未启动/);
+  assert.doesNotMatch(failureHelp(undefined,[{conclusion:'failure',steps:[{name:'Set up job'}]}]),/尚未启动/);
+  assert.match(profileFailureHelp({diagnostic:'此平台上游构建器或软件包已变化，暂停构建，等待重新同步和测试。'}),/上游资源已变更/);
+});
 
 test('statuses and stages are Chinese and unknown states do not claim success',()=>{
   assert.equal(runStatus({status:'in_progress'}),'正在构建');

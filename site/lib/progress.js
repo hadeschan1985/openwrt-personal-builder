@@ -20,7 +20,8 @@ export function stageName(name){
   const translations={'Checkout':'读取构建代码','Python':'准备运行环境','Validate configuration':'检查配置与隐私限制','Install ImageBuilder dependencies':'准备构建工具','Restore verified ImageBuilder download cache':'恢复并校验构建缓存','Build firmware':'检查依赖并生成固件','Upload firmware, manifests and checksums':'保存固件和校验值','Upload failure log':'保存失败日志','Run summary':'生成结果摘要','Set up job':'准备 GitHub 构建环境','Complete job':'收尾'};
   return translations[name]||name.replace(/^Post /,'清理：');
 }
-export function failureHelp(step){
+export function failureHelp(step,jobs=[]){
+  if(!step&&jobs.length&&jobs.every(job=>Array.isArray(job.steps)&&job.steps.length===0)&&jobs.some(job=>job.conclusion==='failure'))return 'GitHub 尚未启动构建步骤。请打开任务页查看账户额度、权限或平台提示；无需修改固件软件包。';
   if(!step)return '请打开 GitHub 日志查看具体原因；失败不会生成可用固件。';
   if(/Restore original input snapshot/.test(step.name))return '原版本归档读取或校验失败。请查看原构建记录、仓库权限及此步骤日志。';
   if(/Capture exact builders|Transfer private rebuild|Verify and retain private input/.test(step.name))return '保存重建资料失败。请查看私有存储容量、传输及此步骤日志，原有归档保留。';
@@ -33,6 +34,7 @@ export function failureHelp(step){
 }
 export function profileFailureHelp(entry){
   const diagnostic=String(entry?.diagnostic||'').slice(-3000);
+  if(/上游构建器或软件包已变化|Upstream changed/.test(diagnostic))return '测试期间上游资源已变更，本轮检查已停止；等待新资源重新同步和编译验收。旧版本的通过记录不会作为新资源的通过结论。';
   if(/IncompleteRead|Connection reset by peer|RemoteDisconnected|Temporary failure in name resolution|(?:connection|read|operation) timed out|HTTP Error (?:408|429|50[0234])/i.test(diagnostic))return '此型号最近检查因上游下载中断或暂时不可用而未完成；尚无本轮编译通过结论。后续检查会重试，无需修改设备或软件配置。';
   const missing=[...new Set([...diagnostic.matchAll(/(?:Cannot install package|cannot find dependency) ([A-Za-z0-9][A-Za-z0-9+_.-]{0,120})/g)].map(match=>match[1].replace(/\.$/,'')))].slice(0,8);
   return missing.length?'此型号默认软件组合编译未通过。当前上游缺少依赖：'+missing.join('、')+'。':'此型号最近一轮默认软件组合编译未通过；请查看具体原因后再提交。';
