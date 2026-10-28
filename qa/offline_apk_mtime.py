@@ -17,7 +17,8 @@ def prepare(directory):
         if path.is_symlink() or not path.is_file() or path.suffix not in ('.apk','.ipk'):raise ValueError('Unexpected archived package entry')
         if path.suffix!='.apk':continue
         before=hashlib.sha256(path.read_bytes()).hexdigest()
-        os.utime(path,ns=(1000000000,1000000000),follow_symlinks=False)
+        kwargs={'follow_symlinks':False} if os.utime in os.supports_follow_symlinks else {}
+        os.utime(path,ns=(1000000000,1000000000),**kwargs)
         if hashlib.sha256(path.read_bytes()).hexdigest()!=before:raise ValueError('Package content changed during timestamp adjustment')
         count+=1
     return {'schema_version':1,'status':'passed','apk_files':count,'package_bytes':'unchanged-sha256-verified','extracted_mtime_seconds':1,'reason':'apk-tools-3.0.5-zero-mtime-index-compatibility'}
