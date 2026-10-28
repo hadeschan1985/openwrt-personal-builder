@@ -1,0 +1,51 @@
+name: Verify synthetic official firmware and offline replay without private data
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['configs/public-offline-trigger.txt']
+permissions:
+  contents: read
+jobs:
+  verify:
+    if: '!github.event.repository.private'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      REPOSITORY_PRIVATE: 'true'
+      CONFIG_PATH: configs/public-offline-qa.json
+      CONFIG_JSON: ''
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Install image tools
+        run: |
+          sudo apt-get -o Acquire::Retries=3 update -qq
+          sudo apt-get install -y --no-install-recommends build-essential libncurses-dev libssl-dev zlib1g-dev gawk gettext unzip zip file rsync wget curl zstd openssl 7zip android-sdk-libsparse-utils iproute2
+      - name: Compile synthetic official firmware without user credentials
+        run: |
+          python -m qa.public_offline_test prepare
+          python -m scripts.build --config "$CONFIG_PATH"
+          python -m scripts.image_verify
+          python -m qa.public_offline_test capture
+      - name: Compile again with external networking unavailable
+        run: |
+          sudo -E unshare --net -- bash -euc '
+            ip link set dev lo up
+            python -m scripts.offline_namespace
+            python -m qa.offline_apk_mtime
+            exec setpriv --reuid "$1" --regid "$2" --init-groups python -m scripts.build --config "$3"
+          ' offline-qa "$(id -u)" "$(id -g)" "$CONFIG_PATH"
+          python -m scripts.image_verify
+          python -m qa.public_offline_test verify
+      - if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: synthetic-offline-report-only
+          path: |
+            work/public-offline-report.json
+            work/offline-network-report.json
+            work/offline-apk-compat-report.json
+            outputs/build.log
+          retention-days: 7
