@@ -1,1 +1,1 @@
-2026-10-28: resume coverage after completed run 40557770783, reuse identical successful evidence and retry changed upstream platforms and transient failures.
+2026-10-28: resume all public profiles after first campaign; exclude private-only OneCloud discovery rather than contacting its removed public index.

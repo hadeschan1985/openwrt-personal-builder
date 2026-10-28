@@ -24,7 +24,7 @@ jobs:
         with:
           persist-credentials: false
       - id: detect
-        run: python -m scripts.profile_campaign detect
+        run: python -m qa.public_profile_detect
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: profile-candidate
