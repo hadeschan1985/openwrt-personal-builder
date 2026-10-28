@@ -4,6 +4,7 @@ from pathlib import Path
 import unittest
 from unittest import mock
 import urllib.error
+from qa import device_discovery as discovery
 from qa.device_discovery import metadata,publisher_guard
 
 URL='https://openwrt.ai/json/v1/releases/packages-25.12/arm_cortex-a5_vfpv4-index.json'
@@ -32,3 +33,15 @@ class DeviceDiscoveryTest(unittest.TestCase):
         self.assertEqual(original_files,['scripts/build.py'])
         self.assertEqual(guard.call_count,2)
         self.assertEqual(guard.call_args,mock.call('b'*40,'synthetic-test-only',['scripts/build.py','qa/device_discovery.py','.github/workflows/device-upstream.yml'],root=Path('.')))
+    def test_entry_point_applies_publication_guard_and_restores_hooks_after_failure(self):
+        original_metadata=discovery.catalog.kwrt_data
+        original_guard=discovery.upstream.assert_policy_current
+        def module(name,run_name):
+            self.assertEqual((name,run_name),('scripts.device_upstream','__main__'))
+            self.assertIsNot(discovery.catalog.kwrt_data,original_metadata)
+            self.assertIsNot(discovery.upstream.assert_policy_current,original_guard)
+            raise ValueError('Stop synthetic publication')
+        with mock.patch('sys.argv',['qa.device_discovery','publish']),mock.patch('qa.device_discovery.runpy.run_module',side_effect=module):
+            with self.assertRaisesRegex(ValueError,'Stop synthetic publication'):discovery.main()
+        self.assertIs(discovery.catalog.kwrt_data,original_metadata)
+        self.assertIs(discovery.upstream.assert_policy_current,original_guard)

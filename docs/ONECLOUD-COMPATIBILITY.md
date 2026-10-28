@@ -35,3 +35,7 @@
 [完整构建与回读运行 40496482362](https://github.com/hadeschan1985/openwrt-personal-builds/actions/runs/40496482362) 成功。依赖、实际固件、Amlogic CRC 和两个分区回读均通过。生成 `kwrt-amlogic-meson8b-thunder-onecloud-ext4-emmc_burn.img.gz`，21720246 字节。该测试产物 SHA256 为 `8c4af8da26be596015d343d7a04f3342f72974789b75902f3f559e37f42ff622`，并非所有后续个性化构建的固定摘要。
 
 普通构建输出独立烧录文件和 `onecloud-pack-report.json`；下载仍执行本次文件 SHA256 校验。新自动验收版本需再通过全平台批准流程后出现在网页，旧固定版本的历史状态保持原样。
+
+## 网页软件索引失效时
+
+2026-10-28 观察到原站的 arm_cortex-a5_vfpv4 网页包索引返回 404，原来的七份 IPK 软件源索引仍完整可读。更新流程仅针对该准确目标和准确错误，改用构建器原有的原始 IPK 索引读取能力；不改构建器和软件源。全目录检查、七份索引重复摘要、实际 USB-burn 编译及两个分区回读均通过，详见 [本轮证据](RELEASE-14.md)。新的资料指纹仍需通过私有批准流程后才出现在可选更新中，旧版本不自动替换。

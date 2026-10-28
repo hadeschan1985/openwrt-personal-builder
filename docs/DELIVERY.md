@@ -1,6 +1,6 @@
 # 当前交付范围
 
-[日常使用](USAGE.md) · [本轮测试与证据](RELEASE-13.md) · [历史交付](RELEASE-12.md)
+[日常使用](USAGE.md) · [本轮测试与证据](RELEASE-14.md) · [历史交付](RELEASE-13.md)
 
 本机项目位于 E:\OpenWrt-Personal-Builder。采用公开网页仓库与私有构建仓库，GitHub Pages + Actions，无 VPS、会员或新增长期账户权限。
 
