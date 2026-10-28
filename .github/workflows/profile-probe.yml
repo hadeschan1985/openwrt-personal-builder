@@ -1,6 +1,14 @@
 name: Diagnose R3D upstream package name without publishing firmware
 on:
   workflow_dispatch:
+    inputs:
+      candidate_run:
+        description: Trusted public campaign with successful discovery (blank selects latest)
+        type: string
+        required: false
+  workflow_run:
+    workflows: ['Compile every public device profile without personal data']
+    types: [completed]
   push:
     branches: [main]
     paths: ['configs/profile-probe-trigger.txt']
@@ -9,7 +17,7 @@ permissions:
   actions: read
 jobs:
   verify:
-    if: '!github.event.repository.private'
+    if: '!github.event.repository.private && (github.event_name != ''workflow_run'' || (github.event.workflow_run.conclusion == ''success'' && github.event.workflow_run.head_branch == ''main'' && github.event.workflow_run.head_repository.full_name == github.repository))'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
@@ -17,40 +25,57 @@ jobs:
       ENFORCE_APPROVED_UPSTREAM: 'true'
       CONFIG_PATH: configs/profile-probe-qa.json
       CONFIG_JSON: ''
+    outputs:
+      available: ${{ steps.recipe.outputs.available }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
+      - id: candidate
+        name: Resolve a trusted public campaign with successful discovery
+        run: python -m qa.profile_variant resolve
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CANDIDATE_RUN: ${{ inputs.candidate_run || github.event.workflow_run.id }}
       - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0
         with:
           name: profile-candidate
           path: work/profile-campaign
-          run-id: '40557770783'
+          run-id: ${{ steps.candidate.outputs.run }}
           github-token: ${{ github.token }}
       - name: Install bounded public QA tools without user credentials
         timeout-minutes: 15
         run: |
           sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=60 update -qq
           sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=60 install -y --no-install-recommends build-essential libncurses-dev libssl-dev zlib1g-dev gawk gettext unzip zip file rsync wget curl zstd openssl 7zip android-sdk-libsparse-utils
-      - name: Correct only the missing package alias while preserving its kernel driver
+      - id: recipe
+        name: Correct only the missing package alias while preserving its kernel driver
+        env:
+          EXPECTED_CANDIDATE_COMMIT: ${{ steps.candidate.outputs.source }}
         run: |
           python - <<'PY'
+          import os
           from pathlib import Path
           from scripts import device_upstream as d
           from scripts.build import normalize, package_plan, require
           candidate=d.validate_candidate(d.read('work/profile-campaign/candidate.json'))
+          require(candidate['source_commit']==os.environ['EXPECTED_CANDIDATE_COMMIT'],'Candidate source identity mismatch')
           target='ipq806x/generic';profile='xiaomi_r3d';entry=candidate['targets'][target]
           defaults=entry['metadata']['profiles']['profiles'][profile]['device_packages']
           available=entry['metadata']['packages']
-          require('hwmon-drivetemp' in defaults and 'hwmon-drivetemp' not in available and 'kmod-hwmon-drivetemp' in available,'Expected upstream package alias defect no longer applies')
+          applicable='hwmon-drivetemp' in defaults and 'hwmon-drivetemp' not in available and 'kmod-hwmon-drivetemp' in available
+          with open(os.environ['GITHUB_OUTPUT'],'a') as out:out.write('available='+str(applicable).lower()+'\n')
+          if not applicable:print('Upstream alias defect no longer applies; keep historical evidence without a new variant claim');raise SystemExit(0)
           config=d.prepare(candidate,target,profile,Path('configs/profile-probe-qa.json'),packages=['curl','kmod-hwmon-drivetemp'])
           config['remove_packages']=['hwmon-drivetemp']
           config=normalize(config);package_plan(config);d.write('configs/profile-probe-qa.json',config)
           d.write('work/profile-probe-config.json',config)
           PY
       - name: Compile actual R3D firmware with the retained temperature driver
+        if: steps.recipe.outputs.available == 'true'
         run: python -m scripts.build --config "$CONFIG_PATH"
       - name: Verify the actual image and installed driver
+        if: steps.recipe.outputs.available == 'true'
         run: |
           python -m scripts.image_verify
           python - <<'PY'
@@ -67,6 +92,13 @@ jobs:
           d.write('work/profile-probe-result.json',result)
           print('R3D_PROBE_RESULT='+d.canonical(result),flush=True)
           PY
+      - if: success() && steps.recipe.outputs.available == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: r3d-variant-proof
+          path: work/profile-probe-result.json
+          if-no-files-found: error
+          retention-days: 7
       - if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
@@ -78,3 +110,23 @@ jobs:
             outputs/build-summary.json
             outputs/image-report.json
           retention-days: 7
+  publish:
+    needs: verify
+    if: needs.verify.outputs.available == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0
+        with:
+          name: r3d-variant-proof
+          path: work/profile-variant
+      - name: Publish validated synthetic proof only in a fresh job
+        run: python -m qa.profile_variant publish
+        env:
+          GH_TOKEN: ${{ github.token }}

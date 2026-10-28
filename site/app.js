@@ -598,7 +598,7 @@ function renderCompatibility(){
   panel.append(externalLink('查看修正组合编译检查 ↗',`https://github.com/hadeschan1985/openwrt-personal-builder/actions/runs/${r3dProof.run_id}`));
 }
 async function loadCompatibility(){
-  try{r3dProof=await json('./data/r3d-correction.json');renderCompatibility();}catch{}
+  try{r3dProof=await json('https://raw.githubusercontent.com/hadeschan1985/openwrt-personal-builder/main/site/data/r3d-correction.json');renderCompatibility();}catch{}
 }
 async function restore(config){
   const clean=safePreset(config);

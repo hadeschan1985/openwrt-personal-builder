@@ -1,1 +1,1 @@
-2026-10-28: verify the corrected R3D temperature package alias and all four retained fan/temperature components, recording exact-policy structured evidence. Reports only, no firmware publication or user secrets.
+2026-10-28: verify and automatically publish data-only R3D variant evidence for the current trusted public campaign; preserve all four fan/temperature components and bind to exact upstream bytes.
