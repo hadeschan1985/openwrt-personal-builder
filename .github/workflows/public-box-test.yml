@@ -1,0 +1,106 @@
+name: Verify current public box sources without private inputs
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['configs/public-box-trigger.txt']
+permissions:
+  contents: read
+concurrency:
+  group: public-box-test-${{ github.repository }}
+  cancel-in-progress: false
+jobs:
+  detect:
+    if: '!github.event.repository.private'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    outputs:
+      matrix: ${{ steps.detect.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - id: detect
+        run: python -m scripts.box_upstream detect
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: public-box-candidate
+          path: work/box-upstream/candidate.json
+          if-no-files-found: error
+          retention-days: 7
+  verify:
+    needs: detect
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix: ${{ fromJSON(needs.detect.outputs.matrix) }}
+    env:
+      REPOSITORY_PRIVATE: 'true'
+      ENFORCE_APPROVED_UPSTREAM: 'true'
+      CONFIG_PATH: configs/public-box-qa.json
+      CONFIG_JSON: ''
+      BOX_MODEL: ${{ matrix.model }}
+      BOX_KERNEL: ${{ matrix.kernel }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0
+        with:
+          name: public-box-candidate
+          path: work/box-upstream
+      - name: Install bounded image tools without account credentials
+        timeout-minutes: 15
+        run: |
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=60 update -qq
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=60 install -y --no-install-recommends build-essential libncurses-dev libssl-dev zlib1g-dev gawk gettext unzip zip file rsync wget curl zstd openssl 7zip btrfs-progs dosfstools e2fsprogs parted u-boot-tools uuid-runtime pigz kmod
+      - name: Prepare fixed public resources with synthetic settings
+        run: python -m qa.public_box_test prepare --model "$BOX_MODEL" --kernel "$BOX_KERNEL"
+      - name: Compile ROOTFS and repack actual Btrfs disk
+        run: python -m scripts.build --config "$CONFIG_PATH"
+      - name: Read back image, exact DTB, boot configuration and kernel modules
+        run: |
+          python -m scripts.image_verify
+          python -m scripts.box_upstream attest --model "$BOX_MODEL" --kernel "$BOX_KERNEL"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: public-box-passed-${{ strategy.job-index }}
+          path: work/box-upstream/reports/*.json
+          if-no-files-found: error
+          retention-days: 7
+      - if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: public-box-diagnostics-${{ strategy.job-index }}
+          path: |
+            outputs/build.log
+            outputs/image-report.json
+            outputs/box-pack-report.json
+          retention-days: 7
+  summarize:
+    needs: [detect, verify]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0
+        with:
+          name: public-box-candidate
+          path: work/box-upstream
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0
+        with:
+          pattern: public-box-passed-*
+          path: work/box-upstream/reports
+          merge-multiple: true
+      - name: Validate complete reports and recheck public resource pins
+        run: python -m qa.public_box_test summarize
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: public-box-summary-only
+          path: work/public-box-report.json
+          if-no-files-found: error
+          retention-days: 7
