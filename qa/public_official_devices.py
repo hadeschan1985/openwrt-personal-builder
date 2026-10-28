@@ -6,10 +6,20 @@ from scripts import catalog,device_upstream as d
 from scripts.build import normalize,require
 from scripts.platform_qa import output_options
 
-MODELS=('radxa_rock-3c','radxa_rock-4d','radxa_rock-5-itx','radxa_rock-5c','radxa_zero-3w')
+MODELS=('radxa_rock-3c','radxa_rock-4d','radxa_rock-5-itx','radxa_rock-5c','radxa_zero-3w','linkease_easepi-r1')
 VERSION='25.12.6'
 TARGET='rockchip/armv8'
 CONFIG=Path('configs/public-official-device-qa.json')
+
+def matrix():
+    requested=list(MODELS)
+    if os.environ.get('GITHUB_EVENT_NAME')=='push':
+        request=d.read('configs/public-official-devices-trigger.txt',4096)
+        require(isinstance(request,dict) and set(request)=={'profiles'} and isinstance(request['profiles'],list),'Invalid official retry request')
+        requested=request['profiles']
+        require(1<=len(requested)<=len(MODELS) and all(isinstance(p,str) and p in MODELS for p in requested) and len(set(requested))==len(requested),'Unknown or duplicate official model')
+    import json
+    with open(os.environ['GITHUB_OUTPUT'],'a') as output:output.write('profiles='+json.dumps(requested)+'\n')
 
 def prepare(profile):
     require(profile in MODELS and not os.environ.get('GH_TOKEN') and not os.environ.get('GITHUB_TOKEN'),'Unrequested public model or account credential present')
@@ -33,5 +43,6 @@ def verify(profile):
     print('PUBLIC_OFFICIAL_DEVICE_RESULT='+d.canonical(value),flush=True)
 
 if __name__=='__main__':
-    parser=argparse.ArgumentParser();parser.add_argument('action',choices=['prepare','verify']);parser.add_argument('--profile',required=True);args=parser.parse_args()
-    {'prepare':prepare,'verify':verify}[args.action](args.profile)
+    parser=argparse.ArgumentParser();parser.add_argument('action',choices=['matrix','prepare','verify']);parser.add_argument('--profile');args=parser.parse_args()
+    if args.action=='matrix':matrix()
+    else:{'prepare':prepare,'verify':verify}[args.action](args.profile)
