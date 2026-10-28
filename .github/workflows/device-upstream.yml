@@ -27,7 +27,7 @@ jobs:
           persist-credentials: false
       - id: detect
         name: Detect complete device catalog and changed platform fingerprints
-        run: python -m scripts.device_upstream detect
+        run: python -m qa.device_discovery detect
       - if: steps.detect.outputs.changed == 'true'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
@@ -64,7 +64,7 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends build-essential libncurses-dev libssl-dev zlib1g-dev gawk gettext unzip zip file rsync wget curl zstd openssl 7zip android-sdk-libsparse-utils
       - name: Prepare candidate platform with temporary root password
-        run: python -m scripts.device_upstream prepare --target "$QA_TARGET" --profile "$QA_PROFILE"
+        run: python -m qa.device_discovery prepare --target "$QA_TARGET" --profile "$QA_PROFILE"
       - name: Restore exact author source in a separate transfer step
         run: python -m scripts.source_cache prepare --config "$CONFIG_PATH"
         env:
@@ -74,7 +74,7 @@ jobs:
       - name: Validate actual image integrity
         run: python -m scripts.image_verify
       - name: Recheck upstream and attest this platform only
-        run: python -m scripts.device_upstream attest --target "$QA_TARGET" --profile "$QA_PROFILE"
+        run: python -m qa.device_discovery attest --target "$QA_TARGET" --profile "$QA_PROFILE"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: device-passed-${{ strategy.job-index }}
@@ -113,6 +113,6 @@ jobs:
           path: work/device-upstream/reports
           merge-multiple: true
       - name: Publish data only and preserve all existing private records
-        run: python -m scripts.device_upstream publish
+        run: python -m qa.device_discovery publish
         env:
           GH_TOKEN: ${{ github.token }}

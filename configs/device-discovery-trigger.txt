@@ -1,0 +1,1 @@
+2026-10-28: verify missing selector fallback against the same seven original OneCloud IPK feeds and validate all public platform metadata; discovery only, no approval.

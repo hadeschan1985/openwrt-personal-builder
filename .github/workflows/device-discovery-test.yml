@@ -1,0 +1,26 @@
+name: Verify original OneCloud feeds and complete public metadata discovery
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['configs/device-discovery-trigger.txt']
+permissions:
+  contents: read
+jobs:
+  verify:
+    if: '!github.event.repository.private'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Read and validate all source metadata without account credentials
+        run: python -m qa.device_discovery_probe
+      - if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: public-metadata-discovery-report-only
+          path: work/device-discovery-report.json
+          if-no-files-found: error
+          retention-days: 7
