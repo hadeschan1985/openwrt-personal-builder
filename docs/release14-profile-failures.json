@@ -1,0 +1,246 @@
+{
+  "schema_version": 1,
+  "scope": "actual-default-profile-compilation-failures",
+  "run_id": "40620075046",
+  "source_commit": "8ad05d16a46ca6d5844f9288f92bbc15e4ed239a",
+  "tested": 863,
+  "default_passed": 841,
+  "default_failed": 22,
+  "kwrt_failures_retained": true,
+  "hardware_tested": false,
+  "profiles": [
+    {
+      "target": "ipq806x/generic",
+      "profile": "xiaomi_r3d",
+      "reason": "Compilation failed",
+      "missing_packages": [
+        "hwmon-drivetemp"
+      ],
+      "tested_alternative": {
+        "kind": "explicit-package-name-correction",
+        "run_id": "40622541784"
+      }
+    },
+    {
+      "target": "rockchip/armv8",
+      "profile": "ariaboard_photonicat",
+      "reason": "Compilation failed",
+      "missing_packages": [
+        "pcat-firmware"
+      ],
+      "tested_alternative": null
+    },
+    {
+      "target": "rockchip/armv8",
+      "profile": "ariaboard_photonicat2",
+      "reason": "Compilation failed",
+      "missing_packages": [
+        "kmod-aic8800-usb"
+      ],
+      "tested_alternative": null
+    },
+    {
+      "target": "rockchip/armv8",
+      "profile": "armsom_sige1",
+      "reason": "Compilation failed",
+      "missing_packages": [
+        "brcmfmac-firmware-43752-sdio"
+      ],
+      "tested_alternative": null
+    },
+    {
+      "target": "rockchip/armv8",
+      "profile": "armsom_sige3",
+      "reason": "Compilation failed",
+      "missing_packages": [
+        "brcmfmac-firmware-43752-sdio"
+      ],
+      "tested_alternative": null
+    },
+    {
+      "target": "rockchip/armv8",
+      "profile": "bdy_g98",
+      "reason": "Compilation failed",
+      "missing_packages": [
+        "kmod-dsa-yt921x"
+      ],
+      "tested_alternative": null
+    },
+    {
+      "target": "rockchip/armv8",
+      "profile": "hinlink_opc-ht2",
+      "reason": "Compilation failed",
+      "missing_packages": [
+        "kmod-aic8800-sdio"
+      ],
+      "tested_alternative": null
+    },
+    {
+      "target": "rockchip/armv8",
+      "profile": "linkease_easepi-r1",
+      "reason": "Compilation failed",
+      "missing_packages": [
+        "kmod-input-adc-keys"
+      ],
+      "tested_alternative": {
+        "kind": "different-official-source",
+        "version": "25.12.6",
+        "run_id": "40631194572",
+        "kwrt_failure_reclassified": false
+      }
+    },
+    {
+      "target": "rockchip/armv8",
+      "profile": "radxa_rock-3c",
+      "reason": "Compilation failed",
+      "missing_packages": [
+        "kmod-aic8800-sdio"
+      ],
+      "tested_alternative": {
+        "kind": "different-official-source",
+        "version": "25.12.6",
+        "run_id": "40629530849",
+        "kwrt_failure_reclassified": false
+      }
+    },
+    {
+      "target": "rockchip/armv8",
+      "profile": "radxa_rock-4d",
+      "reason": "Compilation failed",
+      "missing_packages": [
+        "kmod-aic8800-usb"
+      ],
+      "tested_alternative": {
+        "kind": "different-official-source",
+        "version": "25.12.6",
+        "run_id": "40629530849",
+        "kwrt_failure_reclassified": false
+      }
+    },
+    {
+      "target": "rockchip/armv8",
+      "profile": "radxa_rock-5-itx",
+      "reason": "Compilation failed",
+      "missing_packages": [
+        "kmod-input-adc-keys"
+      ],
+      "tested_alternative": {
+        "kind": "different-official-source",
+        "version": "25.12.6",
+        "run_id": "40629530849",
+        "kwrt_failure_reclassified": false
+      }
+    },
+    {
+      "target": "rockchip/armv8",
+      "profile": "friendlyarm_nanopi-r28s",
+      "reason": "Compilation failed",
+      "missing_packages": [
+        "kmod-aic8800-sdio"
+      ],
+      "tested_alternative": null
+    },
+    {
+      "target": "rockchip/armv8",
+      "profile": "friendlyarm_nanopi-zero2",
+      "reason": "Compilation failed",
+      "missing_packages": [
+        "kmod-input-adc-keys"
+      ],
+      "tested_alternative": null
+    },
+    {
+      "target": "rockchip/armv8",
+      "profile": "hinlink_opc-h29k",
+      "reason": "Compilation failed",
+      "missing_packages": [
+        "kmod-aic8800-sdio",
+        "kmod-fb-tft-st7789v"
+      ],
+      "tested_alternative": null
+    },
+    {
+      "target": "rockchip/armv8",
+      "profile": "radxa_rock-5c",
+      "reason": "Compilation failed",
+      "missing_packages": [
+        "kmod-aic8800-usb"
+      ],
+      "tested_alternative": {
+        "kind": "different-official-source",
+        "version": "25.12.6",
+        "run_id": "40629530849",
+        "kwrt_failure_reclassified": false
+      }
+    },
+    {
+      "target": "rockchip/armv8",
+      "profile": "radxa_zero-3w",
+      "reason": "Compilation failed",
+      "missing_packages": [
+        "kmod-aic8800-sdio"
+      ],
+      "tested_alternative": {
+        "kind": "different-official-source",
+        "version": "25.12.6",
+        "run_id": "40629530849",
+        "kwrt_failure_reclassified": false
+      }
+    },
+    {
+      "target": "rockchip/armv8",
+      "profile": "rumu3f_fine-3399",
+      "reason": "Compilation failed",
+      "missing_packages": [
+        "brcmfmac-firmware-43430b0-sdio",
+        "brcmfmac-nvram-43430b0-sdio"
+      ],
+      "tested_alternative": null
+    },
+    {
+      "target": "rockchip/armv8",
+      "profile": "widora_mangopi-m28k-pro",
+      "reason": "Compilation failed",
+      "missing_packages": [
+        "kmod-aic8800-sdio"
+      ],
+      "tested_alternative": null
+    },
+    {
+      "target": "rockchip/armv8",
+      "profile": "seewo_srcm3588-io",
+      "reason": "Compilation failed",
+      "missing_packages": [
+        "kmod-rfkill"
+      ],
+      "tested_alternative": null
+    },
+    {
+      "target": "rockchip/armv8",
+      "profile": "seewo_srcm3588-sw",
+      "reason": "Compilation failed",
+      "missing_packages": [
+        "kmod-rfkill"
+      ],
+      "tested_alternative": null
+    },
+    {
+      "target": "rockchip/armv8",
+      "profile": "widora_mangopi-m28c",
+      "reason": "Compilation failed",
+      "missing_packages": [
+        "kmod-aic8800-sdio"
+      ],
+      "tested_alternative": null
+    },
+    {
+      "target": "rockchip/armv8",
+      "profile": "widora_mangopi-m28k",
+      "reason": "Compilation failed",
+      "missing_packages": [
+        "kmod-aic8800-sdio"
+      ],
+      "tested_alternative": null
+    }
+  ]
+}

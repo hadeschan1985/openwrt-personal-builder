@@ -1,0 +1,138 @@
+{
+  "schema_version": 1,
+  "status": "feasible-software-checks-complete-with-upstream-and-account-blockers",
+  "observed_at": "2026-10-28 04:18:20 UTC",
+  "compiler_policy_sha256": "349927ce2404e2d067a6a5fe81d152f13eebe2327c921859317f30bca61a0a3e",
+  "code_checks": {
+    "status": "passed",
+    "run_id": "40631194486",
+    "javascript": 85,
+    "python": 165,
+    "total": 250,
+    "failed": 0,
+    "skipped": 0
+  },
+  "onecloud": {
+    "metadata_discovery_run_id": "40626117781",
+    "actual_image_run_id": "40626718014",
+    "status": "actual-build-container-and-partition-roundtrip-passed",
+    "original_ipk_indexes": 7,
+    "packages": 11033,
+    "private_approval_written": false,
+    "hardware_tested": false
+  },
+  "public_profiles": {
+    "status": "complete-all-requested-results-published",
+    "run_id": "40620075046",
+    "source_commit": "8ad05d16a46ca6d5844f9288f92bbc15e4ed239a",
+    "current_public_profiles": 863,
+    "failed": 22,
+    "passed": 841,
+    "private_author_cache_profiles": 1,
+    "requested": 863,
+    "all_report_identities_and_images_validated": true,
+    "ledger": "updates/profile-coverage.json"
+  },
+  "r3d_corrected_variant": {
+    "status": "passed",
+    "run_id": "40630457092",
+    "target_fingerprint": "35d39f77bc4b73bcfe5132011c6fee7f905c2ca0b6e7f75ca0eefaef9ee6353f",
+    "default_failure_retained": true,
+    "hardware_tested": false
+  },
+  "rockchip": {
+    "default_failed": 21,
+    "read_only_sdk_run_id": "40630422550",
+    "sdk_sha256": "2c6b9ea56ca914f25d1af1242c012a0bb3e60a1709a2d3258835848f901d583d",
+    "bundled_ipk_controls": 1598,
+    "virtual_provided_names": 1738,
+    "missing_default_profile_set_matches_actual_build_failures": true,
+    "actual_official_alternatives": [
+      {
+        "profile": "radxa_rock-3c",
+        "version": "25.12.6",
+        "run_id": "40629530849",
+        "status": "passed"
+      },
+      {
+        "profile": "radxa_rock-5c",
+        "version": "25.12.6",
+        "run_id": "40629530849",
+        "status": "passed"
+      },
+      {
+        "profile": "radxa_rock-4d",
+        "version": "25.12.6",
+        "run_id": "40629530849",
+        "status": "passed"
+      },
+      {
+        "profile": "radxa_zero-3w",
+        "version": "25.12.6",
+        "run_id": "40629530849",
+        "status": "passed"
+      },
+      {
+        "profile": "radxa_rock-5-itx",
+        "version": "25.12.6",
+        "run_id": "40629530849",
+        "status": "passed"
+      },
+      {
+        "profile": "linkease_easepi-r1",
+        "version": "25.12.6",
+        "run_id": "40631194572",
+        "status": "passed"
+      }
+    ],
+    "profiles_without_same_id_official_choice": 15,
+    "no_driver_removal_workaround": true
+  },
+  "boxes": {
+    "previous_private_approval_run_id": "40557756257",
+    "public_current_resource_test_run_id": "40628941641",
+    "public_candidate": "box-20261028-cbb1e358",
+    "status": "ten-actual-repacks-and-readbacks-passed",
+    "models": 242,
+    "kernels": 8,
+    "actual_cases": 10,
+    "private_approval_written": false,
+    "remaining_exact_dtb_models": [
+      "kickpi-k11c-v12",
+      "smart-am40",
+      "station-m1",
+      "rk3318-box"
+    ],
+    "additional_read_only_kernel_assets_inspected": 4,
+    "hardware_tested": false
+  },
+  "private_runner": {
+    "status": "blocked-before-any-build-step",
+    "latest_observed_run_id": "40627672081",
+    "runner_assigned": false,
+    "steps_started": 0,
+    "previous_github_message": "recent account payments have failed or your spending limit needs to be increased",
+    "billing_or_permissions_changed": false
+  },
+  "private_web_e2e": {
+    "status": "five-of-six-cases-passed-final-private-case-blocked",
+    "run_id": "40558527545",
+    "passed": 5,
+    "total": 6,
+    "remaining_case": "wavlink-offline-page-dispatch-download-reuse",
+    "public_offline_compilation_fix_run_id": "40620710308"
+  },
+  "previous_boot_evidence": {
+    "run_id": "40557756254",
+    "six_qemu_modes_passed": true,
+    "esxi_tested": false,
+    "compiler_unchanged": true
+  },
+  "hardware": {
+    "esxi_available": false,
+    "physical_boot_tested": false,
+    "usb_wifi_wwan_proxy_line_tests_completed": false
+  },
+  "private_user_inputs_used_by_public_tests": false,
+  "paid_runners_enabled": false
+}
