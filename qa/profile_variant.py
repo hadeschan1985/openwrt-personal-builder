@@ -22,11 +22,11 @@ def resolve():
     token=os.environ['GH_TOKEN'];identifier=os.environ.get('CANDIDATE_RUN','')
     if not identifier:
         runs=api('/actions/workflows/profile-campaign.yml/runs?per_page=5',token)['workflow_runs']
-        runs=[r for r in runs if r.get('head_branch')=='main' and (r.get('status')=='in_progress' or r.get('conclusion')=='success')]
+        runs=[r for r in runs if r.get('head_branch')=='main' and r.get('conclusion') in (None,'success')]
         require(runs,'No public campaign candidate');identifier=str(runs[0]['id'])
     require(re.fullmatch('[1-9][0-9]{0,19}',identifier),'Invalid campaign run')
     run=api('/actions/runs/'+identifier,token)
-    require(run['path']=='.github/workflows/profile-campaign.yml' and (run['status']=='in_progress' or run['conclusion']=='success') and run['head_branch']=='main' and run['head_repository']['full_name']==os.environ['GITHUB_REPOSITORY'] and run['event']!='pull_request','Untrusted candidate campaign')
+    require(run['path']=='.github/workflows/profile-campaign.yml' and run['conclusion'] in (None,'success') and run['head_branch']=='main' and run['head_repository']['full_name']==os.environ['GITHUB_REPOSITORY'] and run['event']!='pull_request','Untrusted candidate campaign')
     jobs=api('/actions/runs/'+identifier+'/jobs?per_page=100',token)['jobs']
     require(any(job['name']=='detect' and job['conclusion']=='success' for job in jobs),'Candidate discovery has not completed successfully')
     with open(os.environ['GITHUB_OUTPUT'],'a') as out:out.write('run='+identifier+'\nsource='+run['head_sha']+'\n')

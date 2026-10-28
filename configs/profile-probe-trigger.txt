@@ -1,1 +1,1 @@
-2026-10-28: verify current R3D variant, retain older fingerprint proofs and publish only validated metadata in a fresh job; synthetic settings only.
+2026-10-28 attempt 3: resolve the active campaign even when remaining matrix jobs are queued; require successful trusted discovery, retain historical R3D proofs.

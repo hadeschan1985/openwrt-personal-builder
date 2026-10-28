@@ -15,7 +15,7 @@ class ProfileVariantTest(unittest.TestCase):
             changed=copy.deepcopy(proof);mutate(changed)
             with self.assertRaises(ValueError):v.validate(changed,proof['run_id'],proof['source_commit'],proof['policy_sha256'])
     def test_only_same_repository_main_candidate_with_successful_discovery_is_resolved(self):
-        run={'id':123,'path':'.github/workflows/profile-campaign.yml','status':'in_progress','conclusion':None,'head_branch':'main','head_repository':{'full_name':'qa/firmware'},'event':'push','head_sha':'b'*40}
+        run={'id':123,'path':'.github/workflows/profile-campaign.yml','status':'queued','conclusion':None,'head_branch':'main','head_repository':{'full_name':'qa/firmware'},'event':'push','head_sha':'b'*40}
         for field,value in [(None,None),('head_branch','untrusted'),('event','pull_request'),('head_repository',{'full_name':'other/fork'}),('detect','failure')]:
             candidate=copy.deepcopy(run)
             if field and field!='detect':candidate[field]=value
