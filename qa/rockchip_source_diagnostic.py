@@ -33,10 +33,17 @@ def ipk_package(raw):
     with tarfile.open(fileobj=io.BytesIO(control),mode='r:gz') as inner:
         member=next((m for m in inner if m.name.removeprefix('./')=='control'),None)
         require(member is not None and member.isfile() and member.size<=64000,'Invalid SDK package fields')
-        match=re.search(r'^Package: ([A-Za-z0-9+_.-]+)$',inner.extractfile(member).read().decode(),re.M)
-        require(match is not None,'Missing SDK package name');return match[1]
+        text=inner.extractfile(member).read().decode()
+        match=re.search(r'^Package: ([A-Za-z0-9+_.-]+)$',text,re.M)
+        require(match is not None,'Missing SDK package name')
+        provided=re.search(r'^Provides: (.+)$',text,re.M)
+        aliases=[]
+        for item in provided[1].split(',') if provided else []:
+            alias=re.match(r'[A-Za-z0-9+_.-]+',item.strip())
+            if alias:aliases.append(alias[0])
+        return match[1],aliases
 
-related_paths=[];configuration=[];bundled_packages=set();expanded=0;count=0
+related_paths=[];configuration=[];bundled_packages=set();bundled_providers=set();expanded=0;count=0
 process=subprocess.Popen(['zstd','-dc',str(path)],stdout=subprocess.PIPE)
 try:
     with tarfile.open(fileobj=process.stdout,mode='r|') as archive:
@@ -49,7 +56,8 @@ try:
                 related_paths.append(str(name))
             if member.isfile() and name.suffix=='.ipk':
                 require(member.size<=128*1024**2,'Oversized bundled SDK package')
-                bundled_packages.add(ipk_package(archive.extractfile(member).read()))
+                package,aliases=ipk_package(archive.extractfile(member).read())
+                bundled_packages.add(package);bundled_providers.update(aliases)
             if member.isfile() and name.name in ('.config','kernel.config','config.buildinfo','Packages','modules.builtin'):
                 require(member.size<=4*1024**2,'Oversized SDK text metadata')
                 raw=archive.extractfile(member).read();text=raw.decode('utf-8',errors='replace')
@@ -60,13 +68,13 @@ try:
     process.stdout.close();require(process.wait(timeout=30)==0,'SDK decoder failed')
 finally:
     if process.poll() is None:process.kill();process.wait()
-available=set(data['packages'])|bundled_packages;missing=[];base=data['profiles'].get('default_packages',[])
+available=set(data['packages'])|bundled_packages|bundled_providers;missing=[];base=data['profiles'].get('default_packages',[])
 for profile,item in data['profiles']['profiles'].items():
     tokens=base+item.get('device_packages',[])
     selected=set(p for p in tokens if not p.startswith('-'))-set(p[1:] for p in tokens if p.startswith('-'))-set(spec['exclude_defaults'])
     absent=selected-available
     if absent:missing.append({'profile':profile,'missing_default_packages':sorted(absent)})
 require(d.digest(catalog.kwrt_data(spec))==d.digest(data),'Metadata changed while inspecting SDK')
-report={'schema_version':1,'status':'inspected','scope':'read-only-verified-SDK-inventory-no-execution','run_id':os.environ['GITHUB_RUN_ID'],'source_commit':os.environ['GITHUB_SHA'],'target':target,'target_fingerprint':d.target_fingerprint({'spec':spec,'metadata':data}),'builder_sha256':spec['sha256'],'sdk_entries':count,'bundled_package_names':sorted(bundled_packages),'bundled_package_index_entries':len(bundled_packages),'profiles':len(data['profiles']['profiles']),'profiles_with_defaults_absent_from_selector_and_bundled_index':missing,'absence_is_not_a_build_failure_claim':True,'configuration':configuration,'related_sdk_paths':related_paths,'firmware_compiled':False,'kernel_builtin_claim':False,'hardware_tested':False}
+report={'schema_version':1,'status':'inspected','scope':'read-only-verified-SDK-inventory-no-execution','run_id':os.environ['GITHUB_RUN_ID'],'source_commit':os.environ['GITHUB_SHA'],'target':target,'target_fingerprint':d.target_fingerprint({'spec':spec,'metadata':data}),'builder_sha256':spec['sha256'],'sdk_entries':count,'bundled_package_names':sorted(bundled_packages),'bundled_provided_names':sorted(bundled_providers),'bundled_package_index_entries':len(bundled_packages),'profiles':len(data['profiles']['profiles']),'profiles_with_defaults_absent_from_selector_and_bundled_index':missing,'absence_is_not_a_build_failure_claim':True,'configuration':configuration,'related_sdk_paths':related_paths,'firmware_compiled':False,'kernel_builtin_claim':False,'hardware_tested':False}
 d.write('work/rockchip-source-report.json',report)
 print('ROCKCHIP_SOURCE_DIAGNOSTIC='+d.canonical(report),flush=True)
