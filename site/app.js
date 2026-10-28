@@ -14,6 +14,7 @@ const state={catalog:null,device:null,target:null,available:new Set(),config:def
 const targetCache=new Map();
 let boxCatalog=null;
 let r3dProof=null;
+let r3dProofs=[];
 let baselineBoxCatalog=null;
 const boxReleases=new Map();
 const profileCoverage=new Map();
@@ -587,7 +588,9 @@ async function loadProfileCoverage(){
 }
 function renderCompatibility(){
   const panel=$('device-compatibility');
-  const release=deviceReleases.get(state.config.version),correction=r3dCorrection(state.config,release,state.target,r3dProof);
+  const release=deviceReleases.get(state.config.version);
+  r3dProof=r3dProofs.find(proof=>r3dCorrection(state.config,release,state.target,proof))||null;
+  const correction=r3dCorrection(state.config,release,state.target,r3dProof);
   const identity=correction?`${state.config.version}/${r3dProof.target_fingerprint}/${correction.applied}`:'';
   if(panel.dataset.identity===identity)return;
   panel.dataset.identity=identity;panel.replaceChildren();panel.hidden=true;
@@ -598,7 +601,7 @@ function renderCompatibility(){
   panel.append(externalLink('查看修正组合编译检查 ↗',`https://github.com/hadeschan1985/openwrt-personal-builder/actions/runs/${r3dProof.run_id}`));
 }
 async function loadCompatibility(){
-  try{r3dProof=await json('https://raw.githubusercontent.com/hadeschan1985/openwrt-personal-builder/main/site/data/r3d-correction.json');renderCompatibility();}catch{}
+  try{const registry=await json('https://raw.githubusercontent.com/hadeschan1985/openwrt-personal-builder/main/site/data/r3d-corrections.json');if(registry.schema_version!==1||!Array.isArray(registry.proofs)||registry.proofs.length>512)return;r3dProofs=registry.proofs;renderCompatibility();}catch{}
 }
 async function restore(config){
   const clean=safePreset(config);

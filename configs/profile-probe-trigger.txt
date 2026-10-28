@@ -1,1 +1,1 @@
-2026-10-28: verify and automatically publish data-only R3D variant evidence for the current trusted public campaign; preserve all four fan/temperature components and bind to exact upstream bytes.
+2026-10-28: verify current R3D variant, retain older fingerprint proofs and publish only validated metadata in a fresh job; synthetic settings only.

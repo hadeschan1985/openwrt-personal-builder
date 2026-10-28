@@ -37,11 +37,14 @@ def publish():
     guarded=d.POLICY_FILES+d.PUBLISH_POLICY+['qa/profile_variant.py','.github/workflows/profile-probe.yml','site/lib/compatibility.js']
     for attempt in range(3):
         parent=api('/git/ref/heads/main',token)['object']['sha'];base=api('/git/commits/'+parent,token)['tree']['sha'];assert_policy_current(base,token,guarded,root=d.ROOT,request=api)
-        old=api('/contents/site/data/r3d-correction.json?ref=main',token)
+        old=api('/contents/site/data/r3d-corrections.json?ref=main',token)
         import base64
-        previous=json.loads(base64.b64decode(old['content']))
-        if int(previous.get('run_id',0))>=int(value['run_id']):print('Newer variant proof retained');return
-        tree=api('/git/trees',token,'POST',{'base_tree':base,'tree':[{'path':'site/data/r3d-correction.json','mode':'100644','type':'blob','content':d.canonical(value)}]})['sha']
+        previous=json.loads(base64.b64decode(old['content']));require(previous.get('schema_version')==1 and isinstance(previous.get('proofs'),list),'Existing variant registry invalid')
+        key=lambda p:p.get('policy_sha256','')+'/'+p.get('target_fingerprint','')
+        matches=[p for p in previous['proofs'] if key(p)==key(value)]
+        if any(int(p.get('run_id',0))>=int(value['run_id']) for p in matches):print('Newer matching variant proof retained');return
+        proofs=[p for p in previous['proofs'] if key(p)!=key(value)]+[value];require(len(proofs)<=512,'Variant proof registry full; all historical proof retained')
+        tree=api('/git/trees',token,'POST',{'base_tree':base,'tree':[{'path':'site/data/r3d-corrections.json','mode':'100644','type':'blob','content':d.canonical({'schema_version':1,'proofs':proofs})}]})['sha']
         commit=api('/git/commits',token,'POST',{'tree':tree,'parents':[parent],'message':'Record tested R3D package-name variant for exact upstream fingerprint'})['sha']
         try:api('/git/refs/heads/main',token,'PATCH',{'sha':commit,'force':False});print('Tested variant metadata published; firmware not published');return
         except urllib.error.HTTPError as error:
