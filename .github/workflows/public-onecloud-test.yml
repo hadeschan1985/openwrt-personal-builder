@@ -1,0 +1,43 @@
+name: Verify OneCloud original public builder with direct source indexes
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['configs/public-onecloud-trigger.txt']
+permissions:
+  contents: read
+jobs:
+  verify:
+    if: '!github.event.repository.private'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      REPOSITORY_PRIVATE: 'true'
+      CONFIG_PATH: configs/public-onecloud-qa.json
+      CONFIG_JSON: ''
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Install bounded synthetic build tools
+        timeout-minutes: 15
+        run: |
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=60 update -qq
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=60 install -y --no-install-recommends build-essential libncurses-dev libssl-dev zlib1g-dev gawk gettext unzip zip file rsync wget curl zstd openssl 7zip android-sdk-libsparse-utils
+      - name: Reacquire and independently verify the original public author artifact
+        run: python -m qa.public_onecloud_test prepare
+      - name: Compile actual burn image using unchanged core compiler and original feeds
+        run: python -m scripts.build --config "$CONFIG_PATH"
+      - name: Verify actual container and unchanged source indexes
+        run: |
+          python -m scripts.image_verify
+          python -m qa.public_onecloud_test verify
+      - if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: public-onecloud-report-only
+          path: |
+            work/public-onecloud-report.json
+            outputs/build.log
+            outputs/image-report.json
+          retention-days: 7

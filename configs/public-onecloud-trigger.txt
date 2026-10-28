@@ -1,0 +1,1 @@
+2026-10-28: reacquire the checksum-pinned original public author artifact, validate all provenance, compile a synthetic burn image using original direct IPK indexes; reports only.
